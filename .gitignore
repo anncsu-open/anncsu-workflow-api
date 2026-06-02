@@ -1,0 +1,33 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+
+# Test / coverage / tool caches
+.coverage
+.coverage.*
+htmlcov/
+.pytest_cache/
+.ruff_cache/
+
+# Secrets / local config
+.env
+.env.*
+keys/
+*.pem
+
+# OS
+.DS_Store
+
+# Agent working files / design plans (local only)
+.claude/
+
+# Out-of-scope OpenAPI source: "interni" removed from the Arazzo (Q13), kept
+# locally as an asset but not tracked.
+specs/*interni*.yml

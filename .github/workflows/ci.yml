@@ -1,0 +1,49 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  validate-and-test:
+    name: Validazione spec + lint + test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up uv (con Python 3.12)
+        uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.12"
+
+      - name: Installa dipendenze
+        run: uv sync
+
+      - name: Ruff lint
+        run: uv run ruff check .
+
+      - name: Ruff format check
+        run: uv run ruff format --check .
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      # Gate bloccante: la spec Arazzo deve essere valida.
+      - name: Validazione specifica Arazzo (Redocly)
+        run: npx --yes @redocly/cli@2.31.5 lint "specs/anncsu-workflow.arazzo.yaml"
+
+      # Gate bloccante: README e docstring devono essere in inglese.
+      - name: Installa Vale
+        run: |
+          mkdir -p "$HOME/.local/bin"
+          curl -sfL "https://github.com/errata-ai/vale/releases/download/v3.14.2/vale_3.14.2_Linux_64-bit.tar.gz" \
+            | tar -xz -C "$HOME/.local/bin" vale
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: English-only check (Vale)
+        run: vale README.md app tests
+
+      - name: Test
+        run: uv run pytest --cov=app

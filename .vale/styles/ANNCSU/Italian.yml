@@ -1,0 +1,9 @@
+extends: existence
+message: "Non-English (Italian) text: '%s'. README and docstrings must be in English (ANNCSU domain terms are allowed via the vocabulary)."
+level: error
+ignorecase: false
+# Italian function words and common content words. Any Italian prose almost
+# always contains at least one of these, while they don't collide with English
+# or with the ANNCSU domain terms (which live in the accept vocabulary).
+tokens:
+  - '\b(?:di|del|dello|della|dei|degli|delle|dell|il|lo|gli|uno|una|che|perché|perche|è|sono|viene|vengono|questo|questa|questi|queste|nel|nella|nei|nelle|nello|negli|anche|più|quando|dopo|ogni|tutti|tutte|tutto|senza|sulla|sullo|sui|sulle|alla|allo|agli|alle|essere|deve|devono|può|sia|oppure|quindi|invece|inoltre|usare|usato|usata|modello|modelli|campi|valido|valida|serializzazione|opzionale|esistenza|ottenere|recuperare|associate)\b'

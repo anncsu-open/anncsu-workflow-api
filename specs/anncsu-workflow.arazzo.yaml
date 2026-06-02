@@ -1,0 +1,513 @@
+# Specifica Arazzo 1.0 dei workflow ANNCSU.
+#
+# Costrutti Arazzo 1.0 usati (validati con `redocly lint`):
+#   - gli step di un workflow sono SEQUENZIALI nell'ordine dell'array;
+#   - il branching condizionale è espresso con onSuccess/onFailure + criteria
+#     e azioni goto/end (Arazzo non ha `when` né `dependsOn` a livello di step);
+#   - dove Arazzo non basta (coalesce di output tra rami alternativi, iterazione
+#     for-each), la responsabilità è DELEGATA all'executor ed è dichiarata in modo
+#     esplicito nel blocco `x-executor` del workflow (vedi nota DDD nel vault).
+arazzo: 1.0.0
+info:
+  title: ANNCSU Workflow
+  version: 1.0.0
+  summary: Workflow di gestione degli indirizzi ANNCSU (odonimi, accessi, coordinate)
+  description: |
+    Workflow per la gestione completa degli indirizzi nel sistema ANNCSU.
+    Include operazioni su odonimi, accessi e coordinate.
+
+    Contatto: infopdnd_anncsu@sogei.it
+
+sourceDescriptions:
+  - name: anncsu-consultazione
+    url: ./Specifica API - ANNCSU – Consultazione per le PA.yaml
+    type: openapi
+
+  - name: anncsu-odonimi
+    url: ./Specifica API - ANNCSU - Aggiornamento odonimi.yaml
+    type: openapi
+
+  - name: anncsu-accessi
+    url: ./Specifica API - ANNCSU - Aggiornamento accessi.yaml
+    type: openapi
+
+  - name: anncsu-coordinate
+    url: ./Specifica API - ANNCSU - Aggiornamento coordinate.yml
+    type: openapi
+
+workflows:
+  - workflowId: verifica-e-crea-indirizzo-completo
+    summary: Verifica l'esistenza e crea un indirizzo completo
+    description: |
+      Saga di upsert idempotente: verifica se l'odonimo esiste e, se non esiste,
+      lo crea; poi verifica/crea l'accesso (numero civico).
+      Pattern "esiste -> cerca, ALTRIMENTI -> crea": espresso con azioni goto/end.
+      Il progressivo "risolto" (da ramo cerca o crea) è coalescato dall'executor
+      come dichiarato in x-executor.coalesce.
+    inputs:
+      type: object
+      properties:
+        codcom:
+          type: string
+          description: Codice Belfiore del comune
+        denom_odonimo:
+          type: string
+          description: Denominazione dell'odonimo
+        dug:
+          type: string
+          description: Denominazione Urbanistica Generica (es. VIA, PIAZZA)
+        numero_civico:
+          type: string
+          description: Numero civico
+        data_validita:
+          type: string
+          description: Data di validità amministrativa (DD/MM/YYYY) per le creazioni
+    steps:
+      # 1) Verifica esistenza odonimo. Se esiste -> goto cerca-odonimo,
+      #    altrimenti prosegue (fall-through) verso crea-odonimo.
+      - stepId: verifica-odonimo
+        description: Verifica se l'odonimo esiste in ANNCSU
+        operationId: anncsu-consultazione.esisteOdonimoPost
+        requestBody:
+          contentType: application/json
+          payload:
+            req: esisteodonimo
+            codcom: $inputs.codcom
+            denom: $inputs.denom_odonimo
+        successCriteria:
+          - condition: $statusCode == 200
+        onSuccess:
+          - name: odonimo-esiste
+            type: goto
+            stepId: cerca-odonimo
+            criteria:
+              - condition: $response.body.data == true
+        outputs:
+          odonimo_esistente: $response.body.data
+
+      # 2) Ramo "crea": raggiunto per fall-through quando l'odonimo NON esiste.
+      #    Dopo la creazione salta direttamente alla verifica dell'accesso.
+      - stepId: crea-odonimo
+        description: Crea l'odonimo se non esiste
+        operationId: anncsu-odonimi.gestioneAnncsuOdonimiPdnd
+        requestBody:
+          contentType: application/json
+          payload:
+            richiesta:
+              codcom: $inputs.codcom
+              tipo_operazione: I
+              dug: $inputs.dug
+              denom_delibera: $inputs.denom_odonimo
+              provvedimento:
+                flag_delibera: "2"
+              data_valid_amm: $inputs.data_validita
+        successCriteria:
+          - condition: $statusCode == 200
+          - condition: $response.body.esito == "0"
+        onSuccess:
+          - name: vai-a-verifica-accesso
+            type: goto
+            stepId: verifica-accesso
+        outputs:
+          progressivo_nazionale: $response.body.dati[0].progr_nazionale
+
+      # 3) Ramo "cerca": raggiunto via goto quando l'odonimo esiste.
+      #    Prosegue (fall-through) verso verifica-accesso.
+      - stepId: cerca-odonimo
+        description: Recupera il progressivo nazionale dell'odonimo esistente
+        operationId: anncsu-consultazione.elencoodonimiprogPost
+        requestBody:
+          contentType: application/json
+          payload:
+            req: elencoodonimiprog
+            codcom: $inputs.codcom
+            denomparz: $inputs.denom_odonimo
+        successCriteria:
+          - condition: $statusCode == 200
+        outputs:
+          progressivo_nazionale: $response.body.data[0].prognaz
+
+      # 4) Verifica esistenza accesso. Se esiste -> goto cerca-accesso,
+      #    altrimenti prosegue verso crea-accesso.
+      - stepId: verifica-accesso
+        description: Verifica se l'accesso (numero civico) esiste
+        operationId: anncsu-consultazione.esisteAccessoPost
+        requestBody:
+          contentType: application/json
+          payload:
+            req: esisteaccesso
+            codcom: $inputs.codcom
+            denom: $inputs.denom_odonimo
+            accesso: $inputs.numero_civico
+        successCriteria:
+          - condition: $statusCode == 200
+        onSuccess:
+          - name: accesso-esiste
+            type: goto
+            stepId: cerca-accesso
+            criteria:
+              - condition: $response.body.data == true
+        outputs:
+          accesso_esistente: $response.body.data
+
+      # 5) Ramo "crea accesso": raggiunto per fall-through quando l'accesso NON esiste.
+      #    progr_nazionale è il valore COALESCATO dall'executor (vedi x-executor.coalesce);
+      #    qui referenziamo il ramo "cerca-odonimo" come riferimento statico valido.
+      - stepId: crea-accesso
+        description: Crea l'accesso se non esiste
+        operationId: anncsu-accessi.gestioneAnncsuPdnd
+        requestBody:
+          contentType: application/json
+          payload:
+            richiesta:
+              codcom: $inputs.codcom
+              progr_nazionale: $steps.cerca-odonimo.outputs.progressivo_nazionale
+              accesso:
+                numero: $inputs.numero_civico
+                operazione_civico: I
+                data_valid_amm: $inputs.data_validita
+        successCriteria:
+          - condition: $statusCode == 200
+          - condition: $response.body.esito == "0"
+        onSuccess:
+          - name: fine-dopo-crea-accesso
+            type: end
+        outputs:
+          progressivo_civico: $response.body.dati[0].progr_civico
+
+      # 6) Ramo "cerca accesso": raggiunto via goto quando l'accesso esiste.
+      #    Ultimo step: termina naturalmente.
+      - stepId: cerca-accesso
+        description: Recupera il progressivo civico dell'accesso esistente
+        operationId: anncsu-consultazione.elencoaccessiprogPost
+        requestBody:
+          contentType: application/json
+          payload:
+            req: elencoaccessiprog
+            prognaz: $steps.cerca-odonimo.outputs.progressivo_nazionale
+            accparz: $inputs.numero_civico
+        successCriteria:
+          - condition: $statusCode == 200
+        outputs:
+          progressivo_civico: $response.body.data[0].prognazacc
+
+    # I valori finali sono COALESCATI dall'executor tra i rami alternativi.
+    outputs:
+      progressivo_nazionale_odonimo: $steps.cerca-odonimo.outputs.progressivo_nazionale
+      progressivo_civico: $steps.cerca-accesso.outputs.progressivo_civico
+
+    x-executor:
+      note: |
+        Arazzo 1.0 non esprime il coalesce di output tra rami alternativi.
+        L'executor deve risolvere i seguenti output prendendo il valore del ramo
+        effettivamente eseguito (il primo non nullo nell'ordine indicato).
+      coalesce:
+        progressivo_nazionale:
+          - $steps.cerca-odonimo.outputs.progressivo_nazionale
+          - $steps.crea-odonimo.outputs.progressivo_nazionale
+        progressivo_civico:
+          - $steps.cerca-accesso.outputs.progressivo_civico
+          - $steps.crea-accesso.outputs.progressivo_civico
+
+  - workflowId: aggiorna-coordinate-accesso
+    summary: Aggiorna le coordinate geografiche di un accesso esistente
+    description: |
+      Cerca un accesso esistente (odonimo -> accesso) e ne aggiorna le coordinate.
+      Sequenza lineare senza branching.
+    inputs:
+      type: object
+      properties:
+        codcom:
+          type: string
+          description: Codice Belfiore del comune
+        denom_odonimo:
+          type: string
+          description: Denominazione dell'odonimo
+        numero_civico:
+          type: string
+          description: Numero civico
+        coordinata_x:
+          type: string
+          description: Longitudine (WGS84)
+        coordinata_y:
+          type: string
+          description: Latitudine (WGS84)
+        coordinata_z:
+          type: string
+          description: Quota in metri (opzionale)
+        metodo:
+          type: string
+          description: Metodo di rilevazione (1-4)
+          default: "3"
+    steps:
+      - stepId: coord-cerca-odonimo
+        description: Cerca l'odonimo per ottenere il progressivo nazionale
+        operationId: anncsu-consultazione.elencoodonimiprogPost
+        requestBody:
+          contentType: application/json
+          payload:
+            req: elencoodonimiprog
+            codcom: $inputs.codcom
+            denomparz: $inputs.denom_odonimo
+        successCriteria:
+          - condition: $statusCode == 200
+          - condition: $response.body.data.length > 0
+        outputs:
+          progressivo_nazionale: $response.body.data[0].prognaz
+
+      - stepId: coord-cerca-accesso
+        description: Cerca l'accesso per ottenere il progressivo civico
+        operationId: anncsu-consultazione.elencoaccessiprogPost
+        requestBody:
+          contentType: application/json
+          payload:
+            req: elencoaccessiprog
+            prognaz: $steps.coord-cerca-odonimo.outputs.progressivo_nazionale
+            accparz: $inputs.numero_civico
+        successCriteria:
+          - condition: $statusCode == 200
+          - condition: $response.body.data.length > 0
+        outputs:
+          progressivo_civico: $response.body.data[0].prognazacc
+
+      - stepId: aggiorna-coordinate
+        description: Aggiorna le coordinate dell'accesso
+        operationId: anncsu-coordinate.gestionecoordinate
+        requestBody:
+          contentType: application/json
+          payload:
+            richiesta:
+              accesso:
+                codcom: $inputs.codcom
+                progr_civico: $steps.coord-cerca-accesso.outputs.progressivo_civico
+                coordinate:
+                  x: $inputs.coordinata_x
+                  y: $inputs.coordinata_y
+                  z: $inputs.coordinata_z
+                  metodo: $inputs.metodo
+        successCriteria:
+          - condition: $statusCode == 200
+          - condition: $response.body.esito == "0"
+        outputs:
+          coordinate_aggiornate: $response.body.dati[0]
+
+    outputs:
+      risultato: $steps.aggiorna-coordinate.outputs.coordinate_aggiornate
+
+  - workflowId: sopprimi-odonimo-completo
+    summary: Sopprime un odonimo previa soppressione degli accessi associati
+    description: |
+      Soppressione di un odonimo. Invariante ANNCSU: un odonimo NON è sopprimibile
+      se ha accessi residui (errore 320 / esito "23"). Quindi PRIMA vanno soppressi
+      tutti gli accessi, POI l'odonimo.
+
+      Arazzo 1.0 non ha for-each: l'iterazione di soppressione sugli accessi elencati
+      è delegata all'executor (vedi x-executor.foreach), che invoca il workflow
+      riusabile `sopprimi-accesso` per ogni elemento di `lista_accessi` PRIMA dello
+      step `sopprimi-odonimo`.
+
+      DA CONFERMARE in validazione SOGEI: se il server rifiuta (reject, ipotesi qui
+      adottata) o esegue cascade. La soppressione esplicita degli accessi è robusta
+      in entrambe le ipotesi (cfr. simulazione SDK + MockTransport nelle note).
+    inputs:
+      type: object
+      properties:
+        codcom:
+          type: string
+          description: Codice Belfiore del comune
+        denom_odonimo:
+          type: string
+          description: Denominazione dell'odonimo da sopprimere
+        data_soppressione:
+          type: string
+          description: Data di soppressione (formato DD/MM/YYYY)
+    steps:
+      - stepId: cerca-odonimo
+        description: Cerca l'odonimo per ottenere il progressivo nazionale
+        operationId: anncsu-consultazione.elencoodonimiprogPost
+        requestBody:
+          contentType: application/json
+          payload:
+            req: elencoodonimiprog
+            codcom: $inputs.codcom
+            denomparz: $inputs.denom_odonimo
+        successCriteria:
+          - condition: $statusCode == 200
+          - condition: $response.body.data.length > 0
+        outputs:
+          progressivo_nazionale: $response.body.data[0].prognaz
+          denom_completa: $response.body.data[0].denomuff
+
+      - stepId: elenca-accessi
+        description: Elenca tutti gli accessi dell'odonimo (consumati dall'executor)
+        operationId: anncsu-consultazione.elencoaccessiprogPost
+        requestBody:
+          contentType: application/json
+          payload:
+            req: elencoaccessiprog
+            prognaz: $steps.cerca-odonimo.outputs.progressivo_nazionale
+            accparz: ""
+        successCriteria:
+          - condition: $statusCode == 200
+        outputs:
+          lista_accessi: $response.body.data
+
+      # NOTA: tra `elenca-accessi` e `sopprimi-odonimo` l'executor itera la
+      # soppressione degli accessi (x-executor.foreach -> workflow sopprimi-accesso).
+      - stepId: sopprimi-odonimo
+        description: Sopprime l'odonimo (richiede zero accessi residui)
+        operationId: anncsu-odonimi.gestioneAnncsuOdonimiPdnd
+        requestBody:
+          contentType: application/json
+          payload:
+            richiesta:
+              codcom: $inputs.codcom
+              tipo_operazione: S
+              progr_nazionale: $steps.cerca-odonimo.outputs.progressivo_nazionale
+              data_valid_amm: $inputs.data_soppressione
+        successCriteria:
+          - condition: $statusCode == 200
+          - condition: $response.body.esito == "0"
+        onFailure:
+          - name: accessi-residui
+            type: end
+            criteria:
+              - condition: $response.body.esito == "23"
+        outputs:
+          risultato_soppressione: $response.body
+
+    outputs:
+      odonimo_soppresso: $steps.cerca-odonimo.outputs.denom_completa
+      progressivo_nazionale: $steps.cerca-odonimo.outputs.progressivo_nazionale
+      accessi_presenti: $steps.elenca-accessi.outputs.lista_accessi
+      esito: $steps.sopprimi-odonimo.outputs.risultato_soppressione
+
+    x-executor:
+      note: |
+        Arazzo 1.0 non ha for-each. L'executor, dopo `elenca-accessi` e PRIMA di
+        `sopprimi-odonimo`, deve iterare su `lista_accessi` invocando il workflow
+        `sopprimi-accesso` per ogni accesso. Se anche un solo accesso fallisce la
+        soppressione, NON procedere con `sopprimi-odonimo`.
+      foreach:
+        over: $steps.elenca-accessi.outputs.lista_accessi
+        as: accesso
+        before: sopprimi-odonimo
+        invoke:
+          workflowId: sopprimi-accesso
+          inputs:
+            codcom: $inputs.codcom
+            progr_nazionale: $steps.cerca-odonimo.outputs.progressivo_nazionale
+            progr_civico: $accesso.prognazacc
+            data_soppressione: $inputs.data_soppressione
+
+  - workflowId: sopprimi-accesso
+    summary: Sopprime un singolo accesso (civico) di un odonimo
+    description: |
+      Workflow riusabile invocato in loop dall'executor (vedi
+      sopprimi-odonimo-completo.x-executor.foreach) per sopprimere un accesso.
+    inputs:
+      type: object
+      properties:
+        codcom:
+          type: string
+          description: Codice Belfiore del comune
+        progr_nazionale:
+          type: string
+          description: Progressivo nazionale dell'odonimo
+        progr_civico:
+          type: string
+          description: Progressivo civico dell'accesso da sopprimere
+        data_soppressione:
+          type: string
+          description: Data di soppressione (formato DD/MM/YYYY)
+    steps:
+      - stepId: sopprimi-accesso
+        description: Sopprime l'accesso (civico) indicato
+        operationId: anncsu-accessi.gestioneAnncsuPdnd
+        requestBody:
+          contentType: application/json
+          payload:
+            richiesta:
+              codcom: $inputs.codcom
+              progr_nazionale: $inputs.progr_nazionale
+              accesso:
+                progr_civico: $inputs.progr_civico
+                operazione_civico: S
+                soppressione_civico: S
+                data_valid_amm: $inputs.data_soppressione
+        successCriteria:
+          - condition: $statusCode == 200
+          - condition: $response.body.esito == "0"
+        outputs:
+          esito: $response.body.esito
+
+    outputs:
+      esito: $steps.sopprimi-accesso.outputs.esito
+
+  - workflowId: ricerca-indirizzo-completo
+    summary: Ricerca completa di un indirizzo (sola lettura)
+    description: |
+      Cerca gli odonimi corrispondenti e, se è indicato il numero civico, anche
+      gli accessi. Lo step accessi è saltato (azione end con criteria) quando
+      `numero_civico` non è valorizzato.
+    inputs:
+      type: object
+      properties:
+        codcom:
+          type: string
+          description: Codice Belfiore del comune
+        denom_odonimo:
+          type: string
+          description: Denominazione dell'odonimo
+        numero_civico:
+          type: string
+          description: Numero civico (opzionale)
+    steps:
+      - stepId: cerca-odonimi
+        description: Cerca odonimi che corrispondono
+        operationId: anncsu-consultazione.elencoodonimiprogPost
+        requestBody:
+          contentType: application/json
+          payload:
+            req: elencoodonimiprog
+            codcom: $inputs.codcom
+            denomparz: $inputs.denom_odonimo
+        successCriteria:
+          - condition: $statusCode == 200
+        onSuccess:
+          - name: salta-accessi-se-no-civico
+            type: end
+            criteria:
+              - condition: $inputs.numero_civico == null
+        outputs:
+          odonimi_trovati: $response.body.data
+          progressivo_nazionale: $response.body.data[0].prognaz
+
+      - stepId: cerca-accessi
+        description: Cerca gli accessi del primo odonimo trovato
+        operationId: anncsu-consultazione.elencoaccessiprogPost
+        requestBody:
+          contentType: application/json
+          payload:
+            req: elencoaccessiprog
+            prognaz: $steps.cerca-odonimi.outputs.progressivo_nazionale
+            accparz: $inputs.numero_civico
+        successCriteria:
+          - condition: $statusCode == 200
+        outputs:
+          accessi_trovati: $response.body.data
+
+    outputs:
+      odonimi: $steps.cerca-odonimi.outputs.odonimi_trovati
+      accessi: $steps.cerca-accessi.outputs.accessi_trovati
+
+x-arazzo-extensions:
+  x-rate-limiting:
+    description: Le API ANNCSU sono soggette ai limiti di rate limiting di PDND
+
+  x-security-notes:
+    description: |
+      Tutte le API richiedono autenticazione tramite:
+      - Bearer token JWT (RFC8725)
+      - Header Agid-JWT-Signature per integrità del payload
+      - Header Agid-JWT-TrackingEvidence per tracciamento

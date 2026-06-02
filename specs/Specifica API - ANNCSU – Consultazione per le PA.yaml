@@ -1,0 +1,2668 @@
+openapi: "3.0.3"
+info:
+  title: ANNCSU REST API
+  description: API dei servizi REST di ANNCSU su PDND
+  termsOfService: "https://govway.org/documentazione/api/index.html"
+  contact:
+    email: "info@link.it"
+  version: "1.0.0"
+  x-api-id: "https://govway.org/apiConfig"
+  x-summary: "Servizi per la configurazione di GovWay"
+servers:
+  - url: https://modipa.agenziaentrate.gov.it/govway/rest/in/AgenziaEntrate-PDND/anncsu-consultazione/v1
+    description: "l'accesso all'API e' protetta dai controlli di accesso su GovWay"
+tags:
+  - name: anncsu
+    description: Servizi ANNCSU su PDND
+  - name: queryparam
+    description: Servizio con valori di input come parametro query in URI
+  - name: jsonPost
+    description: Servizio con valori di input in file JSON sottomesso POST
+  - name: pathparam
+    description: Servizio con valori di input come parametro path in URI
+  - name: status 
+paths:
+  /esisteodonimo:
+  #  --- esisteodonimo get Query parameters
+    get:
+      summary: Ritorna un valore boolean dell'esistenza dell'odonimo in ANNCSU
+      description: Ritorna un valore boolean dell'esistenza dell'odonimo in ANNCSU
+      operationId: esisteOdonimoGetQueryParam
+      tags:
+        - "queryparam"
+      parameters:
+        - name: codcom
+          in: query
+          required: true
+          description: Codice Belfiore del comune dell'odonimo
+          schema:
+            type: string
+          example: H501
+        - name: denom
+          in: query
+          required: true
+          description: Denominazione esatta dell'odonimo - base64 encoded
+          schema:
+            type: string
+          example: VklBIFJPTUE=
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:              
+                  res: 
+                    type: string
+                    example: esisteodonimo
+                  data: 
+                    type: boolean
+        '400':
+          description: Bad Request
+          content:
+            application/problem+json:
+              schema:
+                type: object
+                properties:   
+                  title:
+                    type: string
+                  detail:
+                    type: string
+        '405':
+          description: Method Not Allowed
+          content:
+            application/problem+json:
+              schema:
+                type: object
+                properties:   
+                  title:
+                    type: string
+                  detail:
+                    type: string
+        '422':
+          description: Unprocessable Entity - error in json
+          content:
+            application/problem+json:
+              schema:
+                type: object
+                properties:   
+                  title:
+                    type: string
+                  detail:
+                    type: string
+        '500':
+          description: Internal Server Error
+          content:
+            application/problem+json:
+              schema:
+                type: object
+                properties:   
+                  title:
+                    type: string
+                  detail:
+                    type: string
+  #  --- esisteodonimo post JSON
+    post:
+      summary: Ritorna un valore boolean dell'esistenza dell'odonimo in ANNCSU
+      description: Ritorna un valore boolean dell'esistenza dell'odonimo in ANNCSU
+      operationId: esisteOdonimoPost
+      tags:
+        - "jsonPost"
+      requestBody:
+        required: true
+        description: search input data
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:              
+                req: 
+                  type: string
+                  example: esisteodonimo
+                codcom: 
+                  type: string
+                  example: H501
+                denom: 
+                  type: string
+                  example: VIA ROMA              
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:              
+                  res: 
+                    type: string
+                    example: esisteodonimo
+                  data: 
+                    type: boolean
+        '400':
+          description: Bad Request
+          content:
+            application/problem+json:
+              schema:
+                type: object
+                properties:   
+                  title:
+                    type: string
+                  detail:
+                    type: string
+        '405':
+          description: Method Not Allowed
+          content:
+            application/problem+json:
+              schema:
+                type: object
+                properties:   
+                  title:
+                    type: string
+                  detail:
+                    type: string
+        '422':
+          description: Unprocessable Entity - error in json
+          content:
+            application/problem+json:
+              schema:
+                type: object
+                properties:   
+                  title:
+                    type: string
+                  detail:
+                    type: string
+        '500':
+          description: Internal Server Error
+          content:
+            application/problem+json:
+              schema:
+                type: object
+                properties:   
+                  title:
+                    type: string
+                  detail:
+                    type: string
+  /esisteodonimo/{codcom}/{denom}:
+  #  --- esisteodonimo get Path parameters
+    get:
+      summary: Ritorna un valore boolean dell'esistenza dell'odonimo in ANNCSU
+      description: Ritorna un valore boolean dell'esistenza dell'odonimo in ANNCSU
+      operationId: esisteOdonimoGetPathParam
+      tags:
+        - "pathparam"
+      parameters:
+        - name: codcom
+          in: path
+          required: true
+          description: Codice Belfiore del comune dell'odonimo
+          schema:
+            type: string
+          example: H501
+        - name: denom
+          in: path
+          required: true
+          description: Denominazione esatta dell'odonimo - base64 encoded
+          schema:
+            type: string
+          example: VklBIFJPTUE=
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:              
+                  res: 
+                    type: string
+                    example: esisteodonimo
+                  data: 
+                    type: boolean
+        '400':
+          description: Bad Request
+          content:
+            application/problem+json:
+              schema:
+                type: object
+                properties:   
+                  title:
+                    type: string
+                  detail:
+                    type: string
+        '405':
+          description: Method Not Allowed
+          content:
+            application/problem+json:
+              schema:
+                type: object
+                properties:   
+                  title:
+                    type: string
+                  detail:
+                    type: string
+        '422':
+          description: Unprocessable Entity - error in json
+          content:
+            application/problem+json:
+              schema:
+                type: object
+                properties:   
+                  title:
+                    type: string
+                  detail:
+                    type: string
+        '500':
+          description: Internal Server Error
+          content:
+            application/problem+json:
+              schema:
+                type: object
+                properties:   
+                  title:
+                    type: string
+                  detail:
+                    type: string
+  /esisteaccesso:
+  #  --- esisteaccesso get Query parameters
+    get:
+      summary: Ritorna un valore boolean dell'esistenza dell'accesso in ANNCSU
+      description: Ritorna un valore boolean dell'esistenza dell'accesso in ANNCSU
+      operationId: esisteAccessoGetQueryParam
+      tags:
+        - "queryparam"
+      parameters:
+        - name: codcom
+          in: query
+          required: true
+          description: Codice Belfiore del comune dell'odonimo
+          schema:
+            type: string
+          example: H501
+        - name: denom
+          in: query
+          required: true
+          description: Denominazione esatta dell'odonimo - base64 encoded
+          schema:
+            type: string
+          example: VklBIFJPTUE=
+        - name: accesso
+          in: query
+          required: true
+          description: valore civico(+eventuale esponente e/o specificit�) oppure metrico
+          schema:
+            type: string
+          example: "42"
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:              
+                  res: 
+                    type: string
+                    example: esisteaccesso
+                  data: 
+                    type: boolean
+        '400':
+          description: Bad Request
+          content:
+            application/problem+json:
+              schema:
+                type: object
+                properties:   
+                  title:
+                    type: string
+                  detail:
+                    type: string
+        '405':
+          description: Method Not Allowed
+          content:
+            application/problem+json:
+              schema:
+                type: object
+                properties:   
+                  title:
+                    type: string
+                  detail:
+                    type: string
+        '422':
+          description: Unprocessable Entity - error in json
+          content:
+            application/problem+json:
+              schema:
+                type: object
+                properties:   
+                  title:
+                    type: string
+                  detail:
+                    type: string
+        '500':
+          description: Internal Server Error
+          content:
+            application/problem+json:
+              schema:
+                type: object
+                properties:   
+                  title:
+                    type: string
+                  detail:
+                    type: string
+  #  --- esisteaccesso post JSON
+    post:
+      summary: Ritorna un valore boolean dell'esistenza dell'accesso in ANNCSU
+      description: Ritorna un valore boolean dell'esistenza dell'accesso in ANNCSU
+      operationId: esisteAccessoPost
+      tags:
+        - "jsonPost"
+      requestBody:
+        required: true
+        description: search input data
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:              
+                req: 
+                  type: string
+                  example: esisteaccesso
+                codcom: 
+                  type: string
+                  example: H501
+                denom: 
+                  type: string
+                  example: VIA ROMA              
+                accesso: 
+                  type: string
+                  example: "42"
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:              
+                  res: 
+                    type: string
+                    example: esisteaccesso
+                  data: 
+                    type: boolean
+        '400':
+          description: Bad Request
+          content:
+            application/problem+json:
+              schema:
+                type: object
+                properties:   
+                  title:
+                    type: string
+                  detail:
+                    type: string
+        '405':
+          description: Method Not Allowed
+          content:
+            application/problem+json:
+              schema:
+                type: object
+                properties:   
+                  title:
+                    type: string
+                  detail:
+                    type: string
+        '422':
+          description: Unprocessable Entity - error in json
+          content:
+            application/problem+json:
+              schema:
+                type: object
+                properties:   
+                  title:
+                    type: string
+                  detail:
+                    type: string
+        '500':
+          description: Internal Server Error
+          content:
+            application/problem+json:
+              schema:
+                type: object
+                properties:   
+                  title:
+                    type: string
+                  detail:
+                    type: string
+  /esisteaccesso/{codcom}/{denom}/{accesso}:
+  #  --- esisteaccesso get Path parameters
+    get:
+      summary: Ritorna un valore boolean dell'esistenza dell'accesso in ANNCSU
+      description: Ritorna un valore boolean dell'esistenza dell'accesso in ANNCSU
+      operationId: esisteAccessoGetPathParam
+      tags:
+        - "pathparam"
+      parameters:
+        - name: codcom
+          in: path
+          required: true
+          description: Codice Belfiore del comune dell'odonimo
+          schema:
+            type: string
+          example: H501
+        - name: denom
+          in: path
+          required: true
+          description: Denominazione esatta dell'odonimo - base64 encoded
+          schema:
+            type: string
+          example: VklBIFJPTUE=
+        - name: accesso
+          in: path
+          required: true
+          description: valore civico(+eventuale esponente e/o specificit�) oppure metrico
+          schema:
+            type: string
+          example: "42"
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:              
+                  res: 
+                    type: string
+                    example: esisteaccesso
+                  data: 
+                    type: boolean
+        '400':
+          description: Bad Request
+          content:
+            application/problem+json:
+              schema:
+                type: object
+                properties:   
+                  title:
+                    type: string
+                  detail:
+                    type: string
+        '405':
+          description: Method Not Allowed
+          content:
+            application/problem+json:
+              schema:
+                type: object
+                properties:   
+                  title:
+                    type: string
+                  detail:
+                    type: string
+        '422':
+          description: Unprocessable Entity - error in json
+          content:
+            application/problem+json:
+              schema:
+                type: object
+                properties:   
+                  title:
+                    type: string
+                  detail:
+                    type: string
+        '500':
+          description: Internal Server Error
+          content:
+            application/problem+json:
+              schema:
+                type: object
+                properties:   
+                  title:
+                    type: string
+                  detail:
+                    type: string
+  /elencoodonimi:
+  #  --- elencoodonimi get Query parameters
+    get:
+      summary: Ritorna un elenco di odonimi presenti in ANNCSU
+      description: Ritorna un elenco di odonimi presenti in ANNCSU
+      operationId: elencoOdonimiGetQueryParam
+      tags:
+        - "queryparam"
+      parameters:
+        - name: codcom
+          in: query
+          required: true
+          description: Codice Belfiore del comune dell'odonimo
+          schema:
+            type: string
+          example: H501
+        - name: denomparz
+          in: query
+          required: true
+          description: Denominazione anche parziale dell'odonimo - base64 encoded
+          schema:
+            type: string
+          example: Uk9NQQ==
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:              
+                  res: 
+                    type: string
+                    example: elencoodonimi
+                  data: 
+                    type: array
+                    items: 
+                      type: object
+                      properties: 
+                        dug: 
+                          type: string
+                          example: AUTOSTRADA
+                        denomuff: 
+                          type: string
+                          example: ROMA AEROPORTO DI FIUMICINO
+                        denomloc: 
+                          type: string
+                          format: nullable
+                        denomlingua1: 
+                          type: string
+                          format: nullable
+                        denomlingua2: 
+                          type: string
+                          format: nullable
+        '400':
+          description: Bad Request
+          content:
+            application/problem+json:
+              schema:
+                type: object
+                properties:   
+                  title:
+                    type: string
+                  detail:
+                    type: string
+        '404':
+          description: Not found
+          content:
+            application/problem+json:
+              schema:
+                type: object
+                properties:   
+                  title:
+                    type: string
+                  detail:
+                    type: string
+        '405':
+          description: Method Not Allowed
+          content:
+            application/problem+json:
+              schema:
+                type: object
+                properties:   
+                  title:
+                    type: string
+                  detail:
+                    type: string
+        '422':
+          description: Unprocessable Entity - error in json
+          content:
+            application/problem+json:
+              schema:
+                type: object
+                properties:   
+                  title:
+                    type: string
+                  detail:
+                    type: string
+        '500':
+          description: Internal Server Error
+          content:
+            application/problem+json:
+              schema:
+                type: object
+                properties:   
+                  title:
+                    type: string
+                  detail:
+                    type: string
+  #  --- elencoodonimi post JSON
+    post:
+      summary: Ritorna un elenco di odonimi presenti in ANNCSU
+      description: Ritorna un elenco di odonimi presenti in ANNCSU
+      operationId: elencoOdonimiPost
+      tags:
+        - "jsonPost"
+      requestBody:
+        required: true
+        description: search input data
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:              
+                req: 
+                  type: string
+                  example: elencoodonimi
+                codcom: 
+                  type: string
+                  example: H501
+                denomparz: 
+                  type: string
+                  example: ROMA
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:              
+                  res: 
+                    type: string
+                    example: elencoodonimi
+                  data: 
+                    type: array
+                    items: 
+                      type: object
+                      properties: 
+                        dug: 
+                          type: string
+                          example: AUTOSTRADA
+                        denomuff: 
+                          type: string
+                          example: ROMA AEROPORTO DI FIUMICINO
+                        denomloc: 
+                          type: string
+                          format: nullable
+                        denomlingua1: 
+                          type: string
+                          format: nullable
+                        denomlingua2: 
+                          type: string
+                          format: nullable
+        '400':
+          description: Bad Request
+          content:
+            application/problem+json:
+              schema:
+                type: object
+                properties:   
+                  title:
+                    type: string
+                  detail:
+                    type: string
+        '404':
+          description: Not found
+          content:
+            application/problem+json:
+              schema:
+                type: object
+                properties:   
+                  title:
+                    type: string
+                  detail:
+                    type: string
+        '405':
+          description: Method Not Allowed
+          content:
+            application/problem+json:
+              schema:
+                type: object
+                properties:   
+                  title:
+                    type: string
+                  detail:
+                    type: string
+        '422':
+          description: Unprocessable Entity - error in json
+          content:
+            application/problem+json:
+              schema:
+                type: object
+                properties:   
+                  title:
+                    type: string
+                  detail:
+                    type: string
+        '500':
+          description: Internal Server Error
+          content:
+            application/problem+json:
+              schema:
+                type: object
+                properties:   
+                  title:
+                    type: string
+                  detail:
+                    type: string
+  /elencoodonimi/{codcom}/{denomparz}:
+  #  --- elencoodonimi get Path parameters
+    get:
+      summary: Ritorna un elenco di odonimi presenti in ANNCSU
+      description: Ritorna un elenco di odonimi presenti in ANNCSU
+      operationId: elencoOdonimiGetPathParam
+      tags:
+        - "pathparam"
+      parameters:
+        - name: codcom
+          in: path
+          required: true
+          description: Codice Belfiore del comune dell'odonimo
+          schema:
+            type: string
+          example: H501
+        - name: denomparz
+          in: path
+          required: true
+          description: Denominazione anche parziale dell'odonimo - base64 encoded
+          schema:
+            type: string
+          example: Uk9NQQ==
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:              
+                  res: 
+                    type: string
+                    example: elencoodonimi
+                  data: 
+                    type: array
+                    items: 
+                      type: object
+                      properties: 
+                        dug: 
+                          type: string
+                          example: AUTOSTRADA
+                        denomuff: 
+                          type: string
+                          example: ROMA AEROPORTO DI FIUMICINO
+                        denomloc: 
+                          type: string
+                          format: nullable
+                        denomlingua1: 
+                          type: string
+                          format: nullable
+                        denomlingua2: 
+                          type: string
+                          format: nullable
+        '400':
+          description: Bad Request
+          content:
+            application/problem+json:
+              schema:
+                type: object
+                properties:   
+                  title:
+                    type: string
+                  detail:
+                    type: string
+        '404':
+          description: Not found
+          content:
+            application/problem+json:
+              schema:
+                type: object
+                properties:   
+                  title:
+                    type: string
+                  detail:
+                    type: string
+        '405':
+          description: Method Not Allowed
+          content:
+            application/problem+json:
+              schema:
+                type: object
+                properties:   
+                  title:
+                    type: string
+                  detail:
+                    type: string
+        '422':
+          description: Unprocessable Entity - error in json
+          content:
+            application/problem+json:
+              schema:
+                type: object
+                properties:   
+                  title:
+                    type: string
+                  detail:
+                    type: string
+        '500':
+          description: Internal Server Error
+          content:
+            application/problem+json:
+              schema:
+                type: object
+                properties:   
+                  title:
+                    type: string
+                  detail:
+                    type: string
+  /elencoaccessi:
+  #  --- elencoaccessi get Query parameters 
+    get:
+      summary: Ritorna un elenco di accessi presenti in ANNCSU
+      description: Ritorna un elenco di accessi presenti in ANNCSU
+      operationId: elencoAccessiGetQueryParam
+      tags:
+        - "queryparam"
+      parameters:
+        - name: codcom
+          in: query
+          required: true
+          description: Codice Belfiore del comune dell'odonimo
+          schema:
+            type: string
+          example: H501
+        - name: denom
+          in: query
+          required: true
+          description: Denominazione esatta dell'odonimo - base64 encoded
+          schema:
+            type: string
+          example: VklBIFJPTUE=
+        - name: accparz
+          in: query
+          required: true
+          description: valore anche parziale del civico(+eventuale esponente e/o specificit�) oppure metrico
+          schema:
+            type: string
+          example: "42"
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:              
+                  res: 
+                    type: string
+                    example: elencoaccessi
+                  data: 
+                    type: array
+                    items: 
+                      type: object
+                      properties: 
+                        civico: 
+                          type: string
+                          example: "1"
+                        esp: 
+                          type: string
+                          example: "A"
+                        specif: 
+                          type: string
+                          example: "ROSSO"
+                        metrico: 
+                          type: string
+                          example: "1200"
+        '400':
+          description: Bad Request
+          content:
+            application/problem+json:
+              schema:
+                type: object
+                properties:   
+                  title:
+                    type: string
+                  detail:
+                    type: string
+        '404':
+          description: Not found
+          content:
+            application/problem+json:
+              schema:
+                type: object
+                properties:   
+                  title:
+                    type: string
+                  detail:
+                    type: string
+        '405':
+          description: Method Not Allowed
+          content:
+            application/problem+json:
+              schema:
+                type: object
+                properties:   
+                  title:
+                    type: string
+                  detail:
+                    type: string
+        '422':
+          description: Unprocessable Entity - error in json
+          content:
+            application/problem+json:
+              schema:
+                type: object
+                properties:   
+                  title:
+                    type: string
+                  detail:
+                    type: string
+        '500':
+          description: Internal Server Error
+          content:
+            application/problem+json:
+              schema:
+                type: object
+                properties:   
+                  title:
+                    type: string
+                  detail:
+                    type: string
+  #  --- elencoaccessi post JSON
+    post:
+      summary: Ritorna un elenco di accessi presenti in ANNCSU
+      description: Ritorna un elenco di accessi presenti in ANNCSU
+      operationId: elencoAccessiPost
+      tags:
+        - "jsonPost"
+      requestBody:
+        required: true
+        description: search input data
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:              
+                req: 
+                  type: string
+                  example: elencoaccessi
+                codcom: 
+                  type: string
+                  example: H501
+                denom: 
+                  type: string
+                  example: VIA ROMA
+                accparz: 
+                  type: string
+                  example: "42"
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:              
+                  res: 
+                    type: string
+                    example: elencoaccessi
+                  data: 
+                    type: array
+                    items: 
+                      type: object
+                      properties: 
+                        civico: 
+                          type: string
+                          example: "1"
+                        esp: 
+                          type: string
+                          example: "A"
+                        specif: 
+                          type: string
+                          example: "ROSSO"
+                        metrico: 
+                          type: string
+                          example: "1200"
+        '400':
+          description: Bad Request
+          content:
+            application/problem+json:
+              schema:
+                type: object
+                properties:   
+                  title:
+                    type: string
+                  detail:
+                    type: string
+        '404':
+          description: Not found
+          content:
+            application/problem+json:
+              schema:
+                type: object
+                properties:   
+                  title:
+                    type: string
+                  detail:
+                    type: string
+        '405':
+          description: Method Not Allowed
+          content:
+            application/problem+json:
+              schema:
+                type: object
+                properties:   
+                  title:
+                    type: string
+                  detail:
+                    type: string
+        '422':
+          description: Unprocessable Entity - error in json
+          content:
+            application/problem+json:
+              schema:
+                type: object
+                properties:   
+                  title:
+                    type: string
+                  detail:
+                    type: string
+        '500':
+          description: Internal Server Error
+          content:
+            application/problem+json:
+              schema:
+                type: object
+                properties:   
+                  title:
+                    type: string
+                  detail:
+                    type: string
+  /elencoaccessi/{codcom}/{denom}/{accparz}:
+  #  --- elencoaccessi get Path parameters 
+    get:
+      summary: Ritorna un elenco di accessi presenti in ANNCSU
+      description: Ritorna un elenco di accessi presenti in ANNCSU
+      operationId: elencoAccessiGetPathParam
+      tags:
+        - "pathparam"
+      parameters:
+        - name: codcom
+          in: path
+          required: true
+          description: Codice Belfiore del comune dell'odonimo
+          schema:
+            type: string
+          example: H501
+        - name: denom
+          in: path
+          required: true
+          description: Denominazione esatta dell'odonimo - base64 encoded
+          schema:
+            type: string
+          example: VklBIFJPTUE=
+        - name: accparz
+          in: path
+          required: true
+          description: valore anche parziale del civico(+eventuale esponente e/o specificit�) oppure metrico
+          schema:
+            type: string
+          example: "42"
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:              
+                  res: 
+                    type: string
+                    example: elencoaccessi
+                  data: 
+                    type: array
+                    items: 
+                      type: object
+                      properties: 
+                        civico: 
+                          type: string
+                          example: "1"
+                        esp: 
+                          type: string
+                          example: "A"
+                        specif: 
+                          type: string
+                          example: "ROSSO"
+                        metrico: 
+                          type: string
+                          example: "1200"
+        '400':
+          description: Bad Request
+          content:
+            application/problem+json:
+              schema:
+                type: object
+                properties:   
+                  title:
+                    type: string
+                  detail:
+                    type: string
+        '404':
+          description: Not found
+          content:
+            application/problem+json:
+              schema:
+                type: object
+                properties:   
+                  title:
+                    type: string
+                  detail:
+                    type: string
+        '405':
+          description: Method Not Allowed
+          content:
+            application/problem+json:
+              schema:
+                type: object
+                properties:   
+                  title:
+                    type: string
+                  detail:
+                    type: string
+        '422':
+          description: Unprocessable Entity - error in json
+          content:
+            application/problem+json:
+              schema:
+                type: object
+                properties:   
+                  title:
+                    type: string
+                  detail:
+                    type: string
+        '500':
+          description: Internal Server Error
+          content:
+            application/problem+json:
+              schema:
+                type: object
+                properties:   
+                  title:
+                    type: string
+                  detail:
+                    type: string
+  /elencoodonimiprog:
+  #  --- elencoodonimiprog get Query parameters
+    get:
+      summary: Ritorna un elenco di odonimi presenti in ANNCSU incluso il progressivo nazionale
+      description: Ritorna un elenco di odonimi presenti in ANNCSU incluso il progressivo nazionale
+      operationId: elencoodonimiprogGetQueryParam
+      tags:
+        - "queryparam"
+      parameters:
+        - name: codcom
+          in: query
+          required: true
+          description: Codice Belfiore del comune dell'odonimo
+          schema:
+            type: string
+          example: H501
+        - name: denomparz
+          in: query
+          required: true
+          description: Denominazione anche parziale dell'odonimo - base64 encoded
+          schema:
+            type: string
+          example: Uk9NQQ==
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:              
+                  res: 
+                    type: string
+                    example: elencoodonimiprog
+                  data: 
+                    type: array
+                    items: 
+                      type: object
+                      properties: 
+                        prognaz: 
+                          type: string
+                          example: '919572'
+                        dug: 
+                          type: string
+                          example: AUTOSTRADA
+                        denomuff: 
+                          type: string
+                          example: ROMA AEROPORTO DI FIUMICINO
+                        denomloc: 
+                          type: string
+                          format: nullable
+                        denomlingua1: 
+                          type: string
+                          format: nullable
+                        denomlingua2: 
+                          type: string
+                          format: nullable
+        '400':
+          description: Bad Request
+          content:
+            application/problem+json:
+              schema:
+                type: object
+                properties:   
+                  title:
+                    type: string
+                  detail:
+                    type: string
+        '404':
+          description: Not found
+          content:
+            application/problem+json:
+              schema:
+                type: object
+                properties:   
+                  title:
+                    type: string
+                  detail:
+                    type: string
+        '405':
+          description: Method Not Allowed
+          content:
+            application/problem+json:
+              schema:
+                type: object
+                properties:   
+                  title:
+                    type: string
+                  detail:
+                    type: string
+        '422':
+          description: Unprocessable Entity - error in json
+          content:
+            application/problem+json:
+              schema:
+                type: object
+                properties:   
+                  title:
+                    type: string
+                  detail:
+                    type: string
+        '500':
+          description: Internal Server Error
+          content:
+            application/problem+json:
+              schema:
+                type: object
+                properties:   
+                  title:
+                    type: string
+                  detail:
+                    type: string
+  #  --- elencoodonimiprog post JSON
+    post:
+      summary: Ritorna un elenco di odonimi presenti in ANNCSU incluso il progressivo nazionale
+      description: Ritorna un elenco di odonimi presenti in ANNCSU incluso il progressivo nazionale
+      operationId: elencoodonimiprogPost
+      tags:
+        - "jsonPost"
+      requestBody:
+        required: true
+        description: search input data
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:              
+                req: 
+                  type: string
+                  example: elencoodonimiprog
+                codcom: 
+                  type: string
+                  example: H501
+                denomparz: 
+                  type: string
+                  example: ROMA
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:              
+                  res: 
+                    type: string
+                    example: elencoodonimiprog
+                  data: 
+                    type: array
+                    items: 
+                      type: object
+                      properties: 
+                        prognaz: 
+                          type: string
+                          example: '919572'
+                        dug: 
+                          type: string
+                          example: AUTOSTRADA
+                        denomuff: 
+                          type: string
+                          example: ROMA AEROPORTO DI FIUMICINO
+                        denomloc: 
+                          type: string
+                          format: nullable
+                        denomlingua1: 
+                          type: string
+                          format: nullable
+                        denomlingua2: 
+                          type: string
+                          format: nullable
+        '400':
+          description: Bad Request
+          content:
+            application/problem+json:
+              schema:
+                type: object
+                properties:   
+                  title:
+                    type: string
+                  detail:
+                    type: string
+        '404':
+          description: Not found
+          content:
+            application/problem+json:
+              schema:
+                type: object
+                properties:   
+                  title:
+                    type: string
+                  detail:
+                    type: string
+        '405':
+          description: Method Not Allowed
+          content:
+            application/problem+json:
+              schema:
+                type: object
+                properties:   
+                  title:
+                    type: string
+                  detail:
+                    type: string
+        '422':
+          description: Unprocessable Entity - error in json
+          content:
+            application/problem+json:
+              schema:
+                type: object
+                properties:   
+                  title:
+                    type: string
+                  detail:
+                    type: string
+        '500':
+          description: Internal Server Error
+          content:
+            application/problem+json:
+              schema:
+                type: object
+                properties:   
+                  title:
+                    type: string
+                  detail:
+                    type: string
+  /elencoodonimiprog/{codcom}/{denomparz}:
+  #  --- elencoodonimiprog get Path parameters
+    get:
+      summary: Ritorna un elenco di odonimi presenti in ANNCSU incluso il progressivo nazionale
+      description: Ritorna un elenco di odonimi presenti in ANNCSU incluso il progressivo nazionale
+      operationId: elencoodonimiprogGetPathParam
+      tags:
+        - "pathparam"
+      parameters:
+        - name: codcom
+          in: path
+          required: true
+          description: Codice Belfiore del comune dell'odonimo
+          schema:
+            type: string
+          example: H501
+        - name: denomparz
+          in: path
+          required: true
+          description: Denominazione anche parziale dell'odonimo - base64 encoded
+          schema:
+            type: string
+          example: Uk9NQQ==
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:              
+                  res: 
+                    type: string
+                    example: elencoodonimiprog
+                  data: 
+                    type: array
+                    items: 
+                      type: object
+                      properties: 
+                        prognaz: 
+                          type: string
+                          example: '919572'
+                        dug: 
+                          type: string
+                          example: AUTOSTRADA
+                        denomuff: 
+                          type: string
+                          example: ROMA AEROPORTO DI FIUMICINO
+                        denomloc: 
+                          type: string
+                          format: nullable
+                        denomlingua1: 
+                          type: string
+                          format: nullable
+                        denomlingua2: 
+                          type: string
+                          format: nullable
+        '400':
+          description: Bad Request
+          content:
+            application/problem+json:
+              schema:
+                type: object
+                properties:   
+                  title:
+                    type: string
+                  detail:
+                    type: string
+        '404':
+          description: Not found
+          content:
+            application/problem+json:
+              schema:
+                type: object
+                properties:   
+                  title:
+                    type: string
+                  detail:
+                    type: string
+        '405':
+          description: Method Not Allowed
+          content:
+            application/problem+json:
+              schema:
+                type: object
+                properties:   
+                  title:
+                    type: string
+                  detail:
+                    type: string
+        '422':
+          description: Unprocessable Entity - error in json
+          content:
+            application/problem+json:
+              schema:
+                type: object
+                properties:   
+                  title:
+                    type: string
+                  detail:
+                    type: string
+        '500':
+          description: Internal Server Error
+          content:
+            application/problem+json:
+              schema:
+                type: object
+                properties:   
+                  title:
+                    type: string
+                  detail:
+                    type: string
+  /elencoaccessiprog:
+  #  --- elencoaccessiprog get Query parameters 
+    get:
+      summary: Ritorna un elenco di accessi presenti in ANNCSU incluso il progressivo nazionale
+      description: Ritorna un elenco di accessi presenti in ANNCSU incluso il progressivo nazionale
+      operationId: elencoaccessiprogGetQueryParam
+      tags:
+        - "queryparam"
+      parameters:
+        - name: prognaz
+          in: query
+          required: true
+          description: Progressivo nazionale dell'odonimo
+          schema:
+            type: string
+          example: '919572'
+        - name: accparz
+          in: query
+          required: true
+          description: valore anche parziale del civico(+eventuale esponente e/o specificit�) oppure metrico
+          schema:
+            type: string
+          example: "42"
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:              
+                  res: 
+                    type: string
+                    example: elencoaccessiprog
+                  data: 
+                    type: array
+                    items: 
+                      type: object
+                      properties: 
+                        prognazacc: 
+                          type: string
+                          example: '6744962'
+                        civico: 
+                          type: string
+                          example: "1"
+                        esp: 
+                          type: string
+                          example: "A"
+                        specif: 
+                          type: string
+                          example: "ROSSO"
+                        metrico: 
+                          type: string
+                          example: "1200"
+                        coordX: 
+                          type: string
+                          example: "12,5349017"
+                        coordY: 
+                          type: string
+                          example: "44,0191923"
+                        quota: 
+                          type: string
+                          example: "50"
+                        metodo: 
+                          type: string
+                          example: "4"
+        '400':
+          description: Bad Request
+          content:
+            application/problem+json:
+              schema:
+                type: object
+                properties:   
+                  title:
+                    type: string
+                  detail:
+                    type: string
+        '404':
+          description: Not found
+          content:
+            application/problem+json:
+              schema:
+                type: object
+                properties:   
+                  title:
+                    type: string
+                  detail:
+                    type: string
+        '405':
+          description: Method Not Allowed
+          content:
+            application/problem+json:
+              schema:
+                type: object
+                properties:   
+                  title:
+                    type: string
+                  detail:
+                    type: string
+        '422':
+          description: Unprocessable Entity - error in json
+          content:
+            application/problem+json:
+              schema:
+                type: object
+                properties:   
+                  title:
+                    type: string
+                  detail:
+                    type: string
+        '500':
+          description: Internal Server Error
+          content:
+            application/problem+json:
+              schema:
+                type: object
+                properties:   
+                  title:
+                    type: string
+                  detail:
+                    type: string
+  #  --- elencoaccessiprog post JSON
+    post:
+      summary: Ritorna un elenco di accessi presenti in ANNCSU incluso il progressivo nazionale
+      description: Ritorna un elenco di accessi presenti in ANNCSU incluso il progressivo nazionale
+      operationId: elencoaccessiprogPost
+      tags:
+        - "jsonPost"
+      requestBody:
+        required: true
+        description: search input data
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:              
+                req: 
+                  type: string
+                  example: elencoaccessiprog
+                prognaz: 
+                  type: string
+                  example: '919572'
+                accparz: 
+                  type: string
+                  example: "42"
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:              
+                  res: 
+                    type: string
+                    example: elencoaccessiprog
+                  data: 
+                    type: array
+                    items: 
+                      type: object
+                      properties: 
+                        prognazacc: 
+                          type: string
+                          example: '6744962'
+                        civico: 
+                          type: string
+                          example: "1"
+                        esp: 
+                          type: string
+                          example: "A"
+                        specif: 
+                          type: string
+                          example: "ROSSO"
+                        metrico: 
+                          type: string
+                          example: "1200"
+                        coordX: 
+                          type: string
+                          example: "12,5349017"
+                        coordY: 
+                          type: string
+                          example: "44,0191923"
+                        quota: 
+                          type: string
+                          example: "50"
+                        metodo: 
+                          type: string
+                          example: "4"
+        '400':
+          description: Bad Request
+          content:
+            application/problem+json:
+              schema:
+                type: object
+                properties:   
+                  title:
+                    type: string
+                  detail:
+                    type: string
+        '404':
+          description: Not found
+          content:
+            application/problem+json:
+              schema:
+                type: object
+                properties:   
+                  title:
+                    type: string
+                  detail:
+                    type: string
+        '405':
+          description: Method Not Allowed
+          content:
+            application/problem+json:
+              schema:
+                type: object
+                properties:   
+                  title:
+                    type: string
+                  detail:
+                    type: string
+        '422':
+          description: Unprocessable Entity - error in json
+          content:
+            application/problem+json:
+              schema:
+                type: object
+                properties:   
+                  title:
+                    type: string
+                  detail:
+                    type: string
+        '500':
+          description: Internal Server Error
+          content:
+            application/problem+json:
+              schema:
+                type: object
+                properties:   
+                  title:
+                    type: string
+                  detail:
+                    type: string
+  /elencoaccessiprog/{prognaz}/{accparz}:
+  #  --- elencoaccessiprog get Path parameters 
+    get:
+      summary: Ritorna un elenco di accessi presenti in ANNCSU incluso il progressivo nazionale
+      description: Ritorna un elenco di accessi presenti in ANNCSU incluso il progressivo nazionale
+      operationId: elencoaccessiprogGetPathParam
+      tags:
+        - "pathparam"
+      parameters:
+        - name: prognaz
+          in: path
+          required: true
+          description: Progressivo nazionale dell'odonimo
+          schema:
+            type: string
+          example: '919572'
+        - name: accparz
+          in: path
+          required: true
+          description: valore anche parziale del civico(+eventuale esponente e/o specificit�) oppure metrico
+          schema:
+            type: string
+          example: "42"
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:              
+                  res: 
+                    type: string
+                    example: elencoaccessiprog
+                  data: 
+                    type: array
+                    items: 
+                      type: object
+                      properties: 
+                        prognazacc: 
+                          type: string
+                          example: '6744962'
+                        civico: 
+                          type: string
+                          example: "1"
+                        esp: 
+                          type: string
+                          example: "A"
+                        specif: 
+                          type: string
+                          example: "ROSSO"
+                        metrico: 
+                          type: string
+                          example: "1200"
+                        coordX: 
+                          type: string
+                          example: "12,5349017"
+                        coordY: 
+                          type: string
+                          example: "44,0191923"
+                        quota: 
+                          type: string
+                          example: "50"
+                        metodo: 
+                          type: string
+                          example: "4"
+        '400':
+          description: Bad Request
+          content:
+            application/problem+json:
+              schema:
+                type: object
+                properties:   
+                  title:
+                    type: string
+                  detail:
+                    type: string
+        '404':
+          description: Not found
+          content:
+            application/problem+json:
+              schema:
+                type: object
+                properties:   
+                  title:
+                    type: string
+                  detail:
+                    type: string
+        '405':
+          description: Method Not Allowed
+          content:
+            application/problem+json:
+              schema:
+                type: object
+                properties:   
+                  title:
+                    type: string
+                  detail:
+                    type: string
+        '422':
+          description: Unprocessable Entity - error in json
+          content:
+            application/problem+json:
+              schema:
+                type: object
+                properties:   
+                  title:
+                    type: string
+                  detail:
+                    type: string
+        '500':
+          description: Internal Server Error
+          content:
+            application/problem+json:
+              schema:
+                type: object
+                properties:   
+                  title:
+                    type: string
+                  detail:
+                    type: string
+  /prognazarea:
+  #  --- prognazarea get Query parameters
+    get:
+      summary: Cerca in ANNCSU un odonimo per progressivo nazionale e ne ritorna i dati
+      description: Cerca in ANNCSU un odonimo per progressivo nazionale e ne ritorna i dati
+      operationId: prognazareaGetQueryParam
+      tags:
+        - "queryparam"
+      parameters:
+        - name: prognaz
+          in: query
+          required: true
+          description: Progressivo nazionale dell'odonimo
+          schema:
+            type: string
+          example: '919572'
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:              
+                  res: 
+                    type: string
+                    example: prognazarea
+                  data: 
+                    type: array
+                    items: 
+                      type: object
+                      properties: 
+                        prognaz: 
+                          type: string
+                          example: '919572'
+                        dug: 
+                          type: string
+                          example: AUTOSTRADA
+                        denomuff: 
+                          type: string
+                          example: ROMA AEROPORTO DI FIUMICINO
+                        denomloc: 
+                          type: string
+                          format: nullable
+                        denomlingua1: 
+                          type: string
+                          format: nullable
+                        denomlingua2: 
+                          type: string
+                          format: nullable
+        '400':
+          description: Bad Request
+          content:
+            application/problem+json:
+              schema:
+                type: object
+                properties:   
+                  title:
+                    type: string
+                  detail:
+                    type: string
+        '404':
+          description: Not found
+          content:
+            application/problem+json:
+              schema:
+                type: object
+                properties:   
+                  title:
+                    type: string
+                  detail:
+                    type: string
+        '405':
+          description: Method Not Allowed
+          content:
+            application/problem+json:
+              schema:
+                type: object
+                properties:   
+                  title:
+                    type: string
+                  detail:
+                    type: string
+        '422':
+          description: Unprocessable Entity - error in json
+          content:
+            application/problem+json:
+              schema:
+                type: object
+                properties:   
+                  title:
+                    type: string
+                  detail:
+                    type: string
+        '500':
+          description: Internal Server Error
+          content:
+            application/problem+json:
+              schema:
+                type: object
+                properties:   
+                  title:
+                    type: string
+                  detail:
+                    type: string
+  #  --- prognazarea post JSON
+    post:
+      summary: Cerca in ANNCSU un odonimo per progressivo nazionale e ne ritorna i dati
+      description: Cerca in ANNCSU un odonimo per progressivo nazionale e ne ritorna i dati
+      operationId: prognazareaPost
+      tags:
+        - "jsonPost"
+      requestBody:
+        required: true
+        description: search input data
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:              
+                req: 
+                  type: string
+                  example: prognazarea
+                prognaz: 
+                  type: string
+                  example: '919572'
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:              
+                  res: 
+                    type: string
+                    example: prognazarea
+                  data: 
+                    type: array
+                    items: 
+                      type: object
+                      properties: 
+                        prognaz: 
+                          type: string
+                          example: '919572'
+                        dug: 
+                          type: string
+                          example: AUTOSTRADA
+                        denomuff: 
+                          type: string
+                          example: ROMA AEROPORTO DI FIUMICINO
+                        denomloc: 
+                          type: string
+                          format: nullable
+                        denomlingua1: 
+                          type: string
+                          format: nullable
+                        denomlingua2: 
+                          type: string
+                          format: nullable
+        '400':
+          description: Bad Request
+          content:
+            application/problem+json:
+              schema:
+                type: object
+                properties:   
+                  title:
+                    type: string
+                  detail:
+                    type: string
+        '404':
+          description: Not found
+          content:
+            application/problem+json:
+              schema:
+                type: object
+                properties:   
+                  title:
+                    type: string
+                  detail:
+                    type: string
+        '405':
+          description: Method Not Allowed
+          content:
+            application/problem+json:
+              schema:
+                type: object
+                properties:   
+                  title:
+                    type: string
+                  detail:
+                    type: string
+        '422':
+          description: Unprocessable Entity - error in json
+          content:
+            application/problem+json:
+              schema:
+                type: object
+                properties:   
+                  title:
+                    type: string
+                  detail:
+                    type: string
+        '500':
+          description: Internal Server Error
+          content:
+            application/problem+json:
+              schema:
+                type: object
+                properties:   
+                  title:
+                    type: string
+                  detail:
+                    type: string
+  /prognazarea/{prognaz}:
+  #  --- prognazarea get Path parameters
+    get:
+      summary: Cerca in ANNCSU un odonimo per progressivo nazionale e ne ritorna i dati
+      description: Cerca in ANNCSU un odonimo per progressivo nazionale e ne ritorna i dati
+      operationId: prognazareaGetPathParam
+      tags:
+        - "pathparam"
+      parameters:
+        - name: prognaz
+          in: path
+          required: true
+          description: Progressivo nazionale dell'odonimo
+          schema:
+            type: string
+          example: '919572'
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:              
+                  res: 
+                    type: string
+                    example: prognazarea
+                  data: 
+                    type: array
+                    items: 
+                      type: object
+                      properties: 
+                        prognaz: 
+                          type: string
+                          example: '919572'
+                        dug: 
+                          type: string
+                          example: AUTOSTRADA
+                        denomuff: 
+                          type: string
+                          example: ROMA AEROPORTO DI FIUMICINO
+                        denomloc: 
+                          type: string
+                          format: nullable
+                        denomlingua1: 
+                          type: string
+                          format: nullable
+                        denomlingua2: 
+                          type: string
+                          format: nullable
+        '400':
+          description: Bad Request
+          content:
+            application/problem+json:
+              schema:
+                type: object
+                properties:   
+                  title:
+                    type: string
+                  detail:
+                    type: string
+        '404':
+          description: Not found
+          content:
+            application/problem+json:
+              schema:
+                type: object
+                properties:   
+                  title:
+                    type: string
+                  detail:
+                    type: string
+        '405':
+          description: Method Not Allowed
+          content:
+            application/problem+json:
+              schema:
+                type: object
+                properties:   
+                  title:
+                    type: string
+                  detail:
+                    type: string
+        '422':
+          description: Unprocessable Entity - error in json
+          content:
+            application/problem+json:
+              schema:
+                type: object
+                properties:   
+                  title:
+                    type: string
+                  detail:
+                    type: string
+        '500':
+          description: Internal Server Error
+          content:
+            application/problem+json:
+              schema:
+                type: object
+                properties:   
+                  title:
+                    type: string
+                  detail:
+                    type: string
+  /prognazacc:
+  #  --- prognazacc get Query parameters
+    get:
+      summary: Cerca in ANNCSU un accesso per progressivo nazionale accesso e ne ritorna i dati comprensivi dell'odonimo
+      description: Cerca in ANNCSU un accesso per progressivo nazionale accesso e ne ritorna i dati comprensivi dell'odonimo
+      operationId: prognazaccGetQueryParam
+      tags:
+        - "queryparam"
+      parameters:
+        - name: prognazacc
+          in: query
+          required: true
+          description: Progressivo nazionale dell'accesso
+          schema:
+            type: string
+          example: '6744962'
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:              
+                  res: 
+                    type: string
+                    example: elencoodonimiprog
+                  data: 
+                    type: array
+                    items: 
+                      type: object
+                      properties: 
+                        prognaz: 
+                          type: string
+                          example: '919572'
+                        dug: 
+                          type: string
+                          example: AUTOSTRADA
+                        denomuff: 
+                          type: string
+                          example: ROMA AEROPORTO DI FIUMICINO
+                        denomloc: 
+                          type: string
+                          format: nullable
+                        denomlingua1: 
+                          type: string
+                          format: nullable
+                        denomlingua2: 
+                          type: string
+                          format: nullable
+                        prognazacc: 
+                          type: string
+                          example: '6744962'
+                        civico: 
+                          type: string
+                          example: "1"
+                        esp: 
+                          type: string
+                          example: "A"
+                        specif: 
+                          type: string
+                          example: "ROSSO"
+                        metrico: 
+                          type: string
+                          example: "1200"
+                        coordX: 
+                          type: string
+                          example: "12,5349017"
+                        coordY: 
+                          type: string
+                          example: "44,0191923"
+                        quota: 
+                          type: string
+                          example: "50"
+                        metodo: 
+                          type: string
+                          example: "4"
+        '400':
+          description: Bad Request
+          content:
+            application/problem+json:
+              schema:
+                type: object
+                properties:   
+                  title:
+                    type: string
+                  detail:
+                    type: string
+        '404':
+          description: Not found
+          content:
+            application/problem+json:
+              schema:
+                type: object
+                properties:   
+                  title:
+                    type: string
+                  detail:
+                    type: string
+        '405':
+          description: Method Not Allowed
+          content:
+            application/problem+json:
+              schema:
+                type: object
+                properties:   
+                  title:
+                    type: string
+                  detail:
+                    type: string
+        '422':
+          description: Unprocessable Entity - error in json
+          content:
+            application/problem+json:
+              schema:
+                type: object
+                properties:   
+                  title:
+                    type: string
+                  detail:
+                    type: string
+        '500':
+          description: Internal Server Error
+          content:
+            application/problem+json:
+              schema:
+                type: object
+                properties:   
+                  title:
+                    type: string
+                  detail:
+                    type: string
+  #  --- prognazacc post JSON
+    post:
+      summary: Cerca in ANNCSU un accesso per progressivo nazionale accesso e ne ritorna i dati comprensivi dell'odonimo
+      description: Cerca in ANNCSU un accesso per progressivo nazionale accesso e ne ritorna i dati comprensivi dell'odonimo
+      operationId: prognazaccPost
+      tags:
+        - "jsonPost"
+      requestBody:
+        required: true
+        description: search input data
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:              
+                req: 
+                  type: string
+                  example: prognazacc
+                prognazacc: 
+                  type: string
+                  example: '6744962'
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:              
+                  res: 
+                    type: string
+                    example: elencoodonimiprog
+                  data: 
+                    type: array
+                    items: 
+                      type: object
+                      properties: 
+                        prognaz: 
+                          type: string
+                          example: '919572'
+                        dug: 
+                          type: string
+                          example: AUTOSTRADA
+                        denomuff: 
+                          type: string
+                          example: ROMA AEROPORTO DI FIUMICINO
+                        denomloc: 
+                          type: string
+                          format: nullable
+                        denomlingua1: 
+                          type: string
+                          format: nullable
+                        denomlingua2: 
+                          type: string
+                          format: nullable
+                        prognazacc: 
+                          type: string
+                          example: '6744962'
+                        civico: 
+                          type: string
+                          example: "1"
+                        esp: 
+                          type: string
+                          example: "A"
+                        specif: 
+                          type: string
+                          example: "ROSSO"
+                        metrico: 
+                          type: string
+                          example: "1200"
+                        coordX: 
+                          type: string
+                          example: "12,5349017"
+                        coordY: 
+                          type: string
+                          example: "44,0191923"
+                        quota: 
+                          type: string
+                          example: "50"
+                        metodo: 
+                          type: string
+                          example: "4"
+        '400':
+          description: Bad Request
+          content:
+            application/problem+json:
+              schema:
+                type: object
+                properties:   
+                  title:
+                    type: string
+                  detail:
+                    type: string
+        '404':
+          description: Not found
+          content:
+            application/problem+json:
+              schema:
+                type: object
+                properties:   
+                  title:
+                    type: string
+                  detail:
+                    type: string
+        '405':
+          description: Method Not Allowed
+          content:
+            application/problem+json:
+              schema:
+                type: object
+                properties:   
+                  title:
+                    type: string
+                  detail:
+                    type: string
+        '422':
+          description: Unprocessable Entity - error in json
+          content:
+            application/problem+json:
+              schema:
+                type: object
+                properties:   
+                  title:
+                    type: string
+                  detail:
+                    type: string
+        '500':
+          description: Internal Server Error
+          content:
+            application/problem+json:
+              schema:
+                type: object
+                properties:   
+                  title:
+                    type: string
+                  detail:
+                    type: string
+  /prognazacc/{prognazacc}:
+  #  --- prognazacc get Path parameters
+    get:
+      summary: Cerca in ANNCSU un accesso per progressivo nazionale accesso e ne ritorna i dati comprensivi dell'odonimo
+      description: Cerca in ANNCSU un accesso per progressivo nazionale accesso e ne ritorna i dati comprensivi dell'odonimo
+      operationId: prognazaccGetPathParam
+      tags:
+        - "pathparam"
+      parameters:
+        - name: prognazacc
+          in: path
+          required: true
+          description: Progressivo nazionale dell'accesso
+          schema:
+            type: string
+          example: '6744962'
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:              
+                  res: 
+                    type: string
+                    example: elencoodonimiprog
+                  data: 
+                    type: array
+                    items: 
+                      type: object
+                      properties: 
+                        prognaz: 
+                          type: string
+                          example: '919572'
+                        dug: 
+                          type: string
+                          example: AUTOSTRADA
+                        denomuff: 
+                          type: string
+                          example: ROMA AEROPORTO DI FIUMICINO
+                        denomloc: 
+                          type: string
+                          format: nullable
+                        denomlingua1: 
+                          type: string
+                          format: nullable
+                        denomlingua2: 
+                          type: string
+                          format: nullable
+                        prognazacc: 
+                          type: string
+                          example: '6744962'
+                        civico: 
+                          type: string
+                          example: "1"
+                        esp: 
+                          type: string
+                          example: "A"
+                        specif: 
+                          type: string
+                          example: "ROSSO"
+                        metrico: 
+                          type: string
+                          example: "1200"
+                        coordX: 
+                          type: string
+                          example: "12,5349017"
+                        coordY: 
+                          type: string
+                          example: "44,0191923"
+                        quota: 
+                          type: string
+                          example: "50"
+                        metodo: 
+                          type: string
+                          example: "4"
+        '400':
+          description: Bad Request
+          content:
+            application/problem+json:
+              schema:
+                type: object
+                properties:   
+                  title:
+                    type: string
+                  detail:
+                    type: string
+        '404':
+          description: Not found
+          content:
+            application/problem+json:
+              schema:
+                type: object
+                properties:   
+                  title:
+                    type: string
+                  detail:
+                    type: string
+        '405':
+          description: Method Not Allowed
+          content:
+            application/problem+json:
+              schema:
+                type: object
+                properties:   
+                  title:
+                    type: string
+                  detail:
+                    type: string
+        '422':
+          description: Unprocessable Entity - error in json
+          content:
+            application/problem+json:
+              schema:
+                type: object
+                properties:   
+                  title:
+                    type: string
+                  detail:
+                    type: string
+        '500':
+          description: Internal Server Error
+          content:
+            application/problem+json:
+              schema:
+                type: object
+                properties:   
+                  title:
+                    type: string
+                  detail:
+                    type: string
+  /status:
+    get:
+      summary: Ritorna lo stato dell'applicazione.
+      description: |
+        Ritorna lo stato dell'applicazione. A scopo
+        di test, su base randomica puo' ritornare
+        un errore.
+      operationId: show_status
+      tags:
+        - "status"
+      responses:
+        '200':
+          description: |
+            Il server ha ritornato lo status. 
+          content:
+            application/problem+json:
+              schema:
+                type: object
+                properties:              
+                  status: 
+                    type: string                
+        '503':
+          description: |
+            Il server non è disponibile. 
+          content:
+            application/problem+json:
+              schema:
+                type: object
+                properties:              
+                  status: 
+                    type: string             
+components:
+
+  headers:
+    X-RateLimit-Limit:
+      $ref: 'https://teamdigitale.github.io/openapi/0.0.7/definitions.yaml#/headers/X-RateLimit-Limit'
+    X-RateLimit-Remaining:
+      $ref: 'https://teamdigitale.github.io/openapi/0.0.7/definitions.yaml#/headers/X-RateLimit-Remaining'
+    X-RateLimit-Reset:
+      $ref: 'https://teamdigitale.github.io/openapi/0.0.7/definitions.yaml#/headers/X-RateLimit-Reset'
+    Retry-After:
+      $ref: 'https://teamdigitale.github.io/openapi/0.0.7/definitions.yaml#/headers/Retry-After'
+
+  responses:
+    # Predefined error codes for this API
+    400BadRequest:
+      $ref: 'https://teamdigitale.github.io/openapi/0.0.7/definitions.yaml#/responses/400BadRequest'
+    404NotFound:
+      $ref: 'https://teamdigitale.github.io/openapi/0.0.7/definitions.yaml#/responses/404NotFound'
+    429TooManyRequests:
+      $ref: 'https://teamdigitale.github.io/openapi/0.0.7/definitions.yaml#/responses/429TooManyRequests'
+    503ServiceUnavailable:
+      $ref: 'https://teamdigitale.github.io/openapi/0.0.7/definitions.yaml#/responses/503ServiceUnavailable'
+    default:
+      $ref: 'https://teamdigitale.github.io/openapi/0.0.7/definitions.yaml#/responses/default'
+
+  schemas:
+    Problem:
+      $ref: 'https://teamdigitale.github.io/openapi/0.0.7/definitions.yaml#/schemas/Problem'

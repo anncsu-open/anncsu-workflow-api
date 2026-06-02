@@ -193,6 +193,27 @@ The `.github/workflows/ci.yml` workflow runs on push/PR: `uv sync`,
 ruff lint + format check, blocking Arazzo validation, the English-only Vale check,
 and `pytest --cov=app`.
 
+## Documentation site (Zensical)
+
+A static documentation site is built with [Zensical](https://zensical.org)
+(config in `zensical.toml`). The workflows page (`docs/workflows.md`) is generated
+from the Arazzo spec with [apitapviz](https://github.com/lornajane/apitapviz) and
+includes a Mermaid graph of the flow (rendered natively by Zensical).
+
+```bash
+# Regenerate docs/workflows.md from the Arazzo spec (clones the pinned apitapviz)
+bash scripts/gen-docs.sh
+
+# Build the static site into site/
+uv run zensical build
+
+# Live preview
+uv run zensical serve
+```
+
+The generated page reflects the spec's step descriptions, which are domain content
+and may be in Italian; `docs/` is therefore excluded from the English-only Vale check.
+
 ## Starting the service
 
 ```bash

@@ -31,3 +31,6 @@ keys/
 # Out-of-scope OpenAPI source: "interni" removed from the Arazzo (Q13), kept
 # locally as an asset but not tracked.
 specs/*interni*.yml
+
+# Generated docs site (Zensical)
+site/

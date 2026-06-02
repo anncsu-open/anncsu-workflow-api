@@ -61,7 +61,7 @@ dev = [
     "jsonschema>=4.22.0",
     "ruff>=0.7.0",
     "pre-commit>=4.6.0",
-    # Generazione docs statiche (Markdown + PlantUML) dalla spec Arazzo
-    "pyarazzo>=0.0.6",
-    # Ty - Astral's type checker (preview/alpha): installare con `uv tool install ty`
+    # Static docs site (Zensical) for the Arazzo workflows
+    "zensical>=0.0.43",
+    # Ty - Astral's type checker (preview/alpha): install with `uv tool install ty`
 ]

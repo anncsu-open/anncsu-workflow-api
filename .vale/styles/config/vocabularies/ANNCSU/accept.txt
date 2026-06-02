@@ -1,0 +1,31 @@
+# ANNCSU Italian domain reserved words — accepted (not flagged as non-English).
+# Case-sensitive regexes (one per line); (?i) enables case-insensitive matching.
+(?i)ANNCSU
+PDND
+ModI
+Arazzo
+(?i)odonim[oi]
+(?i)access[oi]
+(?i)civic[oi]
+(?i)codcom
+(?i)prognaz
+(?i)prognazacc
+(?i)progr_civico
+(?i)progr_nazionale
+(?i)denom\w*
+(?i)esito
+DUG
+Belfiore
+Sogei
+(?i)intern[oi]
+(?i)esponente
+(?i)metrico
+(?i)specificità
+(?i)coordinat[ae]
+# Official ANNCSU API names (appear as section titles in the README)
+Consultazione
+Aggiornamento
+Odonimi
+Accessi
+Coordinate
+Interni

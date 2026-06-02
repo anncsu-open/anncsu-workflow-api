@@ -1,0 +1,41 @@
+# Pre-commit hooks per anncsu-workflow-api.
+# Installazione (una tantum):  uv run pre-commit install
+# Esecuzione su tutti i file:   uv run pre-commit run --all-files
+#
+# - ruff (lint + format) gira tramite `uv run`, così usa la versione di ruff
+#   pinnata in pyproject.toml: niente drift tra pre-commit, CI e dev locale.
+# - La validazione Arazzo usa Redocly CLI in un ambiente Node gestito da
+#   pre-commit (nessun npm globale).
+repos:
+  - repo: local
+    hooks:
+      - id: ruff-check
+        name: ruff check
+        entry: uv run ruff check --fix
+        language: system
+        types_or: [python, pyi]
+        require_serial: true
+
+      - id: ruff-format
+        name: ruff format
+        entry: uv run ruff format
+        language: system
+        types_or: [python, pyi]
+        require_serial: true
+
+      - id: redocly-arazzo-lint
+        name: Validazione specifica Arazzo (Redocly)
+        entry: redocly lint
+        language: node
+        additional_dependencies: ["@redocly/cli@2.31.5"]
+        files: ^specs/.*\.arazzo\.ya?ml$
+        pass_filenames: true
+
+      # English-only prose for README + Python docstrings/comments.
+      # Requires the Vale binary on PATH (e.g. `brew install vale`).
+      - id: vale
+        name: English-only prose (Vale)
+        entry: vale
+        language: system
+        files: ^(README\.md|(app|tests)/.*\.py)$
+        pass_filenames: true

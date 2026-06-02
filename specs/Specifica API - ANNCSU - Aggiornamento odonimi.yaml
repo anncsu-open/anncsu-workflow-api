@@ -1,0 +1,307 @@
+openapi: "3.0.3"
+info: 
+  title: ANNCSU REST API - ODONIMI
+  description: |-
+    API dei servizi REST di ANNCSU su PDND per aggiornamento adonimi
+    Pattern Model applicati:
+    - [AUDIT_REST_02 ] Inoltro dati tracciati nel dominio del Fruitore REST con correlazione
+    - [BLOCK_REST] Blocking REST
+    - [INTEGRITY_REST_02] Integrità del payload messaggio REST in PDND
+  termsOfService: "https://govway.org/documentazione/api/index.html"
+  contact:
+    email: "infopdnd_anncsu@sogei.it"
+  version: "1.0.1"
+  x-api-id: "https://govway.org/apiConfig"
+  x-summary: "Servizi per la configurazione di GovWay"
+servers:
+  - url: https://modipa.agenziaentrate.it/govway/rest/in/AgenziaEntrate-PDND/anncsu-aggiornamento-odonimi/v1
+    description: "l'accesso all'API e' protetta dai controlli di accesso su GovWay"
+  - url: https://modipa-val.agenziaentrate.it/govway/rest/in/AgenziaEntrate-PDND/anncsu-aggiornamento-odonimi/v1
+    description: "l'accesso all'API di validazione e' protetta dai controlli di accesso su GovWay"
+tags:
+  - name: anncsu
+    description: Servizi ANNCSU su PDND
+  - name: status
+security:
+  - bearerAuth: []
+    Agid-JWT-Signature: []
+    Agid-JWT-TrackingEvidence: []
+paths:
+  /odonimi:
+    post:
+      description: Questo endpoint consente di eseguire un'operazione sugli odonimi quali inserimento, aggiornamento e soppressione.
+      operationId: gestioneAnncsuOdonimiPdnd
+      summary: Esegui un'operazione sugli odonimi
+      tags:
+        - "anncsu"
+      requestBody:
+        description: Dati necessari per l'operazione sugli odonimi.
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RichiestaOperazione'
+      responses:
+        '200':
+          description: Operazione eseguita con successo
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RispostaOperazione'
+        '400':
+          description: Richiesta non valida
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/RispostaErrore'
+        '404':
+          description: Odonimo non trovato
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/RispostaErrore'
+        '500':
+          description: Errore interno del server
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/RispostaErrore'
+
+  /status:
+    get:
+      summary: Ritorna lo stato dell'applicazione.
+      description: |
+        Ritorna lo stato dell'applicazione. A scopo
+        di test, su base randomica puo' ritornare
+        un errore.
+      operationId: show_status
+      tags:
+        - "status"
+      responses:
+        '200':
+          description: |
+            Il server ha ritornato lo status. 
+          content:
+            application/problem+json:
+              schema:
+                type: object
+                properties:              
+                  status: 
+                    type: string                
+        '503':
+          description: |
+            Il server non è disponibile. 
+          content:
+            application/problem+json:
+              schema:
+                type: object
+                properties:              
+                  status: 
+                    type: string             
+components:
+  schemas:
+    RichiestaOperazione:
+      type: object
+      properties:
+        richiesta:
+          type: object
+          properties:
+            codcom:
+              type: string
+              description: Codice del comune (obbligatorio)
+              example: "A062"
+            tipo_operazione:
+              type: string
+              enum: [I, R, S]
+              description: Tipo di operazione ('S'=Soppressione, 'I'=Inserimento, 'R'=Aggiornamento)
+              example: "R"
+            progr_nazionale:
+              type: string
+              maxLength: 10
+              description: Progressivo nazionale (obbligatorio per soppressione e aggiornamento)
+              example: "2000449"
+            codice_comunale:
+              type: string
+              maxLength: 30
+              nullable: true
+              description: Codifica comunale dell'odonimo. Non viene applicato l'uppercase
+              example: "75439 d"
+            dug:
+              type: string
+              maxLength: 30
+              description: DUG (obbligatorio per inserimento e aggiornamento, non ammesso per soppressione, non soggetto a controllo di esistenza nel dizionario)
+              example: "VIA"
+            denom_delibera:
+              type: string
+              maxLength: 120
+              description: Denominazione Delibera. Viene applicato l'uppercase
+              example: "DELLE ORCHIDEE"
+            denom_in_lingua_1:
+              type: string
+              maxLength: 150
+              description: Odonimo in lingua, comprensivo della dug, per comuni bi/tri lingue. Viene applicato l'uppercase
+              example: "ODONIMO LINGUA 1"
+            denom_in_lingua_2:
+              type: string
+              maxLength: 150
+              description: Odonimo in ulteriore lingua, comprensivo della dug, per comuni tri lingue. Viene applicato l'uppercase
+              example: "ODONIMO LINGUA 2"
+            denom_localita:
+              type: string
+              maxLength: 151
+              description: Denominazione Località. Viene applicato l'uppercase
+              example: "CASAL PALOCCO"
+            provvedimento:
+              $ref: '#/components/schemas/Provvedimento'
+            aut_prefettura:
+              $ref: '#/components/schemas/AutPrefettura'
+            data_valid_amm:
+              type: string
+              description: Data di validità amministrativa, minore o uguale della data corrente per inserimento e soppressione. Per aggiornamento anche >= della precedente
+              example: "08/10/2024"
+    Provvedimento:
+      type: object
+      properties:
+        data:
+          type: string
+          description: Data del provvedimento
+          example: "10/10/2023"
+        protocollo:
+          type: string
+          maxLength: 70
+          description: Protocollo del provvedimento. Non viene applicato l'uppercase
+          example: "1234567/abc"
+        flag_delibera:
+          type: string
+          description: Flag della delibera (valori numerici da 0 a 4). I valori 0 e 1 rendono obbligatorie le informazioni data e protocollo
+          example: "1"
+    AutPrefettura:
+      type: object
+      properties:
+        data_pref:
+          type: string
+          description: Data della prefettura. Obbligatoria se è presente il protocollo_pref
+          example: "10/10/2023"
+        protocollo_pref:
+          type: string
+          maxLength: 70
+          description: Protocollo della prefettura. Non viene applicato l'uppercase. Obbligatorio se è presente data_pref
+          example: "Prot.Gen.1234567"
+                
+    RispostaOperazione:
+      type: object
+      properties:
+        idRichiesta:
+          type: string
+          maxLength: 15
+          description: Identificativo assegnato alla richiesta
+          example: "5145"
+        esito:
+          type: string
+          description: Esito dell'operazione
+          example: "0"
+        messaggio:
+          type: string
+          description: Messaggio associato all'esito
+          example: "OK"
+        dati:
+          type: array
+          items:
+            type: object
+            properties:
+              codcom:
+                type: string
+                description: Codice del comune
+                example: "A062"
+              progr_nazionale:
+                type: string
+                maxLength: 10
+                description: Progressivo nazionale
+                example: "2000449"
+              codice_comunale:
+                type: string
+                maxLength: 30
+                nullable: true
+                description: Codifica comunale dell'odonimo
+                example: "75439 d"
+              dug:
+                type: string
+                maxLength: 30
+                description: DUG (obbligatorio per inserimento e aggiornamento, non ammesso per soppressione)
+                example: "VIA"
+              denom_delibera:
+                type: string
+                maxLength: 120
+                description: Denominazione Delibera
+                example: "DELLE ORCHIDEE"
+              denom_in_lingua_1:
+                type: string
+                maxLength: 150
+                description: Odonimo in lingua, comprensivo della dug, per comuni bi/tri lingue. Viene applicato l'uppercase
+                example: "ODONIMO LINGUA 1"
+              denom_in_lingua_2:
+                type: string
+                maxLength: 150
+                description: Odonimo in ulteriore lingua, comprensivo della dug, per comuni tri lingue. Viene applicato l'uppercase
+                example: "ODONIMO LINGUA 2"
+              data_inizio:
+                type: string
+                description: Data di inizio validità dell'odonimo per l'area di circolazione, identificata dal progressivo nazionale
+                example: "01/10/2020"
+              data_FINE:
+                type: string
+                description: Data di fine validità dell'odonimo per l'area di circolazione, identificata dal progressivo nazionale
+                example: "08/10/2024"
+              data_ini_valid_amm:
+                type: string
+                nullable: true
+                description: Data di inizio validità amministrativa dell'odonimo 
+                example: "01/10/2020"
+              data_fine_valid_amm:
+                type: string
+                nullable: true
+                description: Data di fine validità amministrativa dell'area di circolazione e dell'odonimo 
+                example: "08/10/2024"
+    RispostaErrore:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Identificativo dell'operazione.
+          example: "5144"
+        codice:
+          type: string
+          description: Codice di errore indicato nella documentazione del servizio
+          example: "23"
+        messaggio:
+          type: string
+          description: Messaggio di errore.
+          example: "Errore di validazione: [specifica qui il messaggio di errore]"
+
+  securitySchemes:
+    bearerAuth:
+      type: http
+      description: 'A bearer token in the format of a JWS and conformed to the specifications included in [RFC8725](https://tools.ietf.org/html/RFC8725).'
+      scheme: bearer
+      bearerFormat: JWT
+    Agid-JWT-Signature:
+      type: apiKey
+      in: header
+      name: Agid-JWT-Signature
+      description: |-
+        Header della firma di JWS.
+        Il valore di questo header è una firma JWS.
+        Vedere Modi  [integrity_rest_02] Integrità del payload del messaggio REST in PDND
+    Agid-JWT-TrackingEvidence:
+      type: apiKey
+      in: header
+      name: Agid-JWT-TrackingEvidence
+      description: |-
+        Header della firma di JWS.
+        Il valore di questo header è una firma JWS.
+        Vedere Modi  [audit_rest_02] Inoltro dati tracciati nel dominio del Fruitore REST con correlazione
+        Claim da includere:
+            userID, un identificativo univoco dell'utente interno al dominio del fruitore che ha determinato l'esigenza della request di accesso all'e-service dell'erogatore;
+            userLocation, un identificativo univoco della postazione interna al dominio del fruitore da cui è avviata l'esigenza della request di accesso all'e-service dell'erogatore;
+            LoA, livello di sicurezza o di garanzia adottato nel processo di autenticazione informatica nel dominio del fruitore.
+

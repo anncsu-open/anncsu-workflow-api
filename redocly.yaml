@@ -1,0 +1,11 @@
+# Configurazione Redocly CLI — usata per validare la specifica Arazzo dei workflow.
+# Docs: https://redocly.com/docs/cli/
+#
+# Il gate di validazione gira in pre-commit e in CI:
+#   npx @redocly/cli@2.31.5 lint "specs/anncsu-workflow.arazzo.yaml"
+#
+# Ruleset di base "recommended". Le regole sono esplicitate qui per poterle
+# tarare in futuro (es. quando si consolidano gli operationId puntati o i
+# riferimenti di output cross-step segnalati da `outputs-defined`).
+extends:
+  - recommended

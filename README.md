@@ -361,13 +361,23 @@ The service includes:
 
 ## Docker
 
-```bash
-# Build
-docker build -t anncsu-workflow-api .
+The image is built entirely on `uv` (`uv sync --frozen` + `uv run fastapi run`) and
+published to the GitHub Container Registry as multi-arch (`linux/amd64`, `linux/arm64`)
+by `.github/workflows/docker.yml`.
 
-# Run
+```bash
+# Pull the published image (tag `latest` tracks the main branch)
+docker pull ghcr.io/anncsu-open/anncsu-workflow-api:latest
+docker run -p 8000:8000 --env-file .env ghcr.io/anncsu-open/anncsu-workflow-api:latest
+```
+
+```bash
+# Build locally
+docker build -t anncsu-workflow-api .
 docker run -p 8000:8000 --env-file .env anncsu-workflow-api
 ```
+
+The service listens on port `8000`; `GET /health` is used by the container healthcheck.
 
 ## Deployment
 
@@ -392,7 +402,7 @@ spec:
     spec:
       containers:
       - name: api
-        image: anncsu-workflow-api:latest
+        image: ghcr.io/anncsu-open/anncsu-workflow-api:latest
         ports:
         - containerPort: 8000
         env:

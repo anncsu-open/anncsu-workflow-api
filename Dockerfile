@@ -7,10 +7,11 @@
 # Build:  docker build -t anncsu-workflow-api .
 # Run:    docker run -p 8000:8000 --env-file .env anncsu-workflow-api
 
-FROM python:3.12-slim
+# Base image pinned by digest (supply-chain hardening); tag kept for readability.
+FROM python:3.12-slim@sha256:090ba77e2958f6af52a5341f788b50b032dd4ca28377d2893dcf1ecbdfdfe203
 
-# uv binary from the official distroless image (pinned for reproducibility).
-COPY --from=ghcr.io/astral-sh/uv:0.9.7 /uv /uvx /bin/
+# uv binary from the official distroless image, pinned by digest.
+COPY --from=ghcr.io/astral-sh/uv:0.9.7@sha256:ba4857bf2a068e9bc0e64eed8563b065908a4cd6bfb66b531a9c424c8e25e142 /uv /uvx /bin/
 
 WORKDIR /app
 

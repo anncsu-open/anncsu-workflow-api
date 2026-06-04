@@ -1,0 +1,113 @@
+name: Security (Trivy)
+
+# Vulnerability scanning with Trivy, on two targets:
+#   1. Python dependencies  -> filesystem scan of the repo (parses uv.lock)
+#   2. Docker image         -> OS packages (Debian base) + installed libraries
+#
+# Every scan uploads a SARIF report to the GitHub "Security" tab (Code Scanning)
+# for full visibility, INCLUDING vulnerabilities with no fix yet. A separate gate
+# step then fails the build only on HIGH/CRITICAL issues that HAVE a fix available
+# (`ignore-unfixed`), so the pipeline stays green on un-fixable upstream CVEs and
+# turns red only on actionable ones.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    # Weekly, so newly disclosed CVEs surface even without code changes.
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  security-events: write # required to upload SARIF to Code Scanning
+
+env:
+  TRIVY_VERSION: "0.36.0" # aquasecurity/trivy-action release
+
+jobs:
+  dependencies:
+    name: Python dependencies (uv.lock)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+
+      - name: Trivy filesystem scan (SARIF, report all)
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          scanners: vuln
+          severity: HIGH,CRITICAL
+          format: sarif
+          output: trivy-deps.sarif
+          exit-code: "0"
+
+      - name: Upload SARIF to Code Scanning
+        if: ${{ !cancelled() }}
+        uses: github/codeql-action/upload-sarif@d77b13a0df3134d64a457ea9003f600b09fa1c8a # v3
+        with:
+          sarif_file: trivy-deps.sarif
+          category: trivy-deps
+
+      - name: Gate on fixable HIGH/CRITICAL dependencies
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          scanners: vuln
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          format: table
+          exit-code: "1"
+
+  image:
+    name: Docker image (OS + libraries)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@d7f5e7f509e45cec5c76c4d5afdd7de93d0b3df5 # v4
+
+      # Build a single-arch image and load it locally for scanning. OS package
+      # vulnerabilities are identical across arches, so scanning amd64 is enough.
+      - name: Build image (load locally)
+        uses: docker/build-push-action@f9f3042f7e2789586610d6e8b85c8f03e5195baf # v7
+        with:
+          context: .
+          load: true
+          tags: anncsu-workflow-api:scan
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Trivy image scan (SARIF, report all)
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          scan-type: image
+          image-ref: anncsu-workflow-api:scan
+          scanners: vuln
+          vuln-type: os,library
+          severity: HIGH,CRITICAL
+          format: sarif
+          output: trivy-image.sarif
+          exit-code: "0"
+
+      - name: Upload SARIF to Code Scanning
+        if: ${{ !cancelled() }}
+        uses: github/codeql-action/upload-sarif@d77b13a0df3134d64a457ea9003f600b09fa1c8a # v3
+        with:
+          sarif_file: trivy-image.sarif
+          category: trivy-image
+
+      - name: Gate on fixable HIGH/CRITICAL in the image
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          scan-type: image
+          image-ref: anncsu-workflow-api:scan
+          scanners: vuln
+          vuln-type: os,library
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          format: table
+          exit-code: "1"

@@ -1,0 +1,35 @@
+# Keep the build context small and reproducible.
+.git
+.github
+.venv
+.cache
+.ruff_cache
+.pytest_cache
+htmlcov
+.coverage
+.coverage.*
+site
+.claude
+.vale
+
+# Python build artifacts
+__pycache__
+*.py[oc]
+build
+dist
+wheels
+*.egg-info
+
+# Secrets / local config (never bake into the image)
+.env
+.env.*
+keys
+*.pem
+
+# Docs / dev-only assets
+docs
+tests
+zensical.toml
+
+# OS
+.DS_Store

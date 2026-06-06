@@ -1,5 +1,6 @@
 """Utility for validating Pydantic models against the OpenAPI specifications."""
 
+from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
 
@@ -207,7 +208,7 @@ class OpenAPISchemaComparator:
     """Compares OpenAPI schemas across multiple spec files."""
 
     @staticmethod
-    def load_openapi_specs(spec_paths: list[str | Path]) -> dict[str, OpenAPI]:
+    def load_openapi_specs(spec_paths: Sequence[str | Path]) -> dict[str, OpenAPI]:
         """
         Load multiple OpenAPI specifications.
 

@@ -1,6 +1,6 @@
-# Pre-commit hooks per anncsu-workflow-api.
-# Installazione (una tantum):  uv run pre-commit install
-# Esecuzione su tutti i file:   uv run pre-commit run --all-files
+# Git hooks per anncsu-workflow-api (gestiti con prek, drop-in di pre-commit).
+# Installazione (una tantum):  prek install
+# Esecuzione su tutti i file:   prek run --all-files
 #
 # - ruff (lint + format) gira tramite `uv run`, così usa la versione di ruff
 #   pinnata in pyproject.toml: niente drift tra pre-commit, CI e dev locale.
@@ -21,6 +21,14 @@ repos:
         entry: uv run ruff format
         language: system
         types_or: [python, pyi]
+        require_serial: true
+
+      - id: ty
+        name: ty check
+        entry: uv run ty check app tests
+        language: system
+        types_or: [python, pyi]
+        pass_filenames: false
         require_serial: true
 
       - id: redocly-arazzo-lint

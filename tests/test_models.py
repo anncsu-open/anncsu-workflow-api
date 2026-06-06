@@ -204,6 +204,7 @@ class TestAggiornaCoordinateOutput:
         models_with_coords = [m for m in models if m.coordinate is not None]
 
         for model in models_with_coords:
+            assert model.coordinate is not None
             assert "x" in model.coordinate
             assert "y" in model.coordinate
             assert "metodo" in model.coordinate

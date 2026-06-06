@@ -59,8 +59,8 @@ dev = [
     "openapi-spec-validator>=0.7.1",
     "jsonschema>=4.22.0",
     "ruff>=0.7.0",
-    "pre-commit>=4.6.0",
+    "ty>=0.0.44",
+    "prek>=0.4.4",
     # Static docs site (Zensical) for the Arazzo workflows
     "zensical>=0.0.43",
-    # Ty - Astral's type checker (preview/alpha): install with `uv tool install ty`
 ]

@@ -25,6 +25,9 @@ jobs:
       - name: Ruff format check
         run: uv run ruff format --check .
 
+      - name: Type check (ty)
+        run: uv run ty check app tests
+
       - name: Set up Node
         uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
         with:

@@ -162,15 +162,15 @@ Validation is a **blocking gate** both in pre-commit and in CI.
 
 ```bash
 # Hook installation (one-time)
-uv run pre-commit install
+prek install
 
 # Run on all files
-uv run pre-commit run --all-files
+prek run --all-files
 ```
 
-Active hooks: `ruff check`, `ruff format` (via `uv run`, aligned with the version in
-`pyproject.toml`), Arazzo validation (Redocly, in a Node environment managed by pre-commit),
-and the English-only prose check (Vale).
+Active hooks: `ruff check`, `ruff format` and `ty` type checking (via `uv run`, aligned with
+the versions in `pyproject.toml`), Arazzo validation (Redocly, in a Node environment managed
+by prek), and the English-only prose check (Vale).
 
 ### English-only prose (Vale)
 
@@ -190,8 +190,8 @@ vale README.md app tests   # run manually
 ### CI
 
 The `.github/workflows/ci.yml` workflow runs on push/PR: `uv sync`,
-ruff lint + format check, blocking Arazzo validation, the English-only Vale check,
-and `pytest --cov=app`.
+ruff lint + format check, `ty` type checking, blocking Arazzo validation,
+the English-only Vale check, and `pytest --cov=app`.
 
 ## Documentation site (Zensical)
 

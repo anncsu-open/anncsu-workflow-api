@@ -25,7 +25,6 @@ SPECS_DIR = Path(__file__).parent.parent / "specs"
 CONSULTAZIONE_SPEC = SPECS_DIR / "Specifica API - ANNCSU – Consultazione per le PA.yaml"
 ODONIMI_SPEC = SPECS_DIR / "Specifica API - ANNCSU - Aggiornamento odonimi.yaml"
 ACCESSI_SPEC = SPECS_DIR / "Specifica API - ANNCSU - Aggiornamento accessi.yaml"
-INTERNI_SPEC = SPECS_DIR / "Specifica API - ANNCSU - Aggiornamento interni.yml"
 COORDINATE_SPEC = SPECS_DIR / "Specifica API - ANNCSU - Aggiornamento coordinate.yml"
 
 
@@ -190,12 +189,11 @@ class TestCrossSpecValidation:
     """Cross-spec validation tests."""
 
     def test_all_specs_load_successfully(self):
-        """Test that all 5 OpenAPI specs load."""
+        """Test that all 4 OpenAPI specs load."""
         specs = [
             CONSULTAZIONE_SPEC,
             ODONIMI_SPEC,
             ACCESSI_SPEC,
-            INTERNI_SPEC,
             COORDINATE_SPEC,
         ]
 
@@ -206,8 +204,8 @@ class TestCrossSpecValidation:
                 assert validator.openapi_spec is not None
                 loaded_specs.append(spec_path.name)
 
-        # At least 3 specs must load
-        assert len(loaded_specs) >= 3, f"Solo {len(loaded_specs)} specs caricate"
+        # All 4 source specs must load
+        assert len(loaded_specs) == 4, f"Solo {len(loaded_specs)} specs caricate"
 
     def test_common_schemas_identification(self):
         """Test identification of common schemas across the specs."""
@@ -329,9 +327,8 @@ class TestRequiredFields:
         assert "dug" in required
         assert "numero_civico" in required
 
-        # These are optional
-        assert "interno" not in required
-        assert "esponente" not in required
+        # This is optional
+        assert "data_validita" not in required
 
     def test_output_models_required_fields(self):
         """Test required fields in the output models."""

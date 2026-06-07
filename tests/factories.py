@@ -142,20 +142,8 @@ class CreaIndirizzoCompletoInputFactory(ModelFactory[CreaIndirizzoCompletoInput]
         return numero_civico()
 
     @classmethod
-    def interno(cls) -> str | None:
-        return str(fake.random_int(min=1, max=100)) if fake.boolean() else None
-
-    @classmethod
-    def esponente(cls) -> str | None:
-        return esponente_civico()
-
-    @classmethod
-    def specificita(cls) -> str | None:
-        return specificita()
-
-    @classmethod
-    def metrico(cls) -> str | None:
-        return str(fake.random_int(min=100, max=9999)) if fake.boolean() else None
+    def data_validita(cls) -> str | None:
+        return data_italiana() if fake.boolean(chance_of_getting_true=70) else None
 
 
 class CreaIndirizzoCompletoOutputFactory(ModelFactory[CreaIndirizzoCompletoOutput]):
@@ -174,10 +162,6 @@ class CreaIndirizzoCompletoOutputFactory(ModelFactory[CreaIndirizzoCompletoOutpu
     @classmethod
     def progressivo_civico(cls) -> str | None:
         return progressivo_nazionale() if fake.boolean(chance_of_getting_true=80) else None
-
-    @classmethod
-    def progressivo_interno(cls) -> str | None:
-        return progressivo_nazionale() if fake.boolean(chance_of_getting_true=50) else None
 
     @classmethod
     def message(cls) -> str:
@@ -299,8 +283,10 @@ class SopprimiOdonimoOutputFactory(ModelFactory[SopprimiOdonimoOutput]):
         return progressivo_nazionale() if fake.boolean(chance_of_getting_true=80) else None
 
     @classmethod
-    def accessi_presenti(cls) -> int | None:
-        return fake.random_int(min=0, max=100) if fake.boolean(chance_of_getting_true=80) else None
+    def accessi_presenti(cls) -> list[AccessoResult] | None:
+        if fake.boolean(chance_of_getting_true=80):
+            return [AccessoResultFactory.build() for _ in range(fake.random_int(min=0, max=5))]
+        return None
 
     @classmethod
     def message(cls) -> str:

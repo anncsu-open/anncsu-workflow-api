@@ -46,7 +46,6 @@ DEBUG=false
 ANNCSU_CONSULTAZIONE_URL=https://modipa.agenziaentrate.gov.it/govway/rest/in/AgenziaEntrate-PDND/anncsu-consultazione/v1
 ANNCSU_ODONIMI_URL=https://modipa.agenziaentrate.it/govway/rest/in/AgenziaEntrate-PDND/anncsu-aggiornamento-odonimi/v1
 ANNCSU_ACCESSI_URL=https://modipa.agenziaentrate.it/govway/rest/in/AgenziaEntrate/anncsuaccessi/v1
-ANNCSU_INTERNI_URL=https://modipa.agenziaentrate.gov.it/govway/rest/in/AgenziaEntrate/anncsuinterni/v1
 ANNCSU_COORDINATE_URL=https://modipa.agenziaentrate.it/govway/rest/in/AgenziaEntrate/anncsuaccessi/v1
 
 # PDND Authentication
@@ -244,8 +243,7 @@ Creates a complete address, first verifying the existence of the odonimo and the
   "denom_odonimo": "ROMA",
   "dug": "VIA",
   "numero_civico": "42",
-  "interno": "5",
-  "esponente": "A"
+  "data_validita": "08/10/2024"
 }
 ```
 
@@ -301,31 +299,29 @@ Searches for addresses by odonimo and, optionally, numero civico.
 anncsu-workflow-api/
 ├── app/
 │   ├── __init__.py
-│   ├── main.py                 # FastAPI entry point
+│   ├── main.py                 # FastAPI entry point (health, visualizer, static specs)
 │   ├── config.py               # Configuration
 │   ├── models/
 │   │   ├── __init__.py
-│   │   └── workflows.py        # Pydantic models
-│   ├── clients/
-│   │   ├── __init__.py
-│   │   ├── anncsu.py          # HTTP client for ANNCSU API
-│   │   └── auth.py            # PDND authentication
-│   ├── services/
-│   │   ├── __init__.py
-│   │   └── workflows.py       # Workflow logic
+│   │   └── workflows.py        # Pydantic I/O models
 │   └── routers/
 │       ├── __init__.py
-│       └── workflows.py       # FastAPI endpoints
+│       └── visualizer.py       # arazzo-ui route
+├── specs/                      # Arazzo spec + the 4 source OpenAPI files
 ├── tests/
 │   ├── __init__.py
-│   ├── factories.py           # Polyfactory factories
-│   ├── test_models.py         # Models tests
-│   ├── test_clients.py        # Clients tests
-│   └── test_workflows.py      # Workflow tests
-├── pyproject.toml             # uv configuration
+│   ├── factories.py            # Polyfactory factories
+│   ├── test_models.py          # Models tests
+│   ├── test_openapi_validation.py  # Models vs OpenAPI specs
+│   └── test_visualizer.py      # Visualizer route tests
+├── docs/                       # Zensical docs site + architecture/ (ADRs)
+├── pyproject.toml              # uv configuration
 ├── README.md
-└── .env                       # Configuration (do not commit!)
+└── .env                        # Configuration (do not commit!)
 ```
+
+> The DDD/hexagonal layers (`application/`, `executor/`, `ports/`, `adapters/`) are introduced
+> incrementally with the workflow executor; see `docs/architecture/`.
 
 ## Integrated ANNCSU APIs
 
@@ -334,8 +330,7 @@ The service integrates the following ANNCSU APIs:
 1. **Consultazione** - Existence verification and search for odonimi/accessi
 2. **Aggiornamento Odonimi** - Insertion, update and suppression of odonimi
 3. **Aggiornamento Accessi** - Management of numeri civici
-4. **Aggiornamento Interni** - Management of interni
-5. **Aggiornamento Coordinate** - Management of geographic coordinates
+4. **Aggiornamento Coordinate** - Management of geographic coordinates
 
 ## Security
 

@@ -82,15 +82,9 @@ class TestCreaIndirizzoCompletoInput:
     def test_optional_fields_can_be_none(self):
         """Test that optional fields can be None."""
         model = CreaIndirizzoCompletoInputFactory.build(
-            interno=None,
-            esponente=None,
-            specificita=None,
-            metrico=None,
+            data_validita=None,
         )
-        assert model.interno is None
-        assert model.esponente is None
-        assert model.specificita is None
-        assert model.metrico is None
+        assert model.data_validita is None
 
     def test_model_serialization(self):
         """Test model serialization."""
@@ -258,14 +252,14 @@ class TestSopprimiOdonimoInput:
 class TestSopprimiOdonimoOutput:
     """Test suite for SopprimiOdonimoOutput model."""
 
-    def test_factory_generates_accessi_count(self):
-        """Test that the factory generates an accessi count."""
+    def test_factory_generates_accessi_list(self):
+        """Test that the factory generates a list of associated accessi."""
         models = SopprimiOdonimoOutputFactory.batch(30)
         models_with_accessi = [m for m in models if m.accessi_presenti is not None]
 
         for model in models_with_accessi:
-            assert isinstance(model.accessi_presenti, int)
-            assert model.accessi_presenti >= 0
+            assert isinstance(model.accessi_presenti, list)
+            assert all(isinstance(a, AccessoResult) for a in model.accessi_presenti)
 
 
 # ============================================================================
@@ -424,7 +418,7 @@ class TestRealWorldScenarios:
             denom_odonimo="GARIBALDI",
             dug="VIA",
             numero_civico="42",
-            interno="5",
+            data_validita="08/10/2024",
         )
 
         # Success output
@@ -432,14 +426,13 @@ class TestRealWorldScenarios:
             success=True,
             progressivo_nazionale_odonimo="2000449",
             progressivo_civico="1370588",
-            progressivo_interno="9876543",
             message="Indirizzo creato con successo",
             errors=None,
         )
 
         assert input_data.codcom == "H501"
         assert output_data.success is True
-        assert output_data.progressivo_interno is not None
+        assert output_data.progressivo_civico == "1370588"
 
     def test_search_returns_multiple_results(self):
         """Test a search that returns multiple results."""

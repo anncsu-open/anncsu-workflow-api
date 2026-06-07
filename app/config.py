@@ -29,9 +29,6 @@ class Settings(BaseSettings):
     anncsu_accessi_url: str = (
         "https://modipa.agenziaentrate.it/govway/rest/in/AgenziaEntrate/anncsuaccessi/v1"
     )
-    anncsu_interni_url: str = (
-        "https://modipa.agenziaentrate.gov.it/govway/rest/in/AgenziaEntrate/anncsuinterni/v1"
-    )
     anncsu_coordinate_url: str = (
         "https://modipa.agenziaentrate.it/govway/rest/in/AgenziaEntrate/anncsuaccessi/v1"
     )

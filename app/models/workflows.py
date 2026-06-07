@@ -3,6 +3,37 @@
 from pydantic import BaseModel, Field
 
 # ============================================================================
+# Shared search-result models
+# ============================================================================
+
+
+class OdonimoResult(BaseModel):
+    """Odonimo search result."""
+
+    prognaz: str = Field(..., description="Progressivo nazionale")
+    dug: str = Field(..., description="Denominazione Urbanistica Generica")
+    denomuff: str = Field(..., description="Denominazione ufficiale")
+    denomloc: str | None = Field(None, description="Denominazione località")
+    denomlingua1: str | None = Field(None, description="Denominazione in lingua 1")
+    denomlingua2: str | None = Field(None, description="Denominazione in lingua 2")
+
+
+class AccessoResult(BaseModel):
+    """Accesso search result."""
+
+    prognazacc: str = Field(..., description="Progressivo nazionale accesso")
+    civico: str | None = Field(None, description="Numero civico")
+    esp: str | None = Field(None, description="Esponente")
+    specif: str | None = Field(None, description="Specificità")
+    metrico: str | None = Field(None, description="Valore metrico")
+    # coordX and coordY use mixedCase to mirror the ANNCSU OpenAPI specs exactly
+    coordX: str | None = Field(None, description="Coordinata X")  # noqa: N815
+    coordY: str | None = Field(None, description="Coordinata Y")  # noqa: N815
+    quota: str | None = Field(None, description="Quota")
+    metodo: str | None = Field(None, description="Metodo di rilevazione")
+
+
+# ============================================================================
 # Workflow 1: Verify and create complete address
 # ============================================================================
 
@@ -28,25 +59,10 @@ class CreaIndirizzoCompletoInput(BaseModel):
     numero_civico: str = Field(
         ..., description="Numero civico", json_schema_extra={"example": "42"}
     )
-    interno: str | None = Field(
+    data_validita: str | None = Field(
         None,
-        description="Numero interno (opzionale)",
-        json_schema_extra={"example": "5"},
-    )
-    esponente: str | None = Field(
-        None,
-        description="Esponente del civico",
-        json_schema_extra={"example": "A"},
-    )
-    specificita: str | None = Field(
-        None,
-        description="Specificità (es. ROSSO)",
-        json_schema_extra={"example": "ROSSO"},
-    )
-    metrico: str | None = Field(
-        None,
-        description="Valore metrico alternativo",
-        json_schema_extra={"example": "1200"},
+        description="Data di validità amministrativa (DD/MM/YYYY) per le creazioni",
+        json_schema_extra={"example": "08/10/2024"},
     )
 
 
@@ -58,7 +74,6 @@ class CreaIndirizzoCompletoOutput(BaseModel):
         None, description="Progressivo nazionale dell'odonimo"
     )
     progressivo_civico: str | None = Field(None, description="Progressivo del numero civico")
-    progressivo_interno: str | None = Field(None, description="Progressivo dell'interno")
     message: str = Field(..., description="Messaggio descrittivo del risultato")
     errors: list[str] | None = Field(None, description="Lista di eventuali errori")
 
@@ -149,8 +164,8 @@ class SopprimiOdonimoOutput(BaseModel):
     progressivo_nazionale: str | None = Field(
         None, description="Progressivo nazionale dell'odonimo soppresso"
     )
-    accessi_presenti: int | None = Field(
-        None, description="Numero di accessi associati all'odonimo"
+    accessi_presenti: list[AccessoResult] | None = Field(
+        None, description="Accessi associati all'odonimo (soppressi prima dell'odonimo)"
     )
     message: str = Field(..., description="Messaggio descrittivo del risultato")
     errors: list[str] | None = Field(None, description="Lista di eventuali errori")
@@ -179,32 +194,6 @@ class RicercaIndirizzoInput(BaseModel):
         description="Numero civico (opzionale)",
         json_schema_extra={"example": "42"},
     )
-
-
-class OdonimoResult(BaseModel):
-    """Odonimo search result."""
-
-    prognaz: str = Field(..., description="Progressivo nazionale")
-    dug: str = Field(..., description="Denominazione Urbanistica Generica")
-    denomuff: str = Field(..., description="Denominazione ufficiale")
-    denomloc: str | None = Field(None, description="Denominazione località")
-    denomlingua1: str | None = Field(None, description="Denominazione in lingua 1")
-    denomlingua2: str | None = Field(None, description="Denominazione in lingua 2")
-
-
-class AccessoResult(BaseModel):
-    """Accesso search result."""
-
-    prognazacc: str = Field(..., description="Progressivo nazionale accesso")
-    civico: str | None = Field(None, description="Numero civico")
-    esp: str | None = Field(None, description="Esponente")
-    specif: str | None = Field(None, description="Specificità")
-    metrico: str | None = Field(None, description="Valore metrico")
-    # coordX and coordY use mixedCase to mirror the ANNCSU OpenAPI specs exactly
-    coordX: str | None = Field(None, description="Coordinata X")  # noqa: N815
-    coordY: str | None = Field(None, description="Coordinata Y")  # noqa: N815
-    quota: str | None = Field(None, description="Quota")
-    metodo: str | None = Field(None, description="Metodo di rilevazione")
 
 
 class RicercaIndirizzoOutput(BaseModel):

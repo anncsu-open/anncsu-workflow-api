@@ -37,7 +37,8 @@ indent-style = "space"
 
 # Ignora magic values nei test dove i numeri sono auto-documentanti
 [tool.ruff.lint.per-file-ignores]
-"tests/**/*.py" = ["PLR2004"]  # Magic values nei test sono chiari dal contesto
+# Magic values are clear from context in tests; test helpers may take many kwargs.
+"tests/**/*.py" = ["PLR2004", "PLR0913"]
 "tests/utils/openapi_validator.py" = ["PLR0911", "PLR0912"]  # Complessità necessaria per validazione OpenAPI
 
 [tool.pytest.ini_options]

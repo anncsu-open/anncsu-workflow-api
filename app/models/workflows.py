@@ -1,4 +1,9 @@
-"""Pydantic models for workflow inputs and outputs."""
+"""Pydantic models for workflow inputs and outputs.
+
+Field descriptions are the English baseline; other languages are overlaid onto the
+OpenAPI document from ``app/i18n/locales/<lang>.json`` (see ADR 0005). ANNCSU domain
+terms (odonimo, accesso, civico, codcom, …) are kept as-is.
+"""
 
 from pydantic import BaseModel, Field
 
@@ -10,27 +15,27 @@ from pydantic import BaseModel, Field
 class OdonimoResult(BaseModel):
     """Odonimo search result."""
 
-    prognaz: str = Field(..., description="Progressivo nazionale")
-    dug: str = Field(..., description="Denominazione Urbanistica Generica")
-    denomuff: str = Field(..., description="Denominazione ufficiale")
-    denomloc: str | None = Field(None, description="Denominazione località")
-    denomlingua1: str | None = Field(None, description="Denominazione in lingua 1")
-    denomlingua2: str | None = Field(None, description="Denominazione in lingua 2")
+    prognaz: str = Field(..., description="National progressive number")
+    dug: str = Field(..., description="Generic urban denomination (DUG)")
+    denomuff: str = Field(..., description="Official denomination")
+    denomloc: str | None = Field(None, description="Locality denomination")
+    denomlingua1: str | None = Field(None, description="Denomination in language 1")
+    denomlingua2: str | None = Field(None, description="Denomination in language 2")
 
 
 class AccessoResult(BaseModel):
     """Accesso search result."""
 
-    prognazacc: str = Field(..., description="Progressivo nazionale accesso")
-    civico: str | None = Field(None, description="Numero civico")
+    prognazacc: str = Field(..., description="National progressive number of the accesso")
+    civico: str | None = Field(None, description="Civico (street number)")
     esp: str | None = Field(None, description="Esponente")
     specif: str | None = Field(None, description="Specificità")
-    metrico: str | None = Field(None, description="Valore metrico")
+    metrico: str | None = Field(None, description="Metric value")
     # coordX and coordY use mixedCase to mirror the ANNCSU OpenAPI specs exactly
-    coordX: str | None = Field(None, description="Coordinata X")  # noqa: N815
-    coordY: str | None = Field(None, description="Coordinata Y")  # noqa: N815
-    quota: str | None = Field(None, description="Quota")
-    metodo: str | None = Field(None, description="Metodo di rilevazione")
+    coordX: str | None = Field(None, description="X coordinate")  # noqa: N815
+    coordY: str | None = Field(None, description="Y coordinate")  # noqa: N815
+    quota: str | None = Field(None, description="Elevation")
+    metodo: str | None = Field(None, description="Survey method")
 
 
 # ============================================================================
@@ -43,25 +48,25 @@ class CreaIndirizzoCompletoInput(BaseModel):
 
     codcom: str = Field(
         ...,
-        description="Codice Belfiore del comune",
+        description="Belfiore municipality code (codcom)",
         json_schema_extra={"example": "H501"},
     )
     denom_odonimo: str = Field(
         ...,
-        description="Denominazione dell'odonimo",
+        description="Odonimo denomination",
         json_schema_extra={"example": "ROMA"},
     )
     dug: str = Field(
         ...,
-        description="Denominazione Urbanistica Generica",
+        description="Generic urban denomination (DUG)",
         json_schema_extra={"example": "VIA"},
     )
     numero_civico: str = Field(
-        ..., description="Numero civico", json_schema_extra={"example": "42"}
+        ..., description="Civico (street number)", json_schema_extra={"example": "42"}
     )
     data_validita: str | None = Field(
         None,
-        description="Data di validità amministrativa (DD/MM/YYYY) per le creazioni",
+        description="Administrative validity date (DD/MM/YYYY) for creations",
         json_schema_extra={"example": "08/10/2024"},
     )
 
@@ -69,13 +74,13 @@ class CreaIndirizzoCompletoInput(BaseModel):
 class CreaIndirizzoCompletoOutput(BaseModel):
     """Output of the complete-address creation workflow."""
 
-    success: bool = Field(..., description="Indica se il workflow è completato con successo")
+    success: bool = Field(..., description="Whether the workflow completed successfully")
     progressivo_nazionale_odonimo: str | None = Field(
-        None, description="Progressivo nazionale dell'odonimo"
+        None, description="National progressive number of the odonimo"
     )
-    progressivo_civico: str | None = Field(None, description="Progressivo del numero civico")
-    message: str = Field(..., description="Messaggio descrittivo del risultato")
-    errors: list[str] | None = Field(None, description="Lista di eventuali errori")
+    progressivo_civico: str | None = Field(None, description="Progressive number of the civico")
+    message: str = Field(..., description="Descriptive message of the result")
+    errors: list[str] | None = Field(None, description="List of any errors")
 
 
 # ============================================================================
@@ -88,35 +93,35 @@ class AggiornaCoordinateInput(BaseModel):
 
     codcom: str = Field(
         ...,
-        description="Codice Belfiore del comune",
+        description="Belfiore municipality code (codcom)",
         json_schema_extra={"example": "H501"},
     )
     denom_odonimo: str = Field(
         ...,
-        description="Denominazione dell'odonimo",
+        description="Odonimo denomination",
         json_schema_extra={"example": "ROMA"},
     )
     numero_civico: str = Field(
-        ..., description="Numero civico", json_schema_extra={"example": "42"}
+        ..., description="Civico (street number)", json_schema_extra={"example": "42"}
     )
     coordinata_x: str = Field(
         ...,
-        description="Longitudine WGS84 (6.0-18.0)",
+        description="Longitude WGS84 (6.0-18.0)",
         json_schema_extra={"example": "13.1022000"},
     )
     coordinata_y: str = Field(
         ...,
-        description="Latitudine WGS84 (36.0-47.0)",
+        description="Latitude WGS84 (36.0-47.0)",
         json_schema_extra={"example": "41.8847600"},
     )
     coordinata_z: str | None = Field(
         None,
-        description="Quota in metri (opzionale)",
+        description="Elevation in meters (optional)",
         json_schema_extra={"example": "150"},
     )
     metodo: str = Field(
         "3",
-        description="Metodo di rilevazione (1-4)",
+        description="Survey method (1-4)",
         json_schema_extra={"example": "3"},
     )
 
@@ -124,11 +129,13 @@ class AggiornaCoordinateInput(BaseModel):
 class AggiornaCoordinateOutput(BaseModel):
     """Output of the coordinate update workflow."""
 
-    success: bool = Field(..., description="Indica se il workflow è completato con successo")
-    progressivo_civico: str | None = Field(None, description="Progressivo del civico aggiornato")
-    coordinate: dict | None = Field(None, description="Coordinate aggiornate")
-    message: str = Field(..., description="Messaggio descrittivo del risultato")
-    errors: list[str] | None = Field(None, description="Lista di eventuali errori")
+    success: bool = Field(..., description="Whether the workflow completed successfully")
+    progressivo_civico: str | None = Field(
+        None, description="Progressive number of the updated civico"
+    )
+    coordinate: dict | None = Field(None, description="Updated coordinates")
+    message: str = Field(..., description="Descriptive message of the result")
+    errors: list[str] | None = Field(None, description="List of any errors")
 
 
 # ============================================================================
@@ -141,17 +148,17 @@ class SopprimiOdonimoInput(BaseModel):
 
     codcom: str = Field(
         ...,
-        description="Codice Belfiore del comune",
+        description="Belfiore municipality code (codcom)",
         json_schema_extra={"example": "H501"},
     )
     denom_odonimo: str = Field(
         ...,
-        description="Denominazione dell'odonimo da sopprimere",
+        description="Denomination of the odonimo to suppress",
         json_schema_extra={"example": "ROMA"},
     )
     data_soppressione: str = Field(
         ...,
-        description="Data di soppressione (DD/MM/YYYY)",
+        description="Suppression date (DD/MM/YYYY)",
         json_schema_extra={"example": "08/10/2024"},
     )
 
@@ -159,16 +166,18 @@ class SopprimiOdonimoInput(BaseModel):
 class SopprimiOdonimoOutput(BaseModel):
     """Output of the odonimo suppression workflow."""
 
-    success: bool = Field(..., description="Indica se il workflow è completato con successo")
-    odonimo_soppresso: str | None = Field(None, description="Denominazione odonimo soppresso")
+    success: bool = Field(..., description="Whether the workflow completed successfully")
+    odonimo_soppresso: str | None = Field(
+        None, description="Denomination of the suppressed odonimo"
+    )
     progressivo_nazionale: str | None = Field(
-        None, description="Progressivo nazionale dell'odonimo soppresso"
+        None, description="National progressive number of the suppressed odonimo"
     )
     accessi_presenti: list[AccessoResult] | None = Field(
-        None, description="Accessi associati all'odonimo (soppressi prima dell'odonimo)"
+        None, description="Accessi associated with the odonimo (suppressed before the odonimo)"
     )
-    message: str = Field(..., description="Messaggio descrittivo del risultato")
-    errors: list[str] | None = Field(None, description="Lista di eventuali errori")
+    message: str = Field(..., description="Descriptive message of the result")
+    errors: list[str] | None = Field(None, description="List of any errors")
 
 
 # ============================================================================
@@ -181,17 +190,17 @@ class RicercaIndirizzoInput(BaseModel):
 
     codcom: str = Field(
         ...,
-        description="Codice Belfiore del comune",
+        description="Belfiore municipality code (codcom)",
         json_schema_extra={"example": "H501"},
     )
     denom_odonimo: str = Field(
         ...,
-        description="Denominazione dell'odonimo (anche parziale)",
+        description="Odonimo denomination (partial allowed)",
         json_schema_extra={"example": "ROMA"},
     )
     numero_civico: str | None = Field(
         None,
-        description="Numero civico (opzionale)",
+        description="Civico (street number, optional)",
         json_schema_extra={"example": "42"},
     )
 
@@ -199,8 +208,8 @@ class RicercaIndirizzoInput(BaseModel):
 class RicercaIndirizzoOutput(BaseModel):
     """Output of the address search workflow."""
 
-    success: bool = Field(..., description="Indica se la ricerca è completata con successo")
-    odonimi: list[OdonimoResult] = Field(default_factory=list, description="Lista odonimi trovati")
-    accessi: list[AccessoResult] = Field(default_factory=list, description="Lista accessi trovati")
-    message: str = Field(..., description="Messaggio descrittivo del risultato")
-    errors: list[str] | None = Field(None, description="Lista di eventuali errori")
+    success: bool = Field(..., description="Whether the search completed successfully")
+    odonimi: list[OdonimoResult] = Field(default_factory=list, description="List of odonimi found")
+    accessi: list[AccessoResult] = Field(default_factory=list, description="List of accessi found")
+    message: str = Field(..., description="Descriptive message of the result")
+    errors: list[str] | None = Field(None, description="List of any errors")

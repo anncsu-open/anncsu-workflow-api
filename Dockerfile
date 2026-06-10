@@ -10,6 +10,12 @@
 # Base image pinned by digest (supply-chain hardening); tag kept for readability.
 FROM python:3.12-slim@sha256:090ba77e2958f6af52a5341f788b50b032dd4ca28377d2893dcf1ecbdfdfe203
 
+# Apply Debian security updates on top of the pinned base so Trivy's "fixable
+# HIGH/CRITICAL" gate stays green as patches land (e.g. OpenSSL CVE-2026-45447).
+RUN apt-get update \
+    && apt-get upgrade -y \
+    && rm -rf /var/lib/apt/lists/*
+
 # uv binary from the official distroless image, pinned by digest.
 COPY --from=ghcr.io/astral-sh/uv:0.9.7@sha256:ba4857bf2a068e9bc0e64eed8563b065908a4cd6bfb66b531a9c424c8e25e142 /uv /uvx /bin/
 

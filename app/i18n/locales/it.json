@@ -1,0 +1,65 @@
+{
+  "OdonimoResult.prognaz": "Progressivo nazionale",
+  "OdonimoResult.dug": "Denominazione Urbanistica Generica",
+  "OdonimoResult.denomuff": "Denominazione ufficiale",
+  "OdonimoResult.denomloc": "Denominazione località",
+  "OdonimoResult.denomlingua1": "Denominazione in lingua 1",
+  "OdonimoResult.denomlingua2": "Denominazione in lingua 2",
+
+  "AccessoResult.prognazacc": "Progressivo nazionale accesso",
+  "AccessoResult.civico": "Numero civico",
+  "AccessoResult.esp": "Esponente",
+  "AccessoResult.specif": "Specificità",
+  "AccessoResult.metrico": "Valore metrico",
+  "AccessoResult.coordX": "Coordinata X",
+  "AccessoResult.coordY": "Coordinata Y",
+  "AccessoResult.quota": "Quota",
+  "AccessoResult.metodo": "Metodo di rilevazione",
+
+  "CreaIndirizzoCompletoInput.codcom": "Codice Belfiore del comune",
+  "CreaIndirizzoCompletoInput.denom_odonimo": "Denominazione dell'odonimo",
+  "CreaIndirizzoCompletoInput.dug": "Denominazione Urbanistica Generica",
+  "CreaIndirizzoCompletoInput.numero_civico": "Numero civico",
+  "CreaIndirizzoCompletoInput.data_validita": "Data di validità amministrativa (DD/MM/YYYY) per le creazioni",
+
+  "CreaIndirizzoCompletoOutput.success": "Indica se il workflow è completato con successo",
+  "CreaIndirizzoCompletoOutput.progressivo_nazionale_odonimo": "Progressivo nazionale dell'odonimo",
+  "CreaIndirizzoCompletoOutput.progressivo_civico": "Progressivo del numero civico",
+  "CreaIndirizzoCompletoOutput.message": "Messaggio descrittivo del risultato",
+  "CreaIndirizzoCompletoOutput.errors": "Lista di eventuali errori",
+
+  "AggiornaCoordinateInput.codcom": "Codice Belfiore del comune",
+  "AggiornaCoordinateInput.denom_odonimo": "Denominazione dell'odonimo",
+  "AggiornaCoordinateInput.numero_civico": "Numero civico",
+  "AggiornaCoordinateInput.coordinata_x": "Longitudine WGS84 (6.0-18.0)",
+  "AggiornaCoordinateInput.coordinata_y": "Latitudine WGS84 (36.0-47.0)",
+  "AggiornaCoordinateInput.coordinata_z": "Quota in metri (opzionale)",
+  "AggiornaCoordinateInput.metodo": "Metodo di rilevazione (1-4)",
+
+  "AggiornaCoordinateOutput.success": "Indica se il workflow è completato con successo",
+  "AggiornaCoordinateOutput.progressivo_civico": "Progressivo del civico aggiornato",
+  "AggiornaCoordinateOutput.coordinate": "Coordinate aggiornate",
+  "AggiornaCoordinateOutput.message": "Messaggio descrittivo del risultato",
+  "AggiornaCoordinateOutput.errors": "Lista di eventuali errori",
+
+  "SopprimiOdonimoInput.codcom": "Codice Belfiore del comune",
+  "SopprimiOdonimoInput.denom_odonimo": "Denominazione dell'odonimo da sopprimere",
+  "SopprimiOdonimoInput.data_soppressione": "Data di soppressione (DD/MM/YYYY)",
+
+  "SopprimiOdonimoOutput.success": "Indica se il workflow è completato con successo",
+  "SopprimiOdonimoOutput.odonimo_soppresso": "Denominazione odonimo soppresso",
+  "SopprimiOdonimoOutput.progressivo_nazionale": "Progressivo nazionale dell'odonimo soppresso",
+  "SopprimiOdonimoOutput.accessi_presenti": "Accessi associati all'odonimo (soppressi prima dell'odonimo)",
+  "SopprimiOdonimoOutput.message": "Messaggio descrittivo del risultato",
+  "SopprimiOdonimoOutput.errors": "Lista di eventuali errori",
+
+  "RicercaIndirizzoInput.codcom": "Codice Belfiore del comune",
+  "RicercaIndirizzoInput.denom_odonimo": "Denominazione dell'odonimo (anche parziale)",
+  "RicercaIndirizzoInput.numero_civico": "Numero civico (opzionale)",
+
+  "RicercaIndirizzoOutput.success": "Indica se la ricerca è completata con successo",
+  "RicercaIndirizzoOutput.odonimi": "Lista odonimi trovati",
+  "RicercaIndirizzoOutput.accessi": "Lista accessi trovati",
+  "RicercaIndirizzoOutput.message": "Messaggio descrittivo del risultato",
+  "RicercaIndirizzoOutput.errors": "Lista di eventuali errori"
+}

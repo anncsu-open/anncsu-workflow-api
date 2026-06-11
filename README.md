@@ -225,9 +225,15 @@ uv run uvicorn app.main:app --host 0.0.0.0 --port 8000
 
 The service will be available at `http://localhost:8000`
 
-Interactive documentation:
-- **Swagger UI**: http://localhost:8000/docs
-- **ReDoc**: http://localhost:8000/redoc
+Interactive documentation (the API contract is published under `/v1`, see
+`docs/architecture/0005-api-internationalization-and-versioning.md`):
+- **Swagger UI**: http://localhost:8000/v1/docs
+- **ReDoc**: http://localhost:8000/v1/redoc
+- **OpenAPI**: http://localhost:8000/v1/openapi.json
+
+The OpenAPI document is served in English by default; request another language with the
+`lang` query parameter or the `Accept-Language` header, e.g.
+`http://localhost:8000/v1/openapi.json?lang=it`.
 
 ## Available Workflows
 

@@ -67,6 +67,7 @@ class WorkflowExecutor:
                 return self._finish(workflow, ctx, "completed")
 
             step = workflow.steps[position]
+            await self._run_foreach(workflow, step, ctx)
             await self._execute_step(step, ctx)
             succeeded = self._succeeded(step, ctx)
             action = self._select_action(step, succeeded=succeeded, ctx=ctx)
@@ -102,6 +103,25 @@ class WorkflowExecutor:
                 }
             )
 
+    async def _run_foreach(self, workflow: Workflow, step: Step, ctx: ExecutionContext) -> None:
+        """Run an ``x-executor.foreach`` before its ``before`` step.
+
+        Iterates ``over`` (a list resolved from the context), binds each item to the
+        loop variable ``as``, and invokes the named sub-workflow per item. Sequential
+        and fail-fast: a failing sub-workflow raises and aborts before the step runs.
+        """
+        foreach = (workflow.x_executor or {}).get("foreach")
+        if not foreach or foreach.get("before") != step.step_id:
+            return
+        items = evaluate_expression(foreach["over"], ctx) or []
+        loop_var = foreach["as"]
+        invoke = foreach["invoke"]
+        for item in items:
+            ctx.loop_vars[loop_var] = item
+            sub_inputs = resolve_value(invoke.get("inputs", {}), ctx)
+            await self.run(invoke["workflowId"], sub_inputs)
+        ctx.loop_vars.pop(loop_var, None)
+
     @staticmethod
     def _succeeded(step: Step, ctx: ExecutionContext) -> bool:
         return all(evaluate_condition(c, ctx) for c in step.success_criteria)
@@ -124,9 +144,27 @@ class WorkflowExecutor:
     @staticmethod
     def _finish(workflow: Workflow, ctx: ExecutionContext, status: str) -> WorkflowRun:
         outputs = {name: evaluate_expression(expr, ctx) for name, expr in workflow.outputs.items()}
+        # x-executor.coalesce resolves outputs across alternative branches (the
+        # value of whichever branch actually ran); these keys override/extend the
+        # declared outputs. See ADR 0003.
+        outputs.update(_coalesced_outputs(workflow, ctx))
         return WorkflowRun(
             workflow_id=workflow.workflow_id,
             status=status,
             outputs=outputs,
             steps=ctx.steps,
         )
+
+
+def _coalesced_outputs(workflow: Workflow, ctx: ExecutionContext) -> dict[str, Any]:
+    """Resolve each ``x-executor.coalesce`` output to the first non-null branch value."""
+    coalesce = (workflow.x_executor or {}).get("coalesce", {})
+    resolved: dict[str, Any] = {}
+    for name, expressions in coalesce.items():
+        resolved[name] = None
+        for expr in expressions:
+            value = evaluate_expression(expr, ctx)
+            if value is not None:
+                resolved[name] = value
+                break
+    return resolved

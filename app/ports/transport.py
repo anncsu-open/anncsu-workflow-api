@@ -26,6 +26,16 @@ class Response:
     headers: Mapping[str, str] = field(default_factory=dict)
 
 
+class TransportError(Exception):
+    """The call itself failed: no usable HTTP outcome reached the executor.
+
+    Raised for failures *below* the Arazzo contract — network errors, missing
+    responses, authentication/token refresh failures. HTTP outcomes (any status
+    code with a body) are returned as :class:`Response` instead, so the spec's
+    ``successCriteria``/``onFailure`` stay in charge of them (ADR 0008).
+    """
+
+
 @runtime_checkable
 class WorkflowTransport(Protocol):
     """Async port that executes one Arazzo operation and returns a :class:`Response`."""

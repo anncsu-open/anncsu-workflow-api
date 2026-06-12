@@ -1,0 +1,237 @@
+"""Tests for ``AnncsuSdkTransport``: the production adapter behind ``WorkflowTransport``.
+
+The SDK boundary is faked (recorded callables on objects shaped like the sub-SDK
+clients), but everything that crosses it is real: real SDK response models on
+success and real SDK error classes on failure, so the response-adapter mapping
+(decision D3) and the error boundary (ADR 0008) are pinned against anncsu-sdk types:
+
+- HTTP outcome reached the service (200 body, or a documented 4xx/5xx raised by the
+  SDK as ``AnncsuBaseError``) -> normalized ``Response``; the Arazzo spec evaluates it.
+- The call itself failed (network, no response, token refresh) -> ``TransportError``.
+"""
+
+import asyncio
+import threading
+import time
+from types import SimpleNamespace
+
+import httpx
+import pytest
+from anncsu.accessi import models as accessi_models
+from anncsu.common.errors import NoResponseError
+from anncsu.pa import errors as pa_errors
+from anncsu.pa import models as pa_models
+
+from app.adapters.anncsu.client_manager import AnncsuClientManager
+from app.adapters.anncsu.registry import UnknownOperationError
+from app.adapters.anncsu.transport import AnncsuSdkTransport
+from app.ports.transport import TransportError, WorkflowTransport
+
+ESISTE_ODONIMO = "anncsu-consultazione.esisteOdonimoPost"
+GESTIONE_ACCESSI = "anncsu-accessi.gestioneAnncsuPdnd"
+
+
+def _transport(fake_clients: dict) -> AnncsuSdkTransport:
+    return AnncsuSdkTransport(AnncsuClientManager(clients=fake_clients))
+
+
+def _recorded(result):
+    """A fake sync SDK method that records kwargs and returns/raises ``result``."""
+    calls: list[dict] = []
+
+    def method(**kwargs):
+        calls.append(kwargs)
+        if isinstance(result, Exception):
+            raise result
+        return result
+
+    return method, calls
+
+
+def _consultazione(method) -> dict:
+    return {
+        "anncsu-consultazione": SimpleNamespace(
+            json_post=SimpleNamespace(esiste_odonimo_post=method)
+        )
+    }
+
+
+def _accessi(method) -> dict:
+    return {"anncsu-accessi": SimpleNamespace(anncsu=SimpleNamespace(gestione_anncsu_pdnd=method))}
+
+
+def test_transport_satisfies_the_port_protocol():
+    transport = _transport({})
+    assert isinstance(transport, WorkflowTransport)
+
+
+async def test_dispatch_returns_a_response_built_from_the_sdk_model():
+    method, calls = _recorded(pa_models.EsisteOdonimoPostResponse(res="OK", data=True))
+    transport = _transport(_consultazione(method))
+
+    payload = {"req": "esisteodonimo", "codcom": "H501", "denom": "VIA ROMA"}
+    response = await transport.dispatch(
+        operation_id=ESISTE_ODONIMO, payload=payload, content_type="application/json"
+    )
+
+    assert calls == [payload]
+    assert response.status_code == 200
+    assert response.body["data"] is True
+    assert response.body["res"] == "OK"
+
+
+async def test_dispatch_routes_a_write_payload_to_the_sdk_kwargs():
+    risposta = accessi_models.RispostaOperazione(
+        esito="0", dati=[accessi_models.Dati(progr_civico="123", progr_nazionale="456")]
+    )
+    method, calls = _recorded(risposta)
+    transport = _transport(_accessi(method))
+
+    richiesta = {"codcom": "H501", "progr_nazionale": "456", "accesso": {"numero": "1"}}
+    response = await transport.dispatch(
+        operation_id=GESTIONE_ACCESSI,
+        payload={"richiesta": richiesta},
+        content_type="application/json",
+    )
+
+    assert calls == [{"richiesta": richiesta}]
+    # The wire shape the Arazzo successCriteria/outputs read ([BLOCK_REST] in-band esito).
+    assert response.status_code == 200
+    assert response.body["esito"] == "0"
+    assert response.body["dati"][0]["progr_civico"] == "123"
+
+
+async def test_a_documented_http_error_becomes_a_response_for_the_spec():
+    problem = {"title": "Unprocessable Entity", "detail": "error in json"}
+    raw = httpx.Response(
+        422,
+        headers={"content-type": "application/problem+json"},
+        json=problem,
+        request=httpx.Request("POST", "https://example.test/v1/esisteodonimo"),
+    )
+    error = pa_errors.EsisteOdonimoPostUnprocessableEntityError(
+        pa_errors.EsisteOdonimoPostUnprocessableEntityErrorData(**problem), raw
+    )
+    method, _ = _recorded(error)
+    transport = _transport(_consultazione(method))
+
+    response = await transport.dispatch(
+        operation_id=ESISTE_ODONIMO, payload={}, content_type="application/json"
+    )
+
+    assert response.status_code == 422
+    assert response.body == problem
+    assert response.headers["content-type"] == "application/problem+json"
+
+
+async def test_a_non_json_http_error_body_falls_back_to_text():
+    raw = httpx.Response(
+        500,
+        headers={"content-type": "text/html"},
+        text="<html>gateway error</html>",
+        request=httpx.Request("POST", "https://example.test/v1/esisteodonimo"),
+    )
+    method, _ = _recorded(pa_errors.APIError("API error occurred", raw, raw.text))
+    transport = _transport(_consultazione(method))
+
+    response = await transport.dispatch(operation_id=ESISTE_ODONIMO, payload={}, content_type=None)
+
+    assert response.status_code == 500
+    assert response.body == "<html>gateway error</html>"
+
+
+async def test_a_network_failure_raises_transport_error():
+    method, _ = _recorded(httpx.ConnectError("connection refused"))
+    transport = _transport(_consultazione(method))
+
+    with pytest.raises(TransportError) as excinfo:
+        await transport.dispatch(operation_id=ESISTE_ODONIMO, payload={}, content_type=None)
+    assert isinstance(excinfo.value.__cause__, httpx.ConnectError)
+
+
+async def test_a_missing_response_raises_transport_error():
+    method, _ = _recorded(NoResponseError("No response received"))
+    transport = _transport(_consultazione(method))
+
+    with pytest.raises(TransportError):
+        await transport.dispatch(operation_id=ESISTE_ODONIMO, payload={}, content_type=None)
+
+
+async def test_a_failed_token_refresh_raises_transport_error():
+    from anncsu.common.hooks.token_validation import TokenRefreshError
+
+    method, _ = _recorded(TokenRefreshError("PDND token refresh failed"))
+    transport = _transport(_consultazione(method))
+
+    with pytest.raises(TransportError) as excinfo:
+        await transport.dispatch(operation_id=ESISTE_ODONIMO, payload={}, content_type=None)
+    assert isinstance(excinfo.value.__cause__, TokenRefreshError)
+
+
+async def test_an_unknown_operation_id_raises():
+    transport = _transport(_consultazione(_recorded(None)[0]))
+
+    with pytest.raises(UnknownOperationError):
+        await transport.dispatch(
+            operation_id="anncsu-consultazione.nope", payload={}, content_type=None
+        )
+
+
+async def test_the_sdk_call_runs_off_the_event_loop():
+    """The sync SDK (blocking PDND token refresh, anncsu-sdk#35) must not block the loop."""
+    observed: dict[str, bool] = {}
+
+    def method(**kwargs):
+        try:
+            asyncio.get_running_loop()
+            observed["off_loop"] = False
+        except RuntimeError:
+            observed["off_loop"] = True
+        return pa_models.EsisteOdonimoPostResponse(data=False)
+
+    transport = _transport(_consultazione(method))
+    await transport.dispatch(operation_id=ESISTE_ODONIMO, payload={}, content_type=None)
+
+    assert observed["off_loop"] is True
+
+
+async def test_dispatches_to_the_same_api_are_serialized():
+    """The per-API lock must prevent concurrent calls into one sub-SDK client."""
+    in_flight = threading.Semaphore(1)
+    overlapped: list[bool] = []
+
+    def method(**kwargs):
+        if not in_flight.acquire(blocking=False):
+            overlapped.append(True)
+        time.sleep(0.05)
+        in_flight.release()
+        return pa_models.EsisteOdonimoPostResponse(data=False)
+
+    transport = _transport(_consultazione(method))
+    await asyncio.gather(
+        transport.dispatch(operation_id=ESISTE_ODONIMO, payload={}, content_type=None),
+        transport.dispatch(operation_id=ESISTE_ODONIMO, payload={}, content_type=None),
+    )
+
+    assert not overlapped
+
+
+async def test_dispatches_to_different_apis_can_overlap():
+    """The lock is per-API, not global: two sources may be in flight at once."""
+    barrier = threading.Barrier(2, timeout=2)
+
+    def consultazione_method(**kwargs):
+        barrier.wait()
+        return pa_models.EsisteOdonimoPostResponse(data=False)
+
+    def accessi_method(**kwargs):
+        barrier.wait()
+        return accessi_models.RispostaOperazione(esito="0")
+
+    clients = _consultazione(consultazione_method) | _accessi(accessi_method)
+    transport = _transport(clients)
+
+    await asyncio.gather(
+        transport.dispatch(operation_id=ESISTE_ODONIMO, payload={}, content_type=None),
+        transport.dispatch(operation_id=GESTIONE_ACCESSI, payload={}, content_type=None),
+    )

@@ -69,6 +69,15 @@ class CreaIndirizzoCompletoInput(BaseModel):
         description="Administrative validity date (DD/MM/YYYY) for creations",
         json_schema_extra={"example": "08/10/2024"},
     )
+    sezione_censimento: str = Field(
+        ...,
+        max_length=13,
+        description=(
+            "Census section of the accesso (ISTAT SEZ21_ID format), required when "
+            "the accesso is created; not derivable from the consultation APIs"
+        ),
+        json_schema_extra={"example": "580911010001"},
+    )
 
 
 class CreaIndirizzoCompletoOutput(BaseModel):
@@ -103,6 +112,45 @@ class AggiornaCoordinateInput(BaseModel):
     )
     numero_civico: str = Field(
         ..., description="Civico (street number)", json_schema_extra={"example": "42"}
+    )
+    coordinata_x: str = Field(
+        ...,
+        description="Longitude WGS84 (6.0-18.0)",
+        json_schema_extra={"example": "13.1022000"},
+    )
+    coordinata_y: str = Field(
+        ...,
+        description="Latitude WGS84 (36.0-47.0)",
+        json_schema_extra={"example": "41.8847600"},
+    )
+    coordinata_z: str | None = Field(
+        None,
+        description="Elevation in meters (optional)",
+        json_schema_extra={"example": "150"},
+    )
+    metodo: str = Field(
+        "3",
+        description="Survey method (1-4)",
+        json_schema_extra={"example": "3"},
+    )
+
+
+class AggiornaCoordinateDaProgressivoAccessoInput(BaseModel):
+    """Input for the coordinate update workflow addressing the accesso directly.
+
+    The accesso is identified by its national progressive (``prognazacc``, as the
+    consultation APIs return it): no denomination resolution, one upstream call.
+    """
+
+    codcom: str = Field(
+        ...,
+        description="Belfiore municipality code (codcom)",
+        json_schema_extra={"example": "H501"},
+    )
+    prognazacc: str = Field(
+        ...,
+        description="National progressive number of the accesso",
+        json_schema_extra={"example": "1370588"},
     )
     coordinata_x: str = Field(
         ...,

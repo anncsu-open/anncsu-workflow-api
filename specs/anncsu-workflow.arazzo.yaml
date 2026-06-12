@@ -62,6 +62,13 @@ workflows:
         data_validita:
           type: string
           description: Data di validità amministrativa (DD/MM/YYYY) per le creazioni
+        sezione_censimento:
+          type: string
+          maxLength: 13
+          description: >-
+            Sezione di censimento dell'accesso (formato ISTAT SEZ21_ID, max 13
+            caratteri). Obbligatoria per la creazione dell'accesso
+            (operazione_civico I/R); non è derivabile dalle API di consultazione.
     steps:
       # 1) Verifica esistenza odonimo. Se esiste -> goto cerca-odonimo,
       #    altrimenti prosegue (fall-through) verso crea-odonimo.
@@ -165,6 +172,7 @@ workflows:
               accesso:
                 numero: $inputs.numero_civico
                 operazione_civico: I
+                sezione_censimento: $inputs.sezione_censimento
                 data_valid_amm: $inputs.data_validita
         successCriteria:
           - condition: $statusCode == 200
@@ -293,6 +301,60 @@ workflows:
 
     outputs:
       risultato: $steps.aggiorna-coordinate.outputs.coordinate_aggiornate
+
+  - workflowId: aggiorna-coordinate-da-progressivo-accesso
+    summary: Aggiorna le coordinate di un accesso identificato dal progressivo nazionale
+    description: |
+      Variante diretta di aggiorna-coordinate-accesso: l'accesso è identificato
+      dal progressivo nazionale (prognazacc, come ritornato dalle API di
+      consultazione), senza risoluzione per denominazione. Un solo passo,
+      nessuna ricerca: aggiornamento deterministico.
+    inputs:
+      type: object
+      properties:
+        codcom:
+          type: string
+          description: Codice Belfiore del comune
+        prognazacc:
+          type: string
+          description: Progressivo nazionale dell'accesso
+        coordinata_x:
+          type: string
+          description: Longitudine (WGS84)
+        coordinata_y:
+          type: string
+          description: Latitudine (WGS84)
+        coordinata_z:
+          type: string
+          description: Quota in metri (opzionale)
+        metodo:
+          type: string
+          description: Metodo di rilevazione (1-4)
+          default: "3"
+    steps:
+      - stepId: aggiorna-coordinate-progressivo
+        description: Aggiorna le coordinate dell'accesso indicato dal progressivo
+        operationId: anncsu-coordinate.gestionecoordinate
+        requestBody:
+          contentType: application/json
+          payload:
+            richiesta:
+              accesso:
+                codcom: $inputs.codcom
+                progr_civico: $inputs.prognazacc
+                coordinate:
+                  x: $inputs.coordinata_x
+                  y: $inputs.coordinata_y
+                  z: $inputs.coordinata_z
+                  metodo: $inputs.metodo
+        successCriteria:
+          - condition: $statusCode == 200
+          - condition: $response.body.esito == "0"
+        outputs:
+          coordinate_aggiornate: $response.body.dati[0]
+
+    outputs:
+      risultato: $steps.aggiorna-coordinate-progressivo.outputs.coordinate_aggiornate
 
   - workflowId: sopprimi-odonimo-completo
     summary: Sopprime un odonimo previa soppressione degli accessi associati

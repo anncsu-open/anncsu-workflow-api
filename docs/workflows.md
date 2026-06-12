@@ -20,6 +20,7 @@ cerca_accesso["cerca-accesso"]
 coord_cerca_odonimo["coord-cerca-odonimo"]
 coord_cerca_accesso["coord-cerca-accesso"]
 aggiorna_coordinate["aggiorna-coordinate"]
+aggiorna_coordinate_progressivo["aggiorna-coordinate-progressivo"]
 cerca_odonimo["cerca-odonimo"]
 elenca_accessi["elenca-accessi"]
 sopprimi_odonimo["sopprimi-odonimo"]
@@ -106,6 +107,13 @@ Cerca l'accesso per ottenere il progressivo civico
 ### 3: aggiorna-coordinate
 
 Aggiorna le coordinate dell'accesso
+
+- Operation: `anncsu-coordinate.gestionecoordinate`
+- Outputs: coordinate_aggiornate
+
+### 1: aggiorna-coordinate-progressivo
+
+Aggiorna le coordinate dell'accesso indicato dal progressivo
 
 - Operation: `anncsu-coordinate.gestionecoordinate`
 - Outputs: coordinate_aggiornate

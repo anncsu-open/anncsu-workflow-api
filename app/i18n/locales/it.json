@@ -21,6 +21,7 @@
   "CreaIndirizzoCompletoInput.dug": "Denominazione Urbanistica Generica",
   "CreaIndirizzoCompletoInput.numero_civico": "Numero civico",
   "CreaIndirizzoCompletoInput.data_validita": "Data di validità amministrativa (DD/MM/YYYY) per le creazioni",
+  "CreaIndirizzoCompletoInput.sezione_censimento": "Sezione di censimento dell'accesso (formato ISTAT SEZ21_ID), obbligatoria per la creazione dell'accesso; non derivabile dalle API di consultazione",
 
   "CreaIndirizzoCompletoOutput.success": "Indica se il workflow è completato con successo",
   "CreaIndirizzoCompletoOutput.progressivo_nazionale_odonimo": "Progressivo nazionale dell'odonimo",
@@ -35,6 +36,13 @@
   "AggiornaCoordinateInput.coordinata_y": "Latitudine WGS84 (36.0-47.0)",
   "AggiornaCoordinateInput.coordinata_z": "Quota in metri (opzionale)",
   "AggiornaCoordinateInput.metodo": "Metodo di rilevazione (1-4)",
+
+  "AggiornaCoordinateDaProgressivoAccessoInput.codcom": "Codice Belfiore del comune",
+  "AggiornaCoordinateDaProgressivoAccessoInput.prognazacc": "Progressivo nazionale dell'accesso",
+  "AggiornaCoordinateDaProgressivoAccessoInput.coordinata_x": "Longitudine WGS84 (6.0-18.0)",
+  "AggiornaCoordinateDaProgressivoAccessoInput.coordinata_y": "Latitudine WGS84 (36.0-47.0)",
+  "AggiornaCoordinateDaProgressivoAccessoInput.coordinata_z": "Quota in metri (opzionale)",
+  "AggiornaCoordinateDaProgressivoAccessoInput.metodo": "Metodo di rilevazione (1-4)",
 
   "AggiornaCoordinateOutput.success": "Indica se il workflow è completato con successo",
   "AggiornaCoordinateOutput.progressivo_civico": "Progressivo del civico aggiornato",

@@ -51,18 +51,21 @@ class _RaisingService:
 
 
 def test_crea_indirizzo_route_returns_coalesced_progressivi():
-    responses = {
-        # odonimo and accesso do not exist -> both "crea" branches run.
-        "anncsu-consultazione.esisteOdonimoPost": Response(200, {"data": False}),
-        "anncsu-odonimi.gestioneAnncsuOdonimiPdnd": Response(
-            200, {"esito": "0", "dati": [{"progr_nazionale": "2000449"}]}
-        ),
-        "anncsu-consultazione.esisteAccessoPost": Response(200, {"data": False}),
-        "anncsu-accessi.gestioneAnncsuPdnd": Response(
-            200, {"esito": "0", "dati": [{"progr_civico": "1370588"}]}
-        ),
-    }
-    with _client_scripted(responses) as client:
+    transport = ScriptedTransport(
+        {
+            # odonimo and accesso do not exist -> both "crea" branches run.
+            "anncsu-consultazione.esisteOdonimoPost": Response(200, {"data": False}),
+            "anncsu-odonimi.gestioneAnncsuOdonimiPdnd": Response(
+                200, {"esito": "0", "dati": [{"progr_nazionale": "2000449"}]}
+            ),
+            "anncsu-consultazione.esisteAccessoPost": Response(200, {"data": False}),
+            "anncsu-accessi.gestioneAnncsuPdnd": Response(
+                200, {"esito": "0", "dati": [{"progr_civico": "1370588"}]}
+            ),
+        }
+    )
+    executor = WorkflowExecutor(load_spec(ARAZZO_SPEC), transport)
+    with _client_with(WorkflowApplicationService(executor)) as client:
         response = client.post(
             "/v1/workflows/verifica-e-crea-indirizzo-completo",
             json={
@@ -71,6 +74,7 @@ def test_crea_indirizzo_route_returns_coalesced_progressivi():
                 "dug": "VIA",
                 "numero_civico": "42",
                 "data_validita": "08/10/2024",
+                "sezione_censimento": "580911010001",
             },
         )
 
@@ -80,6 +84,26 @@ def test_crea_indirizzo_route_returns_coalesced_progressivi():
     assert body["progressivo_nazionale_odonimo"] == "2000449"
     assert body["progressivo_civico"] == "1370588"
     assert body["message"]
+    # The accesso insert must carry sezione_censimento: the OAS requires it
+    # for operazione_civico I/R and the server rejects the insert without it.
+    crea_accesso = next(p for op, p in transport.calls if op == "anncsu-accessi.gestioneAnncsuPdnd")
+    assert crea_accesso["richiesta"]["accesso"]["sezione_censimento"] == "580911010001"
+
+
+def test_crea_indirizzo_requires_the_sezione_censimento():
+    """Without the sezione the accesso insert fails opaquely server-side (error 100):
+    the contract requires it up front instead."""
+    with _client_scripted({}) as client:
+        response = client.post(
+            "/v1/workflows/verifica-e-crea-indirizzo-completo",
+            json={"codcom": "H501", "denom_odonimo": "ROMA", "dug": "VIA", "numero_civico": "42"},
+        )
+
+    assert response.status_code == 422
+    assert response.headers["content-type"] == "application/problem+json"
+    assert any(
+        "sezione_censimento" in str(error.get("loc", ())) for error in response.json()["errors"]
+    )
 
 
 def test_ricerca_route_maps_search_results():
@@ -138,6 +162,41 @@ def test_aggiorna_coordinate_route_returns_updated_coordinates():
     body = response.json()
     assert body["success"] is True
     assert body["coordinate"] == {"coordinata_x": "13.1022000", "coordinata_y": "41.8847600"}
+
+
+def test_aggiorna_coordinate_da_progressivo_route_skips_the_searches():
+    """The by-progressive variant (ADR 0009) goes straight to the write: one call."""
+    transport = ScriptedTransport(
+        {
+            "anncsu-coordinate.gestionecoordinate": Response(
+                200,
+                {
+                    "esito": "0",
+                    "dati": [{"coordinata_x": "13.1022000", "coordinata_y": "41.8847600"}],
+                },
+            ),
+        }
+    )
+    executor = WorkflowExecutor(load_spec(ARAZZO_SPEC), transport)
+    with _client_with(WorkflowApplicationService(executor)) as client:
+        response = client.post(
+            "/v1/workflows/aggiorna-coordinate-da-progressivo-accesso",
+            json={
+                "codcom": "H501",
+                "prognazacc": "1370588",
+                "coordinata_x": "13.1022000",
+                "coordinata_y": "41.8847600",
+            },
+        )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["success"] is True
+    assert body["coordinate"] == {"coordinata_x": "13.1022000", "coordinata_y": "41.8847600"}
+    # No denomination resolution: the only outbound call is the coordinate write,
+    # and it carries the caller's prognazacc as the write payload's progr_civico.
+    assert [op for op, _ in transport.calls] == ["anncsu-coordinate.gestionecoordinate"]
+    assert transport.calls[0][1]["richiesta"]["accesso"]["progr_civico"] == "1370588"
 
 
 def test_sopprimi_odonimo_route_reports_suppressed_accessi():
@@ -263,6 +322,7 @@ def test_workflow_routes_are_published_in_the_v1_openapi():
     for workflow_id in (
         "verifica-e-crea-indirizzo-completo",
         "aggiorna-coordinate-accesso",
+        "aggiorna-coordinate-da-progressivo-accesso",
         "sopprimi-odonimo-completo",
         "ricerca-indirizzo-completo",
     ):
@@ -277,6 +337,7 @@ def test_workflow_routes_declare_their_problem_responses():
     for workflow_id in (
         "verifica-e-crea-indirizzo-completo",
         "aggiorna-coordinate-accesso",
+        "aggiorna-coordinate-da-progressivo-accesso",
         "sopprimi-odonimo-completo",
         "ricerca-indirizzo-completo",
     ):

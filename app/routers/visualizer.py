@@ -54,6 +54,8 @@ _PAGE = f"""<!doctype html>
     "/workflows/ui",
     response_class=HTMLResponse,
     summary="Interactive Arazzo workflows UI (arazzo-ui)",
+    # An HTML page for humans, not API surface: keep it out of the /v1 contract.
+    include_in_schema=False,
 )
 async def workflows_ui() -> HTMLResponse:
     """Serve the page that mounts arazzo-ui on the ANNCSU specification."""

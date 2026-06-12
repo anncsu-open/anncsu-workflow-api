@@ -225,7 +225,7 @@ def test_step_failed_is_a_workflow_error_but_keeps_its_own_status():
     assert response.status_code == 422
 
 
-def test_invalid_input_returns_fastapi_validation_422():
+def test_invalid_input_returns_a_422_problem():
     with _client_scripted({}) as client:
         response = client.post(
             "/v1/workflows/ricerca-indirizzo-completo",
@@ -233,6 +233,10 @@ def test_invalid_input_returns_fastapi_validation_422():
         )
 
     assert response.status_code == 422
+    assert response.headers["content-type"] == "application/problem+json"
+    problem = response.json()
+    assert problem["status"] == 422
+    assert problem["errors"]  # validation detail as an RFC 7807 extension member
 
 
 def test_the_reusable_sub_workflow_is_not_exposed():
@@ -263,3 +267,30 @@ def test_workflow_routes_are_published_in_the_v1_openapi():
         "ricerca-indirizzo-completo",
     ):
         assert f"/v1/workflows/{workflow_id}" in document["paths"]
+
+
+def test_workflow_routes_declare_their_problem_responses():
+    """The published contract documents the RFC 7807 failures (ADR 0008)."""
+    with _client_scripted({}) as client:
+        document = client.get("/v1/openapi.json").json()
+
+    for workflow_id in (
+        "verifica-e-crea-indirizzo-completo",
+        "aggiorna-coordinate-accesso",
+        "sopprimi-odonimo-completo",
+        "ricerca-indirizzo-completo",
+    ):
+        responses = document["paths"][f"/v1/workflows/{workflow_id}"]["post"]["responses"]
+        for status in ("422", "500", "502"):
+            assert "application/problem+json" in responses[status]["content"], (
+                f"{workflow_id} does not declare a problem+json {status} response"
+            )
+
+
+def test_the_visualizer_page_is_not_part_of_the_contract():
+    """/workflows/ui is an HTML page for humans, not API surface."""
+    with _client_scripted({}) as client:
+        document = client.get("/v1/openapi.json").json()
+
+    assert "/workflows/ui" not in document["paths"]
+    assert "/health" in document["paths"]  # health stays documented

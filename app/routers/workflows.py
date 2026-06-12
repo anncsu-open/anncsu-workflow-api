@@ -13,13 +13,14 @@ from __future__ import annotations
 
 from functools import cache
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends
 
 from app.adapters.anncsu import AnncsuClientManager, AnncsuSdkTransport
 from app.application.service import WorkflowApplicationService
 from app.config import settings
+from app.errors import PROBLEM_CONTENT_TYPE, Problem
 from app.executor.engine import WorkflowExecutor
 from app.executor.spec import load_spec
 from app.models.workflows import (
@@ -38,7 +39,24 @@ ARAZZO_SPEC = SPECS_DIR / "anncsu-workflow.arazzo.yaml"
 
 COMPLETED_MESSAGE = "Workflow completed"
 
-router = APIRouter(prefix="/v1/workflows", tags=["workflows"])
+
+def _problem_response(description: str) -> dict[str, Any]:
+    return {
+        "description": description,
+        "content": {PROBLEM_CONTENT_TYPE: {"schema": Problem.model_json_schema()}},
+    }
+
+
+# The RFC 7807 failures every workflow route can answer with (ADR 0008).
+PROBLEM_RESPONSES: dict[int | str, dict[str, Any]] = {
+    422: _problem_response(
+        "Invalid request payload, or a workflow step failed its success criteria"
+    ),
+    500: _problem_response("Workflow execution error"),
+    502: _problem_response("The upstream ANNCSU call failed before an HTTP outcome"),
+}
+
+router = APIRouter(prefix="/v1/workflows", tags=["workflows"], responses=PROBLEM_RESPONSES)
 
 
 @cache

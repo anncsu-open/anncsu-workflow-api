@@ -5,7 +5,9 @@ name: Docs
 # Source = "GitHub Actions".
 #
 # The workflows page (docs/workflows.md) is a committed, generated artifact
-# (see scripts/gen-docs.sh); this workflow only builds the committed docs/.
+# (see scripts/gen-docs.sh). The API reference contracts (docs/api/openapi.*.json)
+# are instead generated here at build time by scripts/export_openapi.py, so the
+# published Swagger always reflects the code on main.
 on:
   push:
     branches: [main]
@@ -35,6 +37,9 @@ jobs:
 
       - name: Install dependencies
         run: uv sync
+
+      - name: Export the /v1 OpenAPI contracts
+        run: uv run python scripts/export_openapi.py
 
       - name: Build site
         run: uv run zensical build

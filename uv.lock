@@ -56,6 +56,7 @@ dev = [
     { name = "pytest-cov" },
     { name = "ruff" },
     { name = "ty" },
+    { name = "typer" },
     { name = "zensical" },
 ]
 
@@ -86,6 +87,7 @@ dev = [
     { name = "pytest-cov", specifier = ">=6.0.0" },
     { name = "ruff", specifier = ">=0.7.0" },
     { name = "ty", specifier = ">=0.0.44" },
+    { name = "typer", specifier = ">=0.26.0" },
     { name = "zensical", specifier = ">=0.0.43" },
 ]
 

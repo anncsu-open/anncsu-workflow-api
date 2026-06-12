@@ -1,0 +1,34 @@
+<!doctype html>
+<!-- Standalone Swagger UI over the exported /v1 contract (one JSON per language).
+     The openapi.<lang>.json files are generated at build time by
+     scripts/export_openapi.py (see .github/workflows/docs.yml); they are not
+     committed. Version pinned for reproducible rendering. -->
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ANNCSU Workflow API — Swagger UI</title>
+  <link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist@5.32.6/swagger-ui.css" />
+  <style>
+    html, body { margin: 0; padding: 0; }
+  </style>
+</head>
+<body>
+  <div id="swagger-ui"></div>
+  <script src="https://unpkg.com/swagger-ui-dist@5.32.6/swagger-ui-bundle.js" crossorigin></script>
+  <script src="https://unpkg.com/swagger-ui-dist@5.32.6/swagger-ui-standalone-preset.js" crossorigin></script>
+  <script>
+    window.ui = SwaggerUIBundle({
+      urls: [
+        { url: "./openapi.en.json", name: "English" },
+        { url: "./openapi.it.json", name: "Italiano" },
+      ],
+      "urls.primaryName": "English",
+      dom_id: "#swagger-ui",
+      deepLinking: true,
+      presets: [SwaggerUIBundle.presets.apis, SwaggerUIStandalonePreset],
+      layout: "StandaloneLayout",
+    });
+  </script>
+</body>
+</html>

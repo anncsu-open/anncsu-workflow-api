@@ -199,9 +199,17 @@ A static documentation site is built with [Zensical](https://zensical.org)
 from the Arazzo spec with [apitapviz](https://github.com/lornajane/apitapviz) and
 includes a Mermaid graph of the flow (rendered natively by Zensical).
 
+The **API reference** page (`docs/api/`) embeds Swagger UI over the `/v1` OpenAPI
+contract. The contract JSONs (one per language) are exported from the code by
+`scripts/export_openapi.py` at every docs build — they are build artifacts, not
+committed — so the published Swagger always reflects the code on `main`.
+
 ```bash
 # Regenerate docs/workflows.md from the Arazzo spec (clones the pinned apitapviz)
 bash scripts/gen-docs.sh
+
+# Export the /v1 OpenAPI contracts for the API reference page
+uv run python scripts/export_openapi.py
 
 # Build the static site into site/
 uv run zensical build

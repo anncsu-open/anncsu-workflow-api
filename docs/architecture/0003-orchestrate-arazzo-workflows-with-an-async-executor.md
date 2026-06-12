@@ -79,7 +79,13 @@ More difficult / accepted costs:
 - The synchronous request/response model means long workflows (e.g. suppressing an
   odonimo with many accessi) hold the HTTP connection open; a future async-job model may
   be needed and would be a separate decision.
-- The reject-vs-cascade behaviour of odonimo suppression on the server side is still
-  **to be confirmed in SOGEI validation**. Explicit per-accesso suppression is robust
-  under both hypotheses, but the executor's error handling around `esito == "23"` may
-  need revisiting once confirmed.
+- ~~The reject-vs-cascade behaviour of odonimo suppression on the server side is still
+  **to be confirmed in SOGEI validation**.~~ **Resolved (2026-06-12):** an empirical
+  dry-run against the UAT environment (2026-06-01, anncsu-sdk CLI
+  `anncsu odonimo delete --dry-run-cascade`) confirmed the **reject** hypothesis —
+  ANNCSU refuses to suppress an odonimo that still has accessi (error 320,
+  "Operazione consentita per odonimi privi di accessi") and does **not** cascade.
+  The explicit per-accesso suppression this ADR mandates is therefore required, not
+  just prudent. One follow-up remains: the observed UAT rejection body carries
+  `codice: "320"` and no `esito` field, so the spec's `esito == "23"` onFailure
+  criterion may not match the real envelope — tracked in issue #7.

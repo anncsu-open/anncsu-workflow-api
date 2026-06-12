@@ -13,6 +13,11 @@ import asyncio
 from collections.abc import Mapping
 from typing import Any
 
+from anncsu.accessi import AnncsuAccessi
+from anncsu.coordinate import AnncsuCoordinate
+from anncsu.odonimi import AnncsuOdonimi
+from anncsu.pa import AnncsuConsultazione
+
 from app.config import Settings
 
 
@@ -26,11 +31,6 @@ class AnncsuClientManager:
     @classmethod
     def from_settings(cls, settings: Settings) -> AnncsuClientManager:
         """Build the four sub-SDK clients with the configured server URLs."""
-        from anncsu.accessi import AnncsuAccessi
-        from anncsu.coordinate import AnncsuCoordinate
-        from anncsu.odonimi import AnncsuOdonimi
-        from anncsu.pa import AnncsuConsultazione
-
         validation = settings.use_validation_env
         return cls(
             clients={

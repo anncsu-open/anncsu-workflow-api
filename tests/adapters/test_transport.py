@@ -19,6 +19,7 @@ import httpx
 import pytest
 from anncsu.accessi import models as accessi_models
 from anncsu.common.errors import NoResponseError
+from anncsu.common.hooks.token_validation import TokenRefreshError
 from anncsu.pa import errors as pa_errors
 from anncsu.pa import models as pa_models
 
@@ -158,8 +159,6 @@ async def test_a_missing_response_raises_transport_error():
 
 
 async def test_a_failed_token_refresh_raises_transport_error():
-    from anncsu.common.hooks.token_validation import TokenRefreshError
-
     method, _ = _recorded(TokenRefreshError("PDND token refresh failed"))
     transport = _transport(_consultazione(method))
 

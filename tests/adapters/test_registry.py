@@ -9,6 +9,10 @@ spec uses must be registered, and every registered path must resolve on the real
 from pathlib import Path
 
 import yaml
+from anncsu.accessi import AnncsuAccessi
+from anncsu.coordinate import AnncsuCoordinate
+from anncsu.odonimi import AnncsuOdonimi
+from anncsu.pa import AnncsuConsultazione
 
 from app.adapters.anncsu.registry import OPERATION_REGISTRY, resolve_method
 
@@ -38,11 +42,6 @@ def test_registry_sources_match_operation_id_prefixes():
 
 def test_every_registered_method_resolves_on_the_real_sdk():
     """Ground the registry against anncsu-sdk: each dotted path must be callable."""
-    from anncsu.accessi import AnncsuAccessi
-    from anncsu.coordinate import AnncsuCoordinate
-    from anncsu.odonimi import AnncsuOdonimi
-    from anncsu.pa import AnncsuConsultazione
-
     clients = {
         "anncsu-consultazione": AnncsuConsultazione(server_url="https://example.test/v1"),
         "anncsu-odonimi": AnncsuOdonimi(server_url="https://example.test/v1"),

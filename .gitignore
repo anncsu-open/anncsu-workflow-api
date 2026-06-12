@@ -34,3 +34,4 @@ specs/*interni*.yml
 
 # Generated docs site (Zensical)
 site/
+docs/api/openapi.*.json

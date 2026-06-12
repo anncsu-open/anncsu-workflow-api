@@ -64,4 +64,6 @@ dev = [
     "prek>=0.4.4",
     # Static docs site (Zensical) for the Arazzo workflows
     "zensical>=0.0.43",
+    # CLI of the docs export script (scripts/export_openapi.py)
+    "typer>=0.26.0",
 ]

@@ -237,11 +237,18 @@ The OpenAPI document is served in English by default; request another language w
 
 ## Available Workflows
 
+Each public Arazzo workflow is exposed as a typed route under `/v1/workflows/<workflowId>`.
+The call is synchronous: the response carries the workflow outcome in-band. Failures are
+reported as RFC 7807 Problem Details (`application/problem+json`): a step failing its
+success criteria maps to `422`, an upstream transport failure to `502` (see
+`docs/architecture/0008-error-handling-at-the-operation-boundary.md`). The reusable
+`sopprimi-accesso` sub-workflow is not exposed; only the executor invokes it.
+
 ### 1. Verify and Create Complete Address
 
 Creates a complete address, first verifying the existence of the odonimo and the accesso.
 
-**Endpoint**: `POST /workflows/crea-indirizzo`
+**Endpoint**: `POST /v1/workflows/verifica-e-crea-indirizzo-completo`
 
 ```json
 {
@@ -257,7 +264,7 @@ Creates a complete address, first verifying the existence of the odonimo and the
 
 Updates the geographic (GPS) coordinates of an existing accesso.
 
-**Endpoint**: `POST /workflows/aggiorna-coordinate`
+**Endpoint**: `POST /v1/workflows/aggiorna-coordinate-accesso`
 
 ```json
 {
@@ -273,9 +280,11 @@ Updates the geographic (GPS) coordinates of an existing accesso.
 
 ### 3. Suppress Complete Odonimo
 
-Suppresses an existing odonimo.
+Suppresses an existing odonimo. Every accesso of the odonimo is suppressed first with
+an explicit, traceable call (the executor iterates the `sopprimi-accesso` sub-workflow
+as declared by `x-executor.foreach`), then the odonimo itself.
 
-**Endpoint**: `POST /workflows/sopprimi-odonimo`
+**Endpoint**: `POST /v1/workflows/sopprimi-odonimo-completo`
 
 ```json
 {
@@ -289,7 +298,7 @@ Suppresses an existing odonimo.
 
 Searches for addresses by odonimo and, optionally, numero civico.
 
-**Endpoint**: `POST /workflows/ricerca-indirizzo`
+**Endpoint**: `POST /v1/workflows/ricerca-indirizzo-completo`
 
 ```json
 {
@@ -305,29 +314,34 @@ Searches for addresses by odonimo and, optionally, numero civico.
 anncsu-workflow-api/
 ├── app/
 │   ├── __init__.py
-│   ├── main.py                 # FastAPI entry point (health, visualizer, static specs)
+│   ├── main.py                 # FastAPI entry point (health, visualizer, /v1 routes)
 │   ├── config.py               # Configuration
+│   ├── errors.py               # RFC 7807 Problem Details exception handlers
+│   ├── adapters/
+│   │   └── anncsu/             # SDK transport adapter (registry, client manager)
+│   ├── application/
+│   │   └── service.py          # WorkflowApplicationService (routes -> engine)
+│   ├── executor/               # Generic Arazzo engine (spec, context, expressions)
+│   ├── i18n/                   # Localized OpenAPI overlay (ADR 0005)
 │   ├── models/
-│   │   ├── __init__.py
-│   │   └── workflows.py        # Pydantic I/O models
+│   │   └── workflows.py        # Pydantic I/O models (the published contract)
+│   ├── ports/
+│   │   └── transport.py        # WorkflowTransport port, Response, TransportError
 │   └── routers/
-│       ├── __init__.py
-│       └── visualizer.py       # arazzo-ui route
+│       ├── visualizer.py       # arazzo-ui route
+│       └── workflows.py        # POST /v1/workflows/<workflowId> routes
 ├── specs/                      # Arazzo spec + the 4 source OpenAPI files
-├── tests/
-│   ├── __init__.py
-│   ├── factories.py            # Polyfactory factories
-│   ├── test_models.py          # Models tests
-│   ├── test_openapi_validation.py  # Models vs OpenAPI specs
-│   └── test_visualizer.py      # Visualizer route tests
+├── tests/                      # Unit, route, i18n, and regression suites
 ├── docs/                       # Zensical docs site + architecture/ (ADRs)
 ├── pyproject.toml              # uv configuration
 ├── README.md
 └── .env                        # Configuration (do not commit!)
 ```
 
-> The DDD/hexagonal layers (`application/`, `executor/`, `ports/`, `adapters/`) are introduced
-> incrementally with the workflow executor; see `docs/architecture/`.
+The layering follows the hexagonal architecture decided in
+`docs/architecture/0004-adopt-ddd-with-a-hexagonal-architecture.md`: domain flow lives in
+the canonical Arazzo spec, the engine is generic, and the ANNCSU SDK sits behind the
+`WorkflowTransport` port.
 
 ## Integrated ANNCSU APIs
 

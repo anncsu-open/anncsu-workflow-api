@@ -24,6 +24,7 @@ from app.errors import PROBLEM_CONTENT_TYPE, Problem
 from app.executor.engine import WorkflowExecutor
 from app.executor.spec import load_spec
 from app.models.workflows import (
+    AggiornaCoordinateDaProgressivoAccessoInput,
     AggiornaCoordinateInput,
     AggiornaCoordinateOutput,
     CreaIndirizzoCompletoInput,
@@ -106,6 +107,25 @@ async def aggiorna_coordinate_accesso(
     run = await service.run("aggiorna-coordinate-accesso", payload.model_dump())
     return AggiornaCoordinateOutput(
         success=True,
+        coordinate=run.outputs.get("risultato"),
+        message=COMPLETED_MESSAGE,
+    )
+
+
+@router.post(
+    "/aggiorna-coordinate-da-progressivo-accesso",
+    response_model=AggiornaCoordinateOutput,
+    summary="Update the coordinates of an accesso by its national progressive",
+)
+async def aggiorna_coordinate_da_progressivo_accesso(
+    payload: AggiornaCoordinateDaProgressivoAccessoInput,
+    service: ServiceDep,
+) -> AggiornaCoordinateOutput:
+    """Update coordinates addressing the accesso directly (no searches, ADR 0009)."""
+    run = await service.run("aggiorna-coordinate-da-progressivo-accesso", payload.model_dump())
+    return AggiornaCoordinateOutput(
+        success=True,
+        progressivo_civico=payload.prognazacc,
         coordinate=run.outputs.get("risultato"),
         message=COMPLETED_MESSAGE,
     )

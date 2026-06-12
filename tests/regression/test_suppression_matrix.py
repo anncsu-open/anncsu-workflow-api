@@ -189,7 +189,10 @@ def test_create_branch_path_through_the_real_sdk():
             return {"esito": "0", "dati": [{"progr_nazionale": "2000449"}]}
 
         def _accessi(self, body: dict) -> dict:
-            assert body["richiesta"]["accesso"]["operazione_civico"] == "I"
+            accesso = body["richiesta"]["accesso"]
+            assert accesso["operazione_civico"] == "I"
+            # Required by the OAS for I/R; the server rejects the insert without it.
+            assert accesso["sezione_censimento"] == "580911010001"
             return {"esito": "0", "dati": [{"progr_civico": "1370588"}]}
 
     server = CreateServer(accessi=[], mode="reject")
@@ -203,6 +206,7 @@ def test_create_branch_path_through_the_real_sdk():
                 "dug": "VIA",
                 "numero_civico": "42",
                 "data_validita": "08/10/2024",
+                "sezione_censimento": "580911010001",
             },
         )
 

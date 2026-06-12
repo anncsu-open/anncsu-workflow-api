@@ -3,9 +3,33 @@
 Field descriptions are the English baseline; other languages are overlaid onto the
 OpenAPI document from ``app/i18n/locales/<lang>.json`` (see ADR 0005). ANNCSU domain
 terms (odonimo, accesso, civico, codcom, …) are kept as-is.
+
+Input constraints mirror the ANNCSU OpenAPI / anncsu-sdk validation rules
+(Belfiore codcom format, OAS max lengths, DD/MM/YYYY dates, metodo 1-4): the SDK
+validates only in its CLI layer, so the facade rejects bad input up front with a
+named field instead of surfacing an opaque server error mid-workflow.
 """
 
-from pydantic import BaseModel, Field
+from datetime import datetime
+
+from pydantic import BaseModel, Field, field_validator
+
+# Belfiore municipality code: one uppercase letter + three digits (e.g. H501).
+CODCOM_PATTERN = r"^[A-Z][0-9]{3}$"
+# Survey method for coordinates, per the coordinate OpenAPI.
+METODO_PATTERN = r"^[1-4]$"
+
+
+def _ddmmyyyy(value: str | None) -> str | None:
+    """Accept only valid DD/MM/YYYY calendar dates (or None)."""
+    if value is None:
+        return value
+    try:
+        datetime.strptime(value, "%d/%m/%Y")  # noqa: DTZ007 - date only, no tz involved
+    except ValueError as error:
+        raise ValueError("must be a valid DD/MM/YYYY date") from error
+    return value
+
 
 # ============================================================================
 # Shared search-result models
@@ -48,11 +72,13 @@ class CreaIndirizzoCompletoInput(BaseModel):
 
     codcom: str = Field(
         ...,
+        pattern=CODCOM_PATTERN,
         description="Belfiore municipality code (codcom)",
         json_schema_extra={"example": "H501"},
     )
     denom_odonimo: str = Field(
         ...,
+        max_length=120,
         description="Odonimo denomination",
         json_schema_extra={"example": "ROMA"},
     )
@@ -62,7 +88,10 @@ class CreaIndirizzoCompletoInput(BaseModel):
         json_schema_extra={"example": "VIA"},
     )
     numero_civico: str = Field(
-        ..., description="Civico (street number)", json_schema_extra={"example": "42"}
+        ...,
+        max_length=5,
+        description="Civico (street number)",
+        json_schema_extra={"example": "42"},
     )
     data_validita: str | None = Field(
         None,
@@ -78,6 +107,8 @@ class CreaIndirizzoCompletoInput(BaseModel):
         ),
         json_schema_extra={"example": "580911010001"},
     )
+
+    _data_validita_is_a_date = field_validator("data_validita")(_ddmmyyyy)
 
 
 class CreaIndirizzoCompletoOutput(BaseModel):
@@ -102,6 +133,7 @@ class AggiornaCoordinateInput(BaseModel):
 
     codcom: str = Field(
         ...,
+        pattern=CODCOM_PATTERN,
         description="Belfiore municipality code (codcom)",
         json_schema_extra={"example": "H501"},
     )
@@ -111,25 +143,32 @@ class AggiornaCoordinateInput(BaseModel):
         json_schema_extra={"example": "ROMA"},
     )
     numero_civico: str = Field(
-        ..., description="Civico (street number)", json_schema_extra={"example": "42"}
+        ...,
+        max_length=5,
+        description="Civico (street number)",
+        json_schema_extra={"example": "42"},
     )
     coordinata_x: str = Field(
         ...,
+        max_length=12,
         description="Longitude WGS84 (6.0-18.0)",
         json_schema_extra={"example": "13.1022000"},
     )
     coordinata_y: str = Field(
         ...,
+        max_length=12,
         description="Latitude WGS84 (36.0-47.0)",
         json_schema_extra={"example": "41.8847600"},
     )
     coordinata_z: str | None = Field(
         None,
+        max_length=7,
         description="Elevation in meters (optional)",
         json_schema_extra={"example": "150"},
     )
     metodo: str = Field(
         "3",
+        pattern=METODO_PATTERN,
         description="Survey method (1-4)",
         json_schema_extra={"example": "3"},
     )
@@ -144,31 +183,37 @@ class AggiornaCoordinateDaProgressivoAccessoInput(BaseModel):
 
     codcom: str = Field(
         ...,
+        pattern=CODCOM_PATTERN,
         description="Belfiore municipality code (codcom)",
         json_schema_extra={"example": "H501"},
     )
     prognazacc: str = Field(
         ...,
+        max_length=15,
         description="National progressive number of the accesso",
         json_schema_extra={"example": "1370588"},
     )
     coordinata_x: str = Field(
         ...,
+        max_length=12,
         description="Longitude WGS84 (6.0-18.0)",
         json_schema_extra={"example": "13.1022000"},
     )
     coordinata_y: str = Field(
         ...,
+        max_length=12,
         description="Latitude WGS84 (36.0-47.0)",
         json_schema_extra={"example": "41.8847600"},
     )
     coordinata_z: str | None = Field(
         None,
+        max_length=7,
         description="Elevation in meters (optional)",
         json_schema_extra={"example": "150"},
     )
     metodo: str = Field(
         "3",
+        pattern=METODO_PATTERN,
         description="Survey method (1-4)",
         json_schema_extra={"example": "3"},
     )
@@ -196,6 +241,7 @@ class SopprimiOdonimoInput(BaseModel):
 
     codcom: str = Field(
         ...,
+        pattern=CODCOM_PATTERN,
         description="Belfiore municipality code (codcom)",
         json_schema_extra={"example": "H501"},
     )
@@ -209,6 +255,8 @@ class SopprimiOdonimoInput(BaseModel):
         description="Suppression date (DD/MM/YYYY)",
         json_schema_extra={"example": "08/10/2024"},
     )
+
+    _data_soppressione_is_a_date = field_validator("data_soppressione")(_ddmmyyyy)
 
 
 class SopprimiOdonimoOutput(BaseModel):
@@ -238,6 +286,7 @@ class RicercaIndirizzoInput(BaseModel):
 
     codcom: str = Field(
         ...,
+        pattern=CODCOM_PATTERN,
         description="Belfiore municipality code (codcom)",
         json_schema_extra={"example": "H501"},
     )
@@ -248,6 +297,7 @@ class RicercaIndirizzoInput(BaseModel):
     )
     numero_civico: str | None = Field(
         None,
+        max_length=5,
         description="Civico (street number, optional)",
         json_schema_extra={"example": "42"},
     )

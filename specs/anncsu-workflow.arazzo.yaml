@@ -495,7 +495,6 @@ workflows:
               accesso:
                 progr_civico: $inputs.progr_civico
                 operazione_civico: S
-                soppressione_civico: S
                 data_valid_amm: $inputs.data_soppressione
         successCriteria:
           - condition: $statusCode == 200

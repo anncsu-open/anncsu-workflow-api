@@ -9,7 +9,7 @@ resolution-markers = [
 
 [[package]]
 name = "anncsu-sdk"
-version = "0.0.9"
+version = "0.0.10"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "authlib" },
@@ -21,9 +21,9 @@ dependencies = [
     { name = "rich" },
     { name = "typer" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/b8/29/5128de3efd9ca679cb00d9e2ff266dd9fea9eb56ee56dd09a706255e79a1/anncsu_sdk-0.0.9.tar.gz", hash = "sha256:07f8ba02eedc3285b924c2f4745b0d4e33043f28188ef5b7569f96c0f8e4d112", size = 554909, upload-time = "2026-05-25T18:03:57.89Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/a2/41/5e24a5e59dc7e10365e0feb8840805493d8f424b6b185276329567da986a/anncsu_sdk-0.0.10.tar.gz", hash = "sha256:100496033529f3c1d09820ecbb29d04880aa4c8550a2cdb6e20ad718bfa3745b", size = 577567, upload-time = "2026-06-12T22:51:29.677Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/7d/58/890baa7ef82a9ced871ac2d92bc07221f158a8ed15080eef318082a75f48/anncsu_sdk-0.0.9-py3-none-any.whl", hash = "sha256:2dc1ca3b0e8ac3a97cabc80dcc384c60bb12c89d0bfb92751c60ec79f278601f", size = 293570, upload-time = "2026-05-25T18:03:56.343Z" },
+    { url = "https://files.pythonhosted.org/packages/55/b2/6b8722c76505d96ffdbf3a6fa0d46b8e2cdcf0288c609f922867fb91d23b/anncsu_sdk-0.0.10-py3-none-any.whl", hash = "sha256:47652f75becc27fa8d24f3ea973a0d2a073ea049aa61cfde5f62b444da11a7fc", size = 302262, upload-time = "2026-06-12T22:51:28.279Z" },
 ]
 
 [[package]]
@@ -62,7 +62,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "anncsu-sdk", specifier = "==0.0.9" },
+    { name = "anncsu-sdk", specifier = "==0.0.10" },
     { name = "authlib", specifier = ">=1.3.0" },
     { name = "cryptography", specifier = ">=42.0.0" },
     { name = "fastapi", extras = ["standard"], specifier = ">=0.115.0" },

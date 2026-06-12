@@ -13,7 +13,7 @@ dependencies = [
     "cryptography>=42.0.0",
     "pyyaml>=6.0.2",
     "python-multipart>=0.0.12",
-    "anncsu-sdk==0.0.9",
+    "anncsu-sdk==0.0.10",
 ]
 
 [build-system]

@@ -5,7 +5,6 @@ from polyfactory.factories.pydantic_factory import ModelFactory
 
 from app.models.workflows import (
     AccessoResult,
-    AggiornaCoordinateOutput,
     CreaIndirizzoCompletoInput,
     CreaIndirizzoCompletoOutput,
     OdonimoResult,
@@ -161,41 +160,6 @@ class CreaIndirizzoCompletoOutputFactory(ModelFactory[CreaIndirizzoCompletoOutpu
     @classmethod
     def progressivo_civico(cls) -> str | None:
         return progressivo_nazionale() if fake.boolean(chance_of_getting_true=80) else None
-
-    @classmethod
-    def message(cls) -> str:
-        return fake.sentence()
-
-    @classmethod
-    def errors(cls) -> list[str] | None:
-        if fake.boolean(chance_of_getting_true=20):
-            return [fake.sentence() for _ in range(fake.random_int(min=1, max=3))]
-        return None
-
-
-class AggiornaCoordinateOutputFactory(ModelFactory[AggiornaCoordinateOutput]):
-    """Factory for AggiornaCoordinateOutput."""
-
-    __model__ = AggiornaCoordinateOutput
-
-    @classmethod
-    def success(cls) -> bool:
-        return fake.boolean(chance_of_getting_true=80)
-
-    @classmethod
-    def progressivo_civico(cls) -> str | None:
-        return progressivo_nazionale() if fake.boolean(chance_of_getting_true=80) else None
-
-    @classmethod
-    def coordinate(cls) -> dict | None:
-        if fake.boolean(chance_of_getting_true=80):
-            return {
-                "x": coordinata_x(),
-                "y": coordinata_y(),
-                "z": coordinata_z(),
-                "metodo": metodo_rilevazione(),
-            }
-        return None
 
     @classmethod
     def message(cls) -> str:

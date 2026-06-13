@@ -5,7 +5,7 @@ from pydantic import ValidationError
 
 from app.models.workflows import (
     AccessoResult,
-    AggiornaCoordinateDaProgressivoAccessoInput,
+    AggiornaAccessoDaProgressivoInput,
     CreaIndirizzoCompletoInput,
     CreaIndirizzoCompletoOutput,
     OdonimoResult,
@@ -13,7 +13,6 @@ from app.models.workflows import (
 )
 from tests.factories import (
     AccessoResultFactory,
-    AggiornaCoordinateOutputFactory,
     CreaIndirizzoCompletoInputFactory,
     CreaIndirizzoCompletoOutputFactory,
     OdonimoResultFactory,
@@ -145,37 +144,6 @@ class TestCreaIndirizzoCompletoOutput:
         success_count = sum(1 for m in models if m.success)
         # The factory is configured for ~80% successes
         assert success_count >= 70  # At least 70%
-
-
-# ============================================================================
-# Test AggiornaCoordinateOutput
-# ============================================================================
-
-
-class TestAggiornaCoordinateOutput:
-    """Test suite for AggiornaCoordinateOutput model."""
-
-    def test_factory_generates_coordinate_dict(self):
-        """Test that the factory generates valid coordinate dictionaries."""
-        models = AggiornaCoordinateOutputFactory.batch(20)
-        models_with_coords = [m for m in models if m.coordinate is not None]
-
-        for model in models_with_coords:
-            assert model.coordinate is not None
-            assert "x" in model.coordinate
-            assert "y" in model.coordinate
-            assert "metodo" in model.coordinate
-
-    def test_output_without_coordinates(self):
-        """Test output without coordinates (in case of error)."""
-        model = AggiornaCoordinateOutputFactory.build(
-            success=False,
-            coordinate=None,
-            errors=["Accesso non trovato"],
-        )
-        assert model.success is False
-        assert model.coordinate is None
-        assert model.errors is not None
 
 
 # ============================================================================
@@ -420,29 +388,21 @@ class TestRealWorldScenarios:
         assert all("ROM" in o.denomuff for o in search_output.odonimi)
 
     def test_coordinate_update_with_gps(self):
-        """Test update of realistic GPS coordinates."""
+        """Realistic GPS coordinates pass the WGS84 validators on the accesso update."""
         # Roma Colosseo (real coordinates)
-        input_data = AggiornaCoordinateDaProgressivoAccessoInput(
+        input_data = AggiornaAccessoDaProgressivoInput(
             codcom="H501",
+            prognaz="2000449",
             prognazacc="1370588",
+            sezione_censimento="580911010001",
             coordinata_x="12.4922309",  # Colosseo longitude
             coordinata_y="41.8902142",  # Colosseo latitude
             coordinata_z="20",
             metodo="4",  # GPS
         )
 
-        output_data = AggiornaCoordinateOutputFactory.build(
-            success=True,
-            coordinate={
-                "x": input_data.coordinata_x,
-                "y": input_data.coordinata_y,
-                "z": input_data.coordinata_z,
-                "metodo": input_data.metodo,
-            },
-        )
-
-        assert output_data.success is True
-        # Type-safe access to coordinate dict (can be None)
-        assert output_data.coordinate is not None
-        assert float(output_data.coordinate["x"]) == pytest.approx(12.4922309)
-        assert float(output_data.coordinate["y"]) == pytest.approx(41.8902142)
+        assert input_data.coordinata_x is not None
+        assert input_data.coordinata_y is not None
+        assert float(input_data.coordinata_x) == pytest.approx(12.4922309)
+        assert float(input_data.coordinata_y) == pytest.approx(41.8902142)
+        assert input_data.metodo == "4"

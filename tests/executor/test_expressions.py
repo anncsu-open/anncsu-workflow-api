@@ -158,3 +158,30 @@ def test_resolve_value_passes_through_non_expressions(ctx):
     assert resolve_value("plain", ctx) == "plain"
     assert resolve_value(42, ctx) == 42
     assert resolve_value(None, ctx) is None
+
+
+def test_x_coalesce_picks_the_first_non_null(ctx):
+    # numero_civico input is None -> falls back to the read step's output.
+    payload = {
+        "numero": {
+            "x-coalesce": [
+                "$inputs.numero_civico",
+                "$steps.cerca-odonimo.outputs.progressivo_nazionale",
+            ]
+        },
+        "codcom": {"x-coalesce": ["$inputs.codcom", "$inputs.denom_odonimo"]},
+    }
+    resolved = resolve_value(payload, ctx)
+    assert resolved == {"numero": "2000449", "codcom": "H501"}
+
+
+def test_x_coalesce_is_all_null_when_nothing_resolves(ctx):
+    resolved = resolve_value(
+        {"x": {"x-coalesce": ["$inputs.numero_civico", "$inputs.missing"]}}, ctx
+    )
+    assert resolved == {"x": None}
+
+
+def test_x_coalesce_accepts_literal_fallbacks(ctx):
+    resolved = resolve_value({"op": {"x-coalesce": ["$inputs.numero_civico", "R"]}}, ctx)
+    assert resolved == {"op": "R"}

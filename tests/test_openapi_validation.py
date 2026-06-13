@@ -6,8 +6,8 @@ import pytest
 
 from app.models.workflows import (
     AccessoResult,
-    AggiornaCoordinateDaProgressivoAccessoInput,
-    AggiornaCoordinateOutput,
+    AggiornaAccessoDaProgressivoInput,
+    AggiornaAccessoOutput,
     CreaIndirizzoCompletoInput,
     CreaIndirizzoCompletoOutput,
     RicercaIndirizzoInput,
@@ -147,8 +147,8 @@ class TestAccessiAPI:
         assert "ACCESSI" in accessi_validator.openapi_spec.info.title
 
     def test_aggiorna_coordinate_input_has_required_fields(self):
-        """Test that AggiornaCoordinateDaProgressivoAccessoInput has the required fields."""
-        model_schema = AggiornaCoordinateDaProgressivoAccessoInput.model_json_schema()
+        """Test that AggiornaAccessoDaProgressivoInput has the required fields."""
+        model_schema = AggiornaAccessoDaProgressivoInput.model_json_schema()
 
         properties = model_schema.get("properties", {})
         assert "codcom" in properties
@@ -156,9 +156,14 @@ class TestAccessiAPI:
         assert "coordinata_x" in properties
         assert "coordinata_y" in properties
 
-        # Verify coordinate type
-        assert properties["coordinata_x"].get("type") == "string"
-        assert properties["coordinata_y"].get("type") == "string"
+        # Coordinates are optional strings (str | None -> anyOf string/null).
+        def _allows_string(prop: dict) -> bool:
+            if prop.get("type") == "string":
+                return True
+            return any(option.get("type") == "string" for option in prop.get("anyOf", []))
+
+        assert _allows_string(properties["coordinata_x"])
+        assert _allows_string(properties["coordinata_y"])
 
 
 class TestCoordinateAPI:
@@ -170,19 +175,22 @@ class TestCoordinateAPI:
         assert "COORDINATE" in coordinate_validator.openapi_spec.info.title
 
     def test_coordinate_input_structure(self):
-        """Test the coordinate input structure."""
-        model_schema = AggiornaCoordinateDaProgressivoAccessoInput.model_json_schema()
+        """Coordinates are optional on the accesso patch (preserved from the read);
+        identity and the non-derivable sezione are the required inputs (ADR 0012)."""
+        model_schema = AggiornaAccessoDaProgressivoInput.model_json_schema()
 
         properties = model_schema.get("properties", {})
-
-        # Coordinates X and Y are required
         required = model_schema.get("required", [])
-        assert "coordinata_x" in required
-        assert "coordinata_y" in required
 
-        # Z and metodo are optional
-        assert "coordinata_z" in properties
-        assert "metodo" in properties
+        # Coordinates are optional (the read preserves them when omitted)
+        assert "coordinata_x" in properties
+        assert "coordinata_y" in properties
+        assert "coordinata_x" not in required
+        assert "coordinata_y" not in required
+
+        # Identity + the non-fetchable sezione are required
+        for field in ("codcom", "prognaz", "prognazacc", "sezione_censimento"):
+            assert field in required
 
 
 class TestCrossSpecValidation:
@@ -230,8 +238,8 @@ class TestCrossSpecValidation:
         """Test that coordinate types are consistent across models."""
         # All models that use coordinates should use string
         models_with_coordinates = [
-            AggiornaCoordinateDaProgressivoAccessoInput,
-            AggiornaCoordinateOutput,
+            AggiornaAccessoDaProgressivoInput,
+            AggiornaAccessoOutput,
             AccessoResult,
         ]
 
@@ -258,7 +266,7 @@ class TestModelFieldDescriptions:
         """Test that input models have a description on their fields."""
         models = [
             CreaIndirizzoCompletoInput,
-            AggiornaCoordinateDaProgressivoAccessoInput,
+            AggiornaAccessoDaProgressivoInput,
             SopprimiOdonimoInput,
             RicercaIndirizzoInput,
         ]
@@ -277,7 +285,7 @@ class TestModelFieldDescriptions:
         """Test that output models have a description."""
         models = [
             CreaIndirizzoCompletoOutput,
-            AggiornaCoordinateOutput,
+            AggiornaAccessoOutput,
             SopprimiOdonimoOutput,
             RicercaIndirizzoOutput,
         ]
@@ -299,7 +307,7 @@ class TestModelExamples:
         """Test that input models have examples."""
         models = [
             CreaIndirizzoCompletoInput,
-            AggiornaCoordinateDaProgressivoAccessoInput,
+            AggiornaAccessoDaProgressivoInput,
             SopprimiOdonimoInput,
             RicercaIndirizzoInput,
         ]
@@ -334,7 +342,7 @@ class TestRequiredFields:
         """Test required fields in the output models."""
         output_models = [
             CreaIndirizzoCompletoOutput,
-            AggiornaCoordinateOutput,
+            AggiornaAccessoOutput,
             SopprimiOdonimoOutput,
             RicercaIndirizzoOutput,
         ]

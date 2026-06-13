@@ -217,68 +217,16 @@ workflows:
           - $steps.cerca-accesso.outputs.progressivo_civico
           - $steps.crea-accesso.outputs.progressivo_civico
 
-  - workflowId: aggiorna-coordinate-da-progressivo-accesso
-    summary: Aggiorna le coordinate di un accesso identificato dal progressivo nazionale
-    description: |
-      Aggiorna le coordinate di un accesso identificato direttamente dal suo
-      progressivo nazionale (prognazacc, come ritornato dalle API di
-      consultazione), senza risoluzione per denominazione. Un solo passo,
-      nessuna ricerca: aggiornamento deterministico.
-    inputs:
-      type: object
-      properties:
-        codcom:
-          type: string
-          description: Codice Belfiore del comune
-        prognazacc:
-          type: string
-          description: Progressivo nazionale dell'accesso
-        coordinata_x:
-          type: string
-          description: Longitudine (WGS84)
-        coordinata_y:
-          type: string
-          description: Latitudine (WGS84)
-        coordinata_z:
-          type: string
-          description: Quota in metri (opzionale)
-        metodo:
-          type: string
-          description: Metodo di rilevazione (1-4)
-          default: "3"
-    steps:
-      - stepId: aggiorna-coordinate-progressivo
-        description: Aggiorna le coordinate dell'accesso indicato dal progressivo
-        operationId: anncsu-coordinate.gestionecoordinate
-        requestBody:
-          contentType: application/json
-          payload:
-            richiesta:
-              accesso:
-                codcom: $inputs.codcom
-                progr_civico: $inputs.prognazacc
-                coordinate:
-                  x: $inputs.coordinata_x
-                  y: $inputs.coordinata_y
-                  z: $inputs.coordinata_z
-                  metodo: $inputs.metodo
-        successCriteria:
-          - condition: $statusCode == 200
-          - condition: $response.body.esito == "0"
-        outputs:
-          coordinate_aggiornate: $response.body.dati[0]
-
-    outputs:
-      risultato: $steps.aggiorna-coordinate-progressivo.outputs.coordinate_aggiornate
-
   - workflowId: aggiorna-accesso-da-progressivo
-    summary: Aggiorna lo stato di un accesso identificato dai progressivi nazionali
+    summary: Aggiorna un accesso identificato dai progressivi nazionali
     description: |
-      Aggiornamento generico dell'accesso (operazione R) identificato da
-      progressivo nazionale dell'odonimo e dell'accesso. Semantica replace:
-      la richiesta descrive il NUOVO stato dell'accesso; gli attributi omessi
-      non sono garantiti preservati. Le coordinate restano sui workflow
-      dedicati (API Coordinate).
+      Aggiornamento generico dell'accesso (operazione R) identificato dal
+      progressivo nazionale dell'odonimo e dell'accesso. Patch via
+      read-modify-write: legge lo stato attuale (prognazaccPost) e i campi
+      forniti dal chiamante lo sovrascrivono (x-coalesce input-su-letto), così
+      gli attributi non indicati sono preservati senza che il chiamante debba
+      conoscerli. La sezione di censimento NON è esposta dalla consultazione:
+      è obbligatoria in input. Copre anche l'aggiornamento delle sole coordinate.
     inputs:
       type: object
       properties:
@@ -291,14 +239,18 @@ workflows:
         prognazacc:
           type: string
           description: Progressivo nazionale dell'accesso
+        sezione_censimento:
+          type: string
+          maxLength: 13
+          description: Sezione di censimento (formato ISTAT SEZ21_ID), obbligatoria
         numero:
           type: string
           maxLength: 5
-          description: Numero civico (esattamente uno tra numero e metrico)
+          description: Numero civico (al più uno tra numero e metrico)
         metrico:
           type: string
           maxLength: 6
-          description: Identificazione metrica (esattamente uno tra numero e metrico)
+          description: Identificazione metrica (al più uno tra numero e metrico)
         esponente:
           type: string
           maxLength: 15
@@ -315,16 +267,52 @@ workflows:
           type: string
           maxLength: 30
           description: Codifica comunale dell'accesso
-        sezione_censimento:
-          type: string
-          maxLength: 13
-          description: Sezione di censimento (formato ISTAT SEZ21_ID)
         data_validita:
           type: string
           description: Data di validità amministrativa (DD/MM/YYYY)
+        coordinata_x:
+          type: string
+          maxLength: 12
+          description: Longitudine WGS84
+        coordinata_y:
+          type: string
+          maxLength: 12
+          description: Latitudine WGS84
+        coordinata_z:
+          type: string
+          maxLength: 7
+          description: Quota in metri
+        metodo:
+          type: string
+          description: Metodo di rilevazione (1-4)
     steps:
+      - stepId: leggi-accesso
+        description: Legge lo stato attuale dell'accesso per progressivo nazionale
+        operationId: anncsu-consultazione.prognazaccPost
+        requestBody:
+          contentType: application/json
+          payload:
+            req: prognazacc
+            prognazacc: $inputs.prognazacc
+        successCriteria:
+          - condition: $statusCode == 200
+          - condition: $response.body.data.length > 0
+        outputs:
+          numero: $response.body.data[0].civico
+          esponente: $response.body.data[0].esp
+          specificita: $response.body.data[0].specif
+          metrico: $response.body.data[0].metrico
+          codice_civico_comunale: $response.body.data[0].codacccomunale
+          coord_x: $response.body.data[0].coordX
+          coord_y: $response.body.data[0].coordY
+          coord_z: $response.body.data[0].quota
+          coord_metodo: $response.body.data[0].metodo
+
+      # I campi non forniti dal chiamante sono preservati dal valore letto
+      # (x-coalesce: input PRIMA, lettura POI). La sezione di censimento non è
+      # leggibile dalla consultazione, quindi viene solo dall'input.
       - stepId: aggiorna-accesso
-        description: Sostituisce lo stato dell'accesso indicato dai progressivi
+        description: Sostituisce lo stato dell'accesso preservando i campi non indicati
         operationId: anncsu-accessi.gestioneAnncsuPdnd
         requestBody:
           contentType: application/json
@@ -335,19 +323,46 @@ workflows:
               accesso:
                 progr_civico: $inputs.prognazacc
                 operazione_civico: R
-                numero: $inputs.numero
-                metrico: $inputs.metrico
-                esponente: $inputs.esponente
-                specificita: $inputs.specificita
-                isolato: $inputs.isolato
-                codice_civico_comunale: $inputs.codice_civico_comunale
                 sezione_censimento: $inputs.sezione_censimento
                 data_valid_amm: $inputs.data_validita
+                isolato: $inputs.isolato
+                numero:
+                  x-coalesce:
+                    - $inputs.numero
+                    - $steps.leggi-accesso.outputs.numero
+                metrico:
+                  x-coalesce:
+                    - $inputs.metrico
+                    - $steps.leggi-accesso.outputs.metrico
+                esponente:
+                  x-coalesce:
+                    - $inputs.esponente
+                    - $steps.leggi-accesso.outputs.esponente
+                specificita:
+                  x-coalesce:
+                    - $inputs.specificita
+                    - $steps.leggi-accesso.outputs.specificita
+                codice_civico_comunale:
+                  x-coalesce:
+                    - $inputs.codice_civico_comunale
+                    - $steps.leggi-accesso.outputs.codice_civico_comunale
                 coordinate:
-                  x: $inputs.coordinata_x
-                  y: $inputs.coordinata_y
-                  z: $inputs.coordinata_z
-                  metodo: $inputs.metodo
+                  x:
+                    x-coalesce:
+                      - $inputs.coordinata_x
+                      - $steps.leggi-accesso.outputs.coord_x
+                  y:
+                    x-coalesce:
+                      - $inputs.coordinata_y
+                      - $steps.leggi-accesso.outputs.coord_y
+                  z:
+                    x-coalesce:
+                      - $inputs.coordinata_z
+                      - $steps.leggi-accesso.outputs.coord_z
+                  metodo:
+                    x-coalesce:
+                      - $inputs.metodo
+                      - $steps.leggi-accesso.outputs.coord_metodo
         successCriteria:
           - condition: $statusCode == 200
           - condition: $response.body.esito == "0"

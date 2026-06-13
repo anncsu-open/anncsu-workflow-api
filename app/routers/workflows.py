@@ -15,7 +15,7 @@ from functools import cache
 from pathlib import Path
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Body, Depends
 
 from app.adapters.anncsu import AnncsuClientManager, AnncsuSdkTransport
 from app.application.service import WorkflowApplicationService
@@ -26,8 +26,6 @@ from app.executor.spec import load_spec
 from app.models.workflows import (
     AggiornaAccessoDaProgressivoInput,
     AggiornaAccessoOutput,
-    AggiornaCoordinateDaProgressivoAccessoInput,
-    AggiornaCoordinateOutput,
     CreaIndirizzoCompletoInput,
     CreaIndirizzoCompletoOutput,
     RicercaIndirizzoInput,
@@ -95,23 +93,45 @@ async def verifica_e_crea_indirizzo_completo(
     )
 
 
-@router.post(
-    "/aggiorna-coordinate-da-progressivo-accesso",
-    response_model=AggiornaCoordinateOutput,
-    summary="Update the coordinates of an accesso by its national progressive",
-)
-async def aggiorna_coordinate_da_progressivo_accesso(
-    payload: AggiornaCoordinateDaProgressivoAccessoInput,
-    service: ServiceDep,
-) -> AggiornaCoordinateOutput:
-    """Update coordinates addressing the accesso directly (no searches, ADR 0009)."""
-    run = await service.run("aggiorna-coordinate-da-progressivo-accesso", payload.model_dump())
-    return AggiornaCoordinateOutput(
-        success=True,
-        progressivo_civico=payload.prognazacc,
-        coordinate=run.outputs.get("risultato"),
-        message=COMPLETED_MESSAGE,
-    )
+# Named request examples for the unified accesso update (the OpenAPI carries them
+# so the docs show the supported input shapes — ADR 0012).
+_ACCESSO_UPDATE_EXAMPLES: dict[str, Any] = {
+    "coordinates_only": {
+        "summary": "Coordinates only (attributes preserved by the read)",
+        "value": {
+            "codcom": "H501",
+            "prognaz": "2000449",
+            "prognazacc": "1370588",
+            "sezione_censimento": "580911010001",
+            "coordinata_x": "13.1022000",
+            "coordinata_y": "41.8847600",
+            "metodo": "4",
+        },
+    },
+    "attribute_only": {
+        "summary": "One attribute (coordinates preserved by the read)",
+        "value": {
+            "codcom": "H501",
+            "prognaz": "2000449",
+            "prognazacc": "1370588",
+            "sezione_censimento": "580911010001",
+            "esponente": "A",
+        },
+    },
+    "mixed": {
+        "summary": "Attributes and coordinates together",
+        "value": {
+            "codcom": "H501",
+            "prognaz": "2000449",
+            "prognazacc": "1370588",
+            "sezione_censimento": "580911010001",
+            "esponente": "A",
+            "specificita": "ROSSO",
+            "coordinata_x": "13.1022000",
+            "coordinata_y": "41.8847600",
+        },
+    },
+}
 
 
 @router.post(
@@ -119,17 +139,20 @@ async def aggiorna_coordinate_da_progressivo_accesso(
     response_model=AggiornaAccessoOutput,
     summary="Update an accesso by its national progressives",
     description=(
-        "Generic accesso update (ANNCSU operation R) addressed by the odonimo and "
-        "accesso national progressives. Replace semantics: the request describes the "
-        "accesso's new state and attributes left out are not guaranteed preserved — "
-        "read the accesso first and send the full desired state."
+        "Update an accesso (ANNCSU operation R) addressed by the odonimo and accesso "
+        "national progressives. Patch via read-modify-write: the workflow reads the "
+        "current accesso and the fields you send override it, so unspecified fields "
+        "are preserved. `sezione_censimento` is not exposed by the consultation API, "
+        "so it is always required. Coordinate-only updates send just the coordinates."
     ),
 )
 async def aggiorna_accesso_da_progressivo(
-    payload: AggiornaAccessoDaProgressivoInput,
+    payload: Annotated[
+        AggiornaAccessoDaProgressivoInput, Body(openapi_examples=_ACCESSO_UPDATE_EXAMPLES)
+    ],
     service: ServiceDep,
 ) -> AggiornaAccessoOutput:
-    """Replace the accesso's state (no searches; unset fields stay off the wire)."""
+    """Read the accesso, overlay the provided fields, write the R replace."""
     run = await service.run("aggiorna-accesso-da-progressivo", payload.model_dump())
     return AggiornaAccessoOutput(
         success=True,

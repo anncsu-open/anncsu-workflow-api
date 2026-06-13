@@ -141,57 +141,8 @@ class CreaIndirizzoCompletoOutput(BaseModel):
 
 
 # ============================================================================
-# Workflow 2: Update access coordinates
+# Workflow 2: Update access coordinates by national progressive
 # ============================================================================
-
-
-class AggiornaCoordinateInput(BaseModel):
-    """Input for the coordinate update workflow."""
-
-    codcom: str = Field(
-        ...,
-        pattern=CODCOM_PATTERN,
-        description="Belfiore municipality code (codcom)",
-        json_schema_extra={"example": "H501"},
-    )
-    denom_odonimo: str = Field(
-        ...,
-        description="Odonimo denomination",
-        json_schema_extra={"example": "ROMA"},
-    )
-    numero_civico: str = Field(
-        ...,
-        max_length=5,
-        description="Civico (street number)",
-        json_schema_extra={"example": "42"},
-    )
-    coordinata_x: str = Field(
-        ...,
-        max_length=12,
-        description="Longitude WGS84 (6.0-18.0)",
-        json_schema_extra={"example": "13.1022000"},
-    )
-    coordinata_y: str = Field(
-        ...,
-        max_length=12,
-        description="Latitude WGS84 (36.0-47.0)",
-        json_schema_extra={"example": "41.8847600"},
-    )
-    coordinata_z: str | None = Field(
-        None,
-        max_length=7,
-        description="Elevation in meters (optional)",
-        json_schema_extra={"example": "150"},
-    )
-    metodo: str = Field(
-        "3",
-        pattern=METODO_PATTERN,
-        description="Survey method (1-4)",
-        json_schema_extra={"example": "3"},
-    )
-
-    _x_is_in_italy = field_validator("coordinata_x")(_wgs84(6.0, 18.0))
-    _y_is_in_italy = field_validator("coordinata_y")(_wgs84(36.0, 47.0))
 
 
 class AggiornaCoordinateDaProgressivoAccessoInput(BaseModel):
@@ -326,8 +277,38 @@ class AggiornaAccessoDaProgressivoInput(BaseModel):
         description="Administrative validity date (DD/MM/YYYY)",
         json_schema_extra={"example": "08/10/2024"},
     )
+    # Coordinates are part of the accesso's state: under replace semantics they
+    # must be settable here (and re-sent) or an attribute update would drop them.
+    # Optional, but co-dependent (see the validator): x and y go together, and
+    # z/metodo only alongside x and y.
+    coordinata_x: str | None = Field(
+        None,
+        max_length=12,
+        description="Longitude WGS84 (6.0-18.0); requires coordinata_y",
+        json_schema_extra={"example": "13.1022000"},
+    )
+    coordinata_y: str | None = Field(
+        None,
+        max_length=12,
+        description="Latitude WGS84 (36.0-47.0); requires coordinata_x",
+        json_schema_extra={"example": "41.8847600"},
+    )
+    coordinata_z: str | None = Field(
+        None,
+        max_length=7,
+        description="Elevation in meters; only with coordinata_x and coordinata_y",
+        json_schema_extra={"example": "150"},
+    )
+    metodo: str | None = Field(
+        None,
+        pattern=METODO_PATTERN,
+        description="Survey method (1-4); only with coordinata_x and coordinata_y",
+        json_schema_extra={"example": "3"},
+    )
 
     _data_validita_is_a_date = field_validator("data_validita")(_ddmmyyyy)
+    _x_is_in_italy = field_validator("coordinata_x")(_wgs84(6.0, 18.0))
+    _y_is_in_italy = field_validator("coordinata_y")(_wgs84(36.0, 47.0))
 
     @model_validator(mode="after")
     def _exactly_one_of_numero_or_metrico(self) -> AggiornaAccessoDaProgressivoInput:
@@ -335,6 +316,16 @@ class AggiornaAccessoDaProgressivoInput(BaseModel):
             raise ValueError(
                 "exactly one of 'numero' or 'metrico' must be provided "
                 "(an accesso is identified by civic number XOR metric system)"
+            )
+        return self
+
+    @model_validator(mode="after")
+    def _coordinates_are_consistent(self) -> AggiornaAccessoDaProgressivoInput:
+        if (self.coordinata_x is None) != (self.coordinata_y is None):
+            raise ValueError("coordinata_x and coordinata_y must be provided together")
+        if (self.coordinata_z is not None or self.metodo is not None) and self.coordinata_x is None:
+            raise ValueError(
+                "coordinata_z and metodo are only allowed with coordinata_x and coordinata_y"
             )
         return self
 

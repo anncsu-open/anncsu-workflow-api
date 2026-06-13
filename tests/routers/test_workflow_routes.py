@@ -131,23 +131,9 @@ def test_ricerca_route_maps_search_results():
     assert body["accessi"][0]["civico"] == "42"
 
 
-def test_aggiorna_coordinate_route_returns_updated_coordinates():
-    responses = {
-        "anncsu-consultazione.elencoodonimiprogPost": Response(
-            200, {"data": [{"prognaz": "2000449", "dug": "VIA", "denomuff": "ROMA"}]}
-        ),
-        "anncsu-consultazione.elencoaccessiprogPost": Response(
-            200, {"data": [{"prognazacc": "1370588", "civico": "42"}]}
-        ),
-        "anncsu-coordinate.gestionecoordinate": Response(
-            200,
-            {
-                "esito": "0",
-                "dati": [{"coordinata_x": "13.1022000", "coordinata_y": "41.8847600"}],
-            },
-        ),
-    }
-    with _client_scripted(responses) as client:
+def test_denomination_based_coordinate_workflow_is_removed():
+    """ADR 0011: the non-deterministic by-denomination coordinate write is gone."""
+    with _client_scripted({}) as client:
         response = client.post(
             "/v1/workflows/aggiorna-coordinate-accesso",
             json={
@@ -159,10 +145,7 @@ def test_aggiorna_coordinate_route_returns_updated_coordinates():
             },
         )
 
-    assert response.status_code == 200
-    body = response.json()
-    assert body["success"] is True
-    assert body["coordinate"] == {"coordinata_x": "13.1022000", "coordinata_y": "41.8847600"}
+    assert response.status_code == 404
 
 
 def test_aggiorna_coordinate_da_progressivo_route_skips_the_searches():
@@ -277,6 +260,61 @@ def test_aggiorna_accesso_route_carries_every_optional_field_to_the_wire():
         "sezione_censimento": "580911010001",
         "data_valid_amm": "08/10/2024",
     }
+
+
+def test_aggiorna_accesso_route_carries_coordinates_to_the_wire():
+    """The accesso's full state includes its coordinates: the R replace must be
+    able to set them (and, under replace semantics, not silently drop them)."""
+    transport = ScriptedTransport(
+        {"anncsu-accessi.gestioneAnncsuPdnd": Response(200, {"esito": "0", "dati": [{}]})}
+    )
+    executor = WorkflowExecutor(load_spec(ARAZZO_SPEC), transport)
+    with _client_with(WorkflowApplicationService(executor)) as client:
+        response = client.post(
+            "/v1/workflows/aggiorna-accesso-da-progressivo",
+            json={
+                "codcom": "H501",
+                "prognaz": "2000449",
+                "prognazacc": "1370588",
+                "numero": "42",
+                "sezione_censimento": "580911010001",
+                "coordinata_x": "13.1022000",
+                "coordinata_y": "41.8847600",
+                "coordinata_z": "150",
+                "metodo": "3",
+            },
+        )
+
+    assert response.status_code == 200
+    accesso = transport.calls[0][1]["richiesta"]["accesso"]
+    assert accesso["coordinate"] == {
+        "x": "13.1022000",
+        "y": "41.8847600",
+        "z": "150",
+        "metodo": "3",
+    }
+
+
+def test_aggiorna_accesso_without_coordinates_sends_no_coordinate_block():
+    """Omitting coordinates must not send an empty coordinate object on the wire."""
+    transport = ScriptedTransport(
+        {"anncsu-accessi.gestioneAnncsuPdnd": Response(200, {"esito": "0", "dati": [{}]})}
+    )
+    executor = WorkflowExecutor(load_spec(ARAZZO_SPEC), transport)
+    with _client_with(WorkflowApplicationService(executor)) as client:
+        response = client.post(
+            "/v1/workflows/aggiorna-accesso-da-progressivo",
+            json={
+                "codcom": "H501",
+                "prognaz": "2000449",
+                "prognazacc": "1370588",
+                "numero": "42",
+                "sezione_censimento": "580911010001",
+            },
+        )
+
+    assert response.status_code == 200
+    assert "coordinate" not in transport.calls[0][1]["richiesta"]["accesso"]
 
 
 def test_aggiorna_accesso_route_accepts_explicit_nulls_as_unset():
@@ -512,7 +550,6 @@ def test_workflow_routes_are_published_in_the_v1_openapi():
 
     for workflow_id in (
         "verifica-e-crea-indirizzo-completo",
-        "aggiorna-coordinate-accesso",
         "aggiorna-coordinate-da-progressivo-accesso",
         "aggiorna-accesso-da-progressivo",
         "sopprimi-odonimo-completo",
@@ -528,7 +565,6 @@ def test_workflow_routes_declare_their_problem_responses():
 
     for workflow_id in (
         "verifica-e-crea-indirizzo-completo",
-        "aggiorna-coordinate-accesso",
         "aggiorna-coordinate-da-progressivo-accesso",
         "aggiorna-accesso-da-progressivo",
         "sopprimi-odonimo-completo",

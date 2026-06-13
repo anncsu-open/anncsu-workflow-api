@@ -217,96 +217,11 @@ workflows:
           - $steps.cerca-accesso.outputs.progressivo_civico
           - $steps.crea-accesso.outputs.progressivo_civico
 
-  - workflowId: aggiorna-coordinate-accesso
-    summary: Aggiorna le coordinate geografiche di un accesso esistente
-    description: |
-      Cerca un accesso esistente (odonimo -> accesso) e ne aggiorna le coordinate.
-      Sequenza lineare senza branching.
-    inputs:
-      type: object
-      properties:
-        codcom:
-          type: string
-          description: Codice Belfiore del comune
-        denom_odonimo:
-          type: string
-          description: Denominazione dell'odonimo
-        numero_civico:
-          type: string
-          description: Numero civico
-        coordinata_x:
-          type: string
-          description: Longitudine (WGS84)
-        coordinata_y:
-          type: string
-          description: Latitudine (WGS84)
-        coordinata_z:
-          type: string
-          description: Quota in metri (opzionale)
-        metodo:
-          type: string
-          description: Metodo di rilevazione (1-4)
-          default: "3"
-    steps:
-      - stepId: coord-cerca-odonimo
-        description: Cerca l'odonimo per ottenere il progressivo nazionale
-        operationId: anncsu-consultazione.elencoodonimiprogPost
-        requestBody:
-          contentType: application/json
-          payload:
-            req: elencoodonimiprog
-            codcom: $inputs.codcom
-            denomparz: $inputs.denom_odonimo
-        successCriteria:
-          - condition: $statusCode == 200
-          - condition: $response.body.data.length > 0
-        outputs:
-          progressivo_nazionale: $response.body.data[0].prognaz
-
-      - stepId: coord-cerca-accesso
-        description: Cerca l'accesso per ottenere il progressivo civico
-        operationId: anncsu-consultazione.elencoaccessiprogPost
-        requestBody:
-          contentType: application/json
-          payload:
-            req: elencoaccessiprog
-            prognaz: $steps.coord-cerca-odonimo.outputs.progressivo_nazionale
-            accparz: $inputs.numero_civico
-        successCriteria:
-          - condition: $statusCode == 200
-          - condition: $response.body.data.length > 0
-        outputs:
-          progressivo_civico: $response.body.data[0].prognazacc
-
-      - stepId: aggiorna-coordinate
-        description: Aggiorna le coordinate dell'accesso
-        operationId: anncsu-coordinate.gestionecoordinate
-        requestBody:
-          contentType: application/json
-          payload:
-            richiesta:
-              accesso:
-                codcom: $inputs.codcom
-                progr_civico: $steps.coord-cerca-accesso.outputs.progressivo_civico
-                coordinate:
-                  x: $inputs.coordinata_x
-                  y: $inputs.coordinata_y
-                  z: $inputs.coordinata_z
-                  metodo: $inputs.metodo
-        successCriteria:
-          - condition: $statusCode == 200
-          - condition: $response.body.esito == "0"
-        outputs:
-          coordinate_aggiornate: $response.body.dati[0]
-
-    outputs:
-      risultato: $steps.aggiorna-coordinate.outputs.coordinate_aggiornate
-
   - workflowId: aggiorna-coordinate-da-progressivo-accesso
     summary: Aggiorna le coordinate di un accesso identificato dal progressivo nazionale
     description: |
-      Variante diretta di aggiorna-coordinate-accesso: l'accesso è identificato
-      dal progressivo nazionale (prognazacc, come ritornato dalle API di
+      Aggiorna le coordinate di un accesso identificato direttamente dal suo
+      progressivo nazionale (prognazacc, come ritornato dalle API di
       consultazione), senza risoluzione per denominazione. Un solo passo,
       nessuna ricerca: aggiornamento deterministico.
     inputs:
@@ -428,6 +343,11 @@ workflows:
                 codice_civico_comunale: $inputs.codice_civico_comunale
                 sezione_censimento: $inputs.sezione_censimento
                 data_valid_amm: $inputs.data_validita
+                coordinate:
+                  x: $inputs.coordinata_x
+                  y: $inputs.coordinata_y
+                  z: $inputs.coordinata_z
+                  metodo: $inputs.metodo
         successCriteria:
           - condition: $statusCode == 200
           - condition: $response.body.esito == "0"

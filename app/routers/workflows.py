@@ -27,7 +27,6 @@ from app.models.workflows import (
     AggiornaAccessoDaProgressivoInput,
     AggiornaAccessoOutput,
     AggiornaCoordinateDaProgressivoAccessoInput,
-    AggiornaCoordinateInput,
     AggiornaCoordinateOutput,
     CreaIndirizzoCompletoInput,
     CreaIndirizzoCompletoOutput,
@@ -92,24 +91,6 @@ async def verifica_e_crea_indirizzo_completo(
         # x-executor.coalesce resolves the progressivo from whichever branch ran.
         progressivo_nazionale_odonimo=run.outputs.get("progressivo_nazionale"),
         progressivo_civico=run.outputs.get("progressivo_civico"),
-        message=COMPLETED_MESSAGE,
-    )
-
-
-@router.post(
-    "/aggiorna-coordinate-accesso",
-    response_model=AggiornaCoordinateOutput,
-    summary="Update the coordinates of an accesso",
-)
-async def aggiorna_coordinate_accesso(
-    payload: AggiornaCoordinateInput,
-    service: ServiceDep,
-) -> AggiornaCoordinateOutput:
-    """Update the geographic coordinates of an existing accesso."""
-    run = await service.run("aggiorna-coordinate-accesso", payload.model_dump())
-    return AggiornaCoordinateOutput(
-        success=True,
-        coordinate=run.outputs.get("risultato"),
         message=COMPLETED_MESSAGE,
     )
 

@@ -161,9 +161,22 @@ class WorkflowExecutor:
 
 
 def _without_unset(value: Any) -> Any:
-    """Drop ``None`` values from request payloads, recursively."""
+    """Drop ``None`` values from request payloads, recursively.
+
+    A nested object whose entries are all unset prunes to nothing and is dropped
+    too, so an all-empty block (e.g. ``coordinate`` with no values) never reaches
+    the wire as an empty object.
+    """
     if isinstance(value, dict):
-        return {key: _without_unset(item) for key, item in value.items() if item is not None}
+        pruned: dict[Any, Any] = {}
+        for key, item in value.items():
+            if item is None:
+                continue
+            cleaned = _without_unset(item)
+            if isinstance(item, dict) and not cleaned:
+                continue
+            pruned[key] = cleaned
+        return pruned
     if isinstance(value, list):
         return [_without_unset(item) for item in value]
     return value

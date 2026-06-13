@@ -5,7 +5,6 @@ from polyfactory.factories.pydantic_factory import ModelFactory
 
 from app.models.workflows import (
     AccessoResult,
-    AggiornaCoordinateInput,
     AggiornaCoordinateOutput,
     CreaIndirizzoCompletoInput,
     CreaIndirizzoCompletoOutput,
@@ -172,40 +171,6 @@ class CreaIndirizzoCompletoOutputFactory(ModelFactory[CreaIndirizzoCompletoOutpu
         if fake.boolean(chance_of_getting_true=20):
             return [fake.sentence() for _ in range(fake.random_int(min=1, max=3))]
         return None
-
-
-class AggiornaCoordinateInputFactory(ModelFactory[AggiornaCoordinateInput]):
-    """Factory for AggiornaCoordinateInput."""
-
-    __model__ = AggiornaCoordinateInput
-
-    @classmethod
-    def codcom(cls) -> str:
-        return codice_belfiore()
-
-    @classmethod
-    def denom_odonimo(cls) -> str:
-        return denominazione_odonimo()
-
-    @classmethod
-    def numero_civico(cls) -> str:
-        return numero_civico()
-
-    @classmethod
-    def coordinata_x(cls) -> str:
-        return coordinata_x()
-
-    @classmethod
-    def coordinata_y(cls) -> str:
-        return coordinata_y()
-
-    @classmethod
-    def coordinata_z(cls) -> str | None:
-        return coordinata_z()
-
-    @classmethod
-    def metodo(cls) -> str:
-        return metodo_rilevazione()
 
 
 class AggiornaCoordinateOutputFactory(ModelFactory[AggiornaCoordinateOutput]):

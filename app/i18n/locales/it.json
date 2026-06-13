@@ -29,14 +29,6 @@
   "CreaIndirizzoCompletoOutput.message": "Messaggio descrittivo del risultato",
   "CreaIndirizzoCompletoOutput.errors": "Lista di eventuali errori",
 
-  "AggiornaCoordinateInput.codcom": "Codice Belfiore del comune",
-  "AggiornaCoordinateInput.denom_odonimo": "Denominazione dell'odonimo",
-  "AggiornaCoordinateInput.numero_civico": "Numero civico",
-  "AggiornaCoordinateInput.coordinata_x": "Longitudine WGS84 (6.0-18.0)",
-  "AggiornaCoordinateInput.coordinata_y": "Latitudine WGS84 (36.0-47.0)",
-  "AggiornaCoordinateInput.coordinata_z": "Quota in metri (opzionale)",
-  "AggiornaCoordinateInput.metodo": "Metodo di rilevazione (1-4)",
-
   "AggiornaCoordinateDaProgressivoAccessoInput.codcom": "Codice Belfiore del comune",
   "AggiornaCoordinateDaProgressivoAccessoInput.prognazacc": "Progressivo nazionale dell'accesso",
   "AggiornaCoordinateDaProgressivoAccessoInput.coordinata_x": "Longitudine WGS84 (6.0-18.0)",
@@ -61,6 +53,10 @@
   "AggiornaAccessoDaProgressivoInput.codice_civico_comunale": "Codifica comunale dell'accesso",
   "AggiornaAccessoDaProgressivoInput.sezione_censimento": "Sezione di censimento (formato ISTAT SEZ21_ID); non derivabile dalle API di consultazione",
   "AggiornaAccessoDaProgressivoInput.data_validita": "Data di validità amministrativa (DD/MM/YYYY)",
+  "AggiornaAccessoDaProgressivoInput.coordinata_x": "Longitudine WGS84 (6.0-18.0); richiede coordinata_y",
+  "AggiornaAccessoDaProgressivoInput.coordinata_y": "Latitudine WGS84 (36.0-47.0); richiede coordinata_x",
+  "AggiornaAccessoDaProgressivoInput.coordinata_z": "Quota in metri; solo con coordinata_x e coordinata_y",
+  "AggiornaAccessoDaProgressivoInput.metodo": "Metodo di rilevazione (1-4); solo con coordinata_x e coordinata_y",
 
   "AggiornaAccessoOutput.success": "Indica se il workflow è completato con successo",
   "AggiornaAccessoOutput.prognazacc": "Progressivo nazionale dell'accesso aggiornato",

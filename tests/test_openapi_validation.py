@@ -6,7 +6,7 @@ import pytest
 
 from app.models.workflows import (
     AccessoResult,
-    AggiornaCoordinateInput,
+    AggiornaCoordinateDaProgressivoAccessoInput,
     AggiornaCoordinateOutput,
     CreaIndirizzoCompletoInput,
     CreaIndirizzoCompletoOutput,
@@ -147,12 +147,12 @@ class TestAccessiAPI:
         assert "ACCESSI" in accessi_validator.openapi_spec.info.title
 
     def test_aggiorna_coordinate_input_has_required_fields(self):
-        """Test that AggiornaCoordinateInput has the required fields."""
-        model_schema = AggiornaCoordinateInput.model_json_schema()
+        """Test that AggiornaCoordinateDaProgressivoAccessoInput has the required fields."""
+        model_schema = AggiornaCoordinateDaProgressivoAccessoInput.model_json_schema()
 
         properties = model_schema.get("properties", {})
         assert "codcom" in properties
-        assert "numero_civico" in properties
+        assert "prognazacc" in properties
         assert "coordinata_x" in properties
         assert "coordinata_y" in properties
 
@@ -171,7 +171,7 @@ class TestCoordinateAPI:
 
     def test_coordinate_input_structure(self):
         """Test the coordinate input structure."""
-        model_schema = AggiornaCoordinateInput.model_json_schema()
+        model_schema = AggiornaCoordinateDaProgressivoAccessoInput.model_json_schema()
 
         properties = model_schema.get("properties", {})
 
@@ -230,7 +230,7 @@ class TestCrossSpecValidation:
         """Test that coordinate types are consistent across models."""
         # All models that use coordinates should use string
         models_with_coordinates = [
-            AggiornaCoordinateInput,
+            AggiornaCoordinateDaProgressivoAccessoInput,
             AggiornaCoordinateOutput,
             AccessoResult,
         ]
@@ -258,7 +258,7 @@ class TestModelFieldDescriptions:
         """Test that input models have a description on their fields."""
         models = [
             CreaIndirizzoCompletoInput,
-            AggiornaCoordinateInput,
+            AggiornaCoordinateDaProgressivoAccessoInput,
             SopprimiOdonimoInput,
             RicercaIndirizzoInput,
         ]
@@ -299,7 +299,7 @@ class TestModelExamples:
         """Test that input models have examples."""
         models = [
             CreaIndirizzoCompletoInput,
-            AggiornaCoordinateInput,
+            AggiornaCoordinateDaProgressivoAccessoInput,
             SopprimiOdonimoInput,
             RicercaIndirizzoInput,
         ]

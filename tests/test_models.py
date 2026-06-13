@@ -5,7 +5,7 @@ from pydantic import ValidationError
 
 from app.models.workflows import (
     AccessoResult,
-    AggiornaCoordinateInput,
+    AggiornaCoordinateDaProgressivoAccessoInput,
     CreaIndirizzoCompletoInput,
     CreaIndirizzoCompletoOutput,
     OdonimoResult,
@@ -13,7 +13,6 @@ from app.models.workflows import (
 )
 from tests.factories import (
     AccessoResultFactory,
-    AggiornaCoordinateInputFactory,
     AggiornaCoordinateOutputFactory,
     CreaIndirizzoCompletoInputFactory,
     CreaIndirizzoCompletoOutputFactory,
@@ -146,42 +145,6 @@ class TestCreaIndirizzoCompletoOutput:
         success_count = sum(1 for m in models if m.success)
         # The factory is configured for ~80% successes
         assert success_count >= 70  # At least 70%
-
-
-# ============================================================================
-# Test AggiornaCoordinateInput
-# ============================================================================
-
-
-class TestAggiornaCoordinateInput:
-    """Test suite for AggiornaCoordinateInput model."""
-
-    def test_factory_generates_valid_coordinates(self):
-        """Test that the factory generates valid coordinates for Italy."""
-        models = AggiornaCoordinateInputFactory.batch(50)
-        for model in models:
-            x = float(model.coordinata_x)
-            y = float(model.coordinata_y)
-            assert 6.0 <= x <= 18.0, f"Coordinata X {x} fuori range"
-            assert 36.0 <= y <= 47.0, f"Coordinata Y {y} fuori range"
-            assert model.metodo in ["1", "2", "3", "4"]
-
-    def test_coordinate_z_is_optional(self):
-        """Test that coordinata_z is optional."""
-        model = AggiornaCoordinateInputFactory.build(coordinata_z=None)
-        assert model.coordinata_z is None
-
-    def test_metodo_default_value(self):
-        """Test the default value of metodo."""
-        # The model has default="3"
-        model = AggiornaCoordinateInput(
-            codcom="H501",
-            denom_odonimo="ROMA",
-            numero_civico="42",
-            coordinata_x="13.1",
-            coordinata_y="41.8",
-        )
-        assert model.metodo == "3"
 
 
 # ============================================================================
@@ -459,10 +422,9 @@ class TestRealWorldScenarios:
     def test_coordinate_update_with_gps(self):
         """Test update of realistic GPS coordinates."""
         # Roma Colosseo (real coordinates)
-        input_data = AggiornaCoordinateInputFactory.build(
+        input_data = AggiornaCoordinateDaProgressivoAccessoInput(
             codcom="H501",
-            denom_odonimo="COLOSSEO",
-            numero_civico="1",
+            prognazacc="1370588",
             coordinata_x="12.4922309",  # Colosseo longitude
             coordinata_y="41.8902142",  # Colosseo latitude
             coordinata_z="20",

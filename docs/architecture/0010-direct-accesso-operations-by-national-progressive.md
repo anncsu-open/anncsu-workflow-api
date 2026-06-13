@@ -38,19 +38,20 @@ Identification: `codcom`, the odonimo's `progr_nazionale`, and the accesso's
 
 ### The open question that decides the design
 
-Two designs are on the table:
+The generic update carries the **full accesso state, coordinates included** —
+this is settled (see Decision): a full-state replace including `coordinate` is
+safe under both server behaviours, and *omitting* coordinates would let an
+attribute update wipe them. The remaining open question is only whether a
+**coordinates-only change** may use a minimal `R`:
 
-- **Design A — one generic update, coordinates folded in.** A single
-  `aggiorna-accesso-da-progressivo` workflow exposes every updatable field,
-  including the embedded `coordinate`; a coordinates-only change sends the
-  minimal payload (identifiers + coordinates). The coordinate-only workflows
-  become redundant and are removed.
-- **Design B — attributes and coordinates stay separate.** The generic update
-  excludes the embedded `coordinate`; coordinate changes keep using the
-  dedicated coordinate API (ADR 0009), which needs no `sezione_censimento`, no
-  `numero`/`metrico`, and has no replace semantics.
+- **Design A — fold coordinate-only changes into a minimal `R`.** A
+  coordinates-only update sends `R` with identifiers + coordinates only; the
+  dedicated coordinate workflows become redundant and are removed.
+- **Design B — keep the dedicated coordinate API for coordinate-only changes**
+  (ADR 0009): it needs no `sezione_censimento`, no `numero`/`metrico`, has no
+  replace semantics, and is the lighter path for bulk coordinate campaigns.
 
-Which design is sound depends on **how the server actually treats `R`**:
+Which is sound depends on **how the server actually treats `R`**:
 
 1. **Replace vs patch.** If `R` replaces the accesso's state, a minimal
    coordinates-only payload would silently clear `numero`, `esponente`, etc. —
@@ -80,12 +81,20 @@ behaviours:
   accesso's new state; attributes left out are not guaranteed preserved.
   Callers updating a single attribute read the accesso first
   (`ricerca-indirizzo-completo`) and send the full state back.
-- Coordinates are **not** exposed here; they stay on the dedicated coordinate
-  workflows (ADR 0009).
+- **Coordinates are part of that state and are exposed here** (embedded
+  `coordinate` of the accessi API: `coordinata_x`/`_y`/`_z`/`metodo`, optional
+  but co-dependent — x and y together, z and metodo only with x and y, same
+  WGS84 rules as the coordinate workflows). This is *required* by the replace
+  stance: if the generic update could not carry coordinates, updating an
+  attribute would wipe the accesso's coordinates whenever `R` is a replace.
+  It does **not** reopen design A — this is the full-state path, not a minimal
+  coordinates-only payload; the dedicated coordinate workflows (ADR 0009) stay
+  as the lighter, targeted path for coordinate-only changes.
 - Input fields the caller leaves unset are **omitted from the wire**, not sent
-  as nulls: under replace semantics an explicit `null` and an absent field may
-  mean different things server-side, and the facade has no way to express
-  "clear this field" intentionally.
+  as nulls (the embedded `coordinate` block disappears entirely when no
+  coordinate is given): under replace semantics an explicit `null` and an absent
+  field may mean different things server-side, and the facade has no way to
+  express "clear this field" intentionally.
 
 If `R` is a replace, the contract is honest. If `R` turns out to be patch-like,
 the contract is merely stricter than necessary — and loosening it later is
@@ -99,9 +108,8 @@ suppression-cascade dry-run) no longer blocks anything. Its outcome decides a
 possible *relaxation*:
 
 - `R` patch-like and minimal payloads accepted → optional fields may become
-  truly optional (omitted = preserved), and folding coordinates into the
-  generic update (design A, with deprecation of the coordinate-only workflows)
-  becomes a candidate follow-up decision.
+  truly optional (omitted = preserved), and the dedicated coordinate-only
+  workflows could be folded into a minimal `R` (design A) and deprecated.
 - `R` is a replace or minimal payloads rejected → the contract is already
   exactly right; nothing changes.
 

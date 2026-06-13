@@ -15,7 +15,6 @@ SCRIPT = REPO_ROOT / "scripts" / "export_openapi.py"
 
 WORKFLOW_PATHS = (
     "/v1/workflows/verifica-e-crea-indirizzo-completo",
-    "/v1/workflows/aggiorna-coordinate-accesso",
     "/v1/workflows/sopprimi-odonimo-completo",
     "/v1/workflows/ricerca-indirizzo-completo",
 )

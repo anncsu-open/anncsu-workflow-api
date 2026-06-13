@@ -17,9 +17,6 @@ cerca_odonimo["cerca-odonimo"]
 verifica_accesso["verifica-accesso"]
 crea_accesso["crea-accesso"]
 cerca_accesso["cerca-accesso"]
-coord_cerca_odonimo["coord-cerca-odonimo"]
-coord_cerca_accesso["coord-cerca-accesso"]
-aggiorna_coordinate["aggiorna-coordinate"]
 aggiorna_coordinate_progressivo["aggiorna-coordinate-progressivo"]
 aggiorna_accesso["aggiorna-accesso"]
 cerca_odonimo["cerca-odonimo"]
@@ -33,8 +30,6 @@ crea_odonimo ---> cerca_odonimo
 cerca_odonimo ---> verifica_accesso
 verifica_accesso ---> crea_accesso
 crea_accesso ---> cerca_accesso
-coord_cerca_odonimo ---> coord_cerca_accesso
-coord_cerca_accesso ---> aggiorna_coordinate
 cerca_odonimo ---> elenca_accessi
 elenca_accessi ---> sopprimi_odonimo
 cerca_odonimi ---> cerca_accessi
@@ -90,27 +85,6 @@ Recupera il progressivo civico dell'accesso esistente
 
 - Operation: `anncsu-consultazione.elencoaccessiprogPost`
 - Outputs: progressivo_civico
-
-### 1: coord-cerca-odonimo
-
-Cerca l'odonimo per ottenere il progressivo nazionale
-
-- Operation: `anncsu-consultazione.elencoodonimiprogPost`
-- Outputs: progressivo_nazionale
-
-### 2: coord-cerca-accesso
-
-Cerca l'accesso per ottenere il progressivo civico
-
-- Operation: `anncsu-consultazione.elencoaccessiprogPost`
-- Outputs: progressivo_civico
-
-### 3: aggiorna-coordinate
-
-Aggiorna le coordinate dell'accesso
-
-- Operation: `anncsu-coordinate.gestionecoordinate`
-- Outputs: coordinate_aggiornate
 
 ### 1: aggiorna-coordinate-progressivo
 

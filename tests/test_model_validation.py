@@ -10,6 +10,7 @@ import pytest
 from pydantic import ValidationError
 
 from app.models.workflows import (
+    AggiornaAccessoDaProgressivoInput,
     AggiornaCoordinateDaProgressivoAccessoInput,
     AggiornaCoordinateInput,
     CreaIndirizzoCompletoInput,
@@ -51,6 +52,13 @@ VALID = {
         "denom_odonimo": "ROMA",
         "numero_civico": "42",
     },
+    AggiornaAccessoDaProgressivoInput: {
+        "codcom": "H501",
+        "prognaz": "2000449",
+        "prognazacc": "1370588",
+        "numero": "42",
+        "sezione_censimento": "580911010001",
+    },
 }
 
 
@@ -89,9 +97,63 @@ def test_valid_inputs_are_accepted(model):
         (AggiornaCoordinateInput, "metodo", "5"),
         (AggiornaCoordinateInput, "metodo", "0"),
         (AggiornaCoordinateDaProgressivoAccessoInput, "metodo", "33"),
+        # coordinates: decimal numbers within the Italy bounds (SDK CoordinateRangeError)
+        (AggiornaCoordinateInput, "coordinata_x", "abc"),
+        (AggiornaCoordinateInput, "coordinata_x", "30.0"),  # x: 6.0-18.0
+        (AggiornaCoordinateInput, "coordinata_y", "50.0"),  # y: 36.0-47.0
+        (AggiornaCoordinateInput, "coordinata_x", "1" * 13),  # max 12
+        (AggiornaCoordinateInput, "coordinata_z", "1" * 8),  # max 7
+        (AggiornaCoordinateDaProgressivoAccessoInput, "coordinata_x", "not-a-number"),
+        (AggiornaCoordinateDaProgressivoAccessoInput, "coordinata_x", "5.9"),
+        (AggiornaCoordinateDaProgressivoAccessoInput, "coordinata_y", "35.9"),
+        # generic accesso update (ADR 0010)
+        (AggiornaAccessoDaProgressivoInput, "codcom", "h501"),
+        (AggiornaAccessoDaProgressivoInput, "prognaz", "1" * 11),  # max 10
+        (AggiornaAccessoDaProgressivoInput, "prognazacc", "1" * 16),  # max 15
+        (AggiornaAccessoDaProgressivoInput, "numero", "123456"),  # max 5
+        (AggiornaAccessoDaProgressivoInput, "esponente", "X" * 16),  # max 15
+        (AggiornaAccessoDaProgressivoInput, "specificita", "X" * 6),  # max 5
+        (AggiornaAccessoDaProgressivoInput, "isolato", "12345"),  # max 4
+        (AggiornaAccessoDaProgressivoInput, "codice_civico_comunale", "X" * 31),  # max 30
+        (AggiornaAccessoDaProgressivoInput, "sezione_censimento", "1" * 14),  # max 13
+        (AggiornaAccessoDaProgressivoInput, "data_validita", "31/02/2025"),
     ],
 )
 def test_invalid_value_is_rejected_with_the_field_named(model, field, bad_value):
     with pytest.raises(ValidationError) as excinfo:
         model(**{**VALID[model], field: bad_value})
     assert any(field in error["loc"] for error in excinfo.value.errors())
+
+
+@pytest.mark.parametrize(
+    "override",
+    [
+        {"numero": "42", "metrico": "300"},  # both set
+        {"numero": None},  # neither set (numero removed, metrico absent)
+    ],
+)
+def test_accesso_update_requires_exactly_one_of_numero_or_metrico(override):
+    """The OAS identifies an accesso as civic XOR metric: the mutex fails early."""
+    with pytest.raises(ValidationError) as excinfo:
+        AggiornaAccessoDaProgressivoInput(
+            **{**VALID[AggiornaAccessoDaProgressivoInput], **override}
+        )
+    assert "numero" in str(excinfo.value) and "metrico" in str(excinfo.value)
+
+
+def test_accesso_update_accepts_explicit_none_on_every_nullable_field():
+    assert AggiornaAccessoDaProgressivoInput(
+        **VALID[AggiornaAccessoDaProgressivoInput],
+        metrico=None,
+        esponente=None,
+        specificita=None,
+        isolato=None,
+        codice_civico_comunale=None,
+        data_validita=None,
+    )
+
+
+def test_accesso_update_accepts_a_metric_accesso():
+    payload = {**VALID[AggiornaAccessoDaProgressivoInput]}
+    payload.pop("numero")
+    assert AggiornaAccessoDaProgressivoInput(**payload, metrico="300")

@@ -4,13 +4,12 @@ Date: 2026-06-12
 
 ## Status
 
-Proposed
+Accepted
 
-The decision between the two designs below is **pending an empirical
-verification on the UAT environment** (see "The decisive experiment"). If
-design A is confirmed, this ADR supersedes
-[ADR 0009](0009-direct-coordinate-update-by-access-progressive.md); under
-design B, ADR 0009 stands unchanged.
+Design B below is adopted **now** as the initial, hypothesis-safe contract; the
+UAT experiment becomes an *evolution gate* that can only relax it (see
+Decision). [ADR 0009](0009-direct-coordinate-update-by-access-progressive.md)
+stands unchanged.
 
 ## Context
 
@@ -67,44 +66,54 @@ Neither point can be settled from the OAS text alone.
 
 ## Decision
 
-Deferred to the outcome of the following experiment; this ADR records the two
-designs and the decision criterion.
+**Implement design B now, as the hypothesis-safe contract.** Waiting for the
+experiment would block the missing capability; implementing design A without it
+would risk silent data loss. Design B is correct under *both* server
+behaviours:
 
-### The decisive experiment (UAT, anncsu-sdk CLI)
+- `aggiorna-accesso-da-progressivo` requires the **full desired state**:
+  `codcom`, `prognaz`, `prognazacc`, `sezione_censimento`, exactly one of
+  `numero`/`metrico` (validated in the facade model with a named-field 422),
+  plus the optional attributes (`esponente`, `specificita`, `isolato`,
+  `codice_civico_comunale`, `data_validita`).
+- The route documents **replace semantics**: the request describes the
+  accesso's new state; attributes left out are not guaranteed preserved.
+  Callers updating a single attribute read the accesso first
+  (`ricerca-indirizzo-completo`) and send the full state back.
+- Coordinates are **not** exposed here; they stay on the dedicated coordinate
+  workflows (ADR 0009).
+- Input fields the caller leaves unset are **omitted from the wire**, not sent
+  as nulls: under replace semantics an explicit `null` and an absent field may
+  mean different things server-side, and the facade has no way to express
+  "clear this field" intentionally.
 
-Same pattern as the suppression-cascade dry-run that settled reject-vs-cascade:
+If `R` is a replace, the contract is honest. If `R` turns out to be patch-like,
+the contract is merely stricter than necessary — and loosening it later is
+non-breaking, while tightening it would not be.
 
-1. **I** — insert a fake accesso with full attributes (`numero`, `esponente`,
-   valid `sezione_censimento`).
-2. **R** — send a coordinates-only minimal payload (identifiers + `coordinate`).
-3. **Read back** via the consultation API (`prognazacc` exposes `civico`,
-   `esp`, `specif`, `coordX/Y`): did the omitted attributes survive? Was the
-   minimal `R` accepted at all (or rejected for the missing
-   `sezione_censimento` / `numero`/`metrico`)?
-4. **S** — clean up the fake accesso.
+### The UAT experiment, now an evolution gate
 
-Outcome mapping:
+The experiment (protocol: I with full attributes → minimal coordinates-only
+`R` → read back via consultation → S cleanup, same pattern as the
+suppression-cascade dry-run) no longer blocks anything. Its outcome decides a
+possible *relaxation*:
 
-- Minimal `R` accepted **and** omitted attributes preserved → **design A**:
-  one generic update with embedded coordinates; remove (or deprecate) the
-  coordinate-only workflows; this ADR supersedes ADR 0009.
-- Minimal `R` rejected, **or** omitted attributes cleared → **design B**: the
-  generic update excludes coordinates; the dedicated coordinate workflows stay
-  exactly as decided in ADR 0009.
-
-Contract rules already settled regardless of the outcome, consistent with the
-sezione_censimento decision (fail early and clearly at the boundary): whatever
-the server requires for `R` is validated in the facade input model with
-named-field 422 problems before any PDND call; replace semantics, if confirmed,
-are stated explicitly in the route documentation.
+- `R` patch-like and minimal payloads accepted → optional fields may become
+  truly optional (omitted = preserved), and folding coordinates into the
+  generic update (design A, with deprecation of the coordinate-only workflows)
+  becomes a candidate follow-up decision.
+- `R` is a replace or minimal payloads rejected → the contract is already
+  exactly right; nothing changes.
 
 ## Consequences
 
-- The implementation of `aggiorna-accesso-da-progressivo` waits for the UAT
-  verification; the experiment protocol and its result are recorded alongside
-  this ADR once run.
-- Under design A the published contract shrinks (one update workflow); under
-  design B it grows by one route while keeping coordinates on their dedicated,
-  lighter API.
+- The capability ships now; the published contract can only be relaxed by the
+  experiment's outcome, never broken.
+- Until the experiment runs, single-attribute updates require a read-first,
+  send-full-state round trip — inconvenient but safe, and stated in the route
+  documentation.
+- Under a later move to design A the contract would shrink (one update
+  workflow); the coordinate workflows would be deprecated, not silently
+  removed.
 - Updating the odonimo (`R` on the odonimi API) remains uncovered by the
   facade; if needed it is a separate decision following this same pattern.

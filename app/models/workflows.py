@@ -10,14 +10,31 @@ validates only in its CLI layer, so the facade rejects bad input up front with a
 named field instead of surfacing an opaque server error mid-workflow.
 """
 
+from __future__ import annotations
+
 from datetime import datetime
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 # Belfiore municipality code: one uppercase letter + three digits (e.g. H501).
 CODCOM_PATTERN = r"^[A-Z][0-9]{3}$"
 # Survey method for coordinates, per the coordinate OpenAPI.
 METODO_PATTERN = r"^[1-4]$"
+
+
+def _wgs84(low: float, high: float):
+    """Validator for a WGS84 coordinate string within the Italy bounds."""
+
+    def validate(value: str) -> str:
+        try:
+            number = float(value)
+        except ValueError as error:
+            raise ValueError("must be a decimal number") from error
+        if not low <= number <= high:
+            raise ValueError(f"must be within {low} and {high} (Italy bounds)")
+        return value
+
+    return validate
 
 
 def _ddmmyyyy(value: str | None) -> str | None:
@@ -173,6 +190,9 @@ class AggiornaCoordinateInput(BaseModel):
         json_schema_extra={"example": "3"},
     )
 
+    _x_is_in_italy = field_validator("coordinata_x")(_wgs84(6.0, 18.0))
+    _y_is_in_italy = field_validator("coordinata_y")(_wgs84(36.0, 47.0))
+
 
 class AggiornaCoordinateDaProgressivoAccessoInput(BaseModel):
     """Input for the coordinate update workflow addressing the accesso directly.
@@ -218,6 +238,9 @@ class AggiornaCoordinateDaProgressivoAccessoInput(BaseModel):
         json_schema_extra={"example": "3"},
     )
 
+    _x_is_in_italy = field_validator("coordinata_x")(_wgs84(6.0, 18.0))
+    _y_is_in_italy = field_validator("coordinata_y")(_wgs84(36.0, 47.0))
+
 
 class AggiornaCoordinateOutput(BaseModel):
     """Output of the coordinate update workflow."""
@@ -227,6 +250,103 @@ class AggiornaCoordinateOutput(BaseModel):
         None, description="Progressive number of the updated civico"
     )
     coordinate: dict | None = Field(None, description="Updated coordinates")
+    message: str = Field(..., description="Descriptive message of the result")
+    errors: list[str] | None = Field(None, description="List of any errors")
+
+
+# ============================================================================
+# Workflow: Generic accesso update by national progressives (ADR 0010)
+# ============================================================================
+
+
+class AggiornaAccessoDaProgressivoInput(BaseModel):
+    """Input for the generic accesso update (ANNCSU operation R).
+
+    Replace semantics: the request describes the accesso's NEW state; attributes
+    left out are not guaranteed to be preserved. To update a single attribute,
+    read the accesso first and send the full desired state back.
+    """
+
+    codcom: str = Field(
+        ...,
+        pattern=CODCOM_PATTERN,
+        description="Belfiore municipality code (codcom)",
+        json_schema_extra={"example": "H501"},
+    )
+    prognaz: str = Field(
+        ...,
+        max_length=10,
+        description="National progressive number of the odonimo",
+        json_schema_extra={"example": "2000449"},
+    )
+    prognazacc: str = Field(
+        ...,
+        max_length=15,
+        description="National progressive number of the accesso",
+        json_schema_extra={"example": "1370588"},
+    )
+    numero: str | None = Field(
+        None,
+        max_length=5,
+        description="Civico (street number); exactly one of numero/metrico",
+        json_schema_extra={"example": "42"},
+    )
+    metrico: str | None = Field(
+        None,
+        max_length=6,
+        description="Metric identification; exactly one of numero/metrico",
+        json_schema_extra={"example": "300"},
+    )
+    esponente: str | None = Field(
+        None, max_length=15, description="Esponente", json_schema_extra={"example": "A"}
+    )
+    specificita: str | None = Field(
+        None, max_length=5, description="Specificità", json_schema_extra={"example": "ROSSO"}
+    )
+    isolato: str | None = Field(
+        None, max_length=4, description="Isolato code", json_schema_extra={"example": "12"}
+    )
+    codice_civico_comunale: str | None = Field(
+        None,
+        max_length=30,
+        description="Municipal code of the accesso",
+        json_schema_extra={"example": "7569A"},
+    )
+    sezione_censimento: str = Field(
+        ...,
+        max_length=13,
+        description=(
+            "Census section of the accesso (ISTAT SEZ21_ID format); "
+            "not derivable from the consultation APIs"
+        ),
+        json_schema_extra={"example": "580911010001"},
+    )
+    data_validita: str | None = Field(
+        None,
+        description="Administrative validity date (DD/MM/YYYY)",
+        json_schema_extra={"example": "08/10/2024"},
+    )
+
+    _data_validita_is_a_date = field_validator("data_validita")(_ddmmyyyy)
+
+    @model_validator(mode="after")
+    def _exactly_one_of_numero_or_metrico(self) -> AggiornaAccessoDaProgressivoInput:
+        if (self.numero is None) == (self.metrico is None):
+            raise ValueError(
+                "exactly one of 'numero' or 'metrico' must be provided "
+                "(an accesso is identified by civic number XOR metric system)"
+            )
+        return self
+
+
+class AggiornaAccessoOutput(BaseModel):
+    """Output of the generic accesso update workflow."""
+
+    success: bool = Field(..., description="Whether the workflow completed successfully")
+    prognazacc: str | None = Field(
+        None, description="National progressive number of the updated accesso"
+    )
+    accesso: dict | None = Field(None, description="Accesso state returned by ANNCSU")
     message: str = Field(..., description="Descriptive message of the result")
     errors: list[str] | None = Field(None, description="List of any errors")
 

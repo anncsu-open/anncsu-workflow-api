@@ -264,9 +264,13 @@ Creates a complete address, first verifying the existence of the odonimo and the
   "denom_odonimo": "ROMA",
   "dug": "VIA",
   "numero_civico": "42",
-  "data_validita": "08/10/2024"
+  "data_validita": "08/10/2024",
+  "sezione_censimento": "580911010001"
 }
 ```
+
+The `sezione_censimento` (ISTAT `SEZ21_ID` format) is required: ANNCSU needs it
+to create the accesso and it cannot be derived from the consultation APIs.
 
 ### 2. Update Access Coordinates
 
@@ -286,7 +290,52 @@ Updates the geographic (GPS) coordinates of an existing accesso.
 }
 ```
 
-### 3. Suppress Complete Odonimo
+### 3. Update Access Coordinates by National Progressive
+
+Same update, but the accesso is addressed directly by its national progressive
+(`prognazacc`, as returned by the search workflow): no denomination resolution,
+one upstream call, deterministic target (see
+`docs/architecture/0009-direct-coordinate-update-by-access-progressive.md`).
+
+**Endpoint**: `POST /v1/workflows/aggiorna-coordinate-da-progressivo-accesso`
+
+```json
+{
+  "codcom": "H501",
+  "prognazacc": "1370588",
+  "coordinata_x": "13.1022000",
+  "coordinata_y": "41.8847600"
+}
+```
+
+Coordinates are validated up front: decimal WGS84 values within the Italy
+bounds (x 6.0–18.0, y 36.0–47.0), survey `metodo` 1–4.
+
+### 4. Update an Accesso by National Progressives
+
+Generic attribute update (ANNCSU operation R) addressed by the odonimo and
+accesso national progressives. **Replace semantics**: the request describes the
+accesso's new state — attributes left out are not guaranteed preserved, so read
+the accesso first and send the full desired state (see
+`docs/architecture/0010-direct-accesso-operations-by-national-progressive.md`).
+Exactly one of `numero`/`metrico` is required, and `sezione_censimento` is
+required as for creations. Coordinates are not part of this workflow: use the
+dedicated coordinate endpoints.
+
+**Endpoint**: `POST /v1/workflows/aggiorna-accesso-da-progressivo`
+
+```json
+{
+  "codcom": "H501",
+  "prognaz": "2000449",
+  "prognazacc": "1370588",
+  "numero": "42",
+  "esponente": "A",
+  "sezione_censimento": "580911010001"
+}
+```
+
+### 5. Suppress Complete Odonimo
 
 Suppresses an existing odonimo. Every accesso of the odonimo is suppressed first with
 an explicit, traceable call (the executor iterates the `sopprimi-accesso` sub-workflow
@@ -302,7 +351,7 @@ as declared by `x-executor.foreach`), then the odonimo itself.
 }
 ```
 
-### 4. Search Complete Address
+### 6. Search Complete Address
 
 Searches for addresses by odonimo and, optionally, numero civico.
 

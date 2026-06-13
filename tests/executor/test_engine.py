@@ -282,3 +282,40 @@ async def test_real_spec_create_address_exists_path_resolves_outputs():
     assert run.status == "completed"
     assert run.outputs["progressivo_nazionale_odonimo"] == "2000449"
     assert run.outputs["progressivo_civico"] == "1370588"
+
+
+async def test_payload_entries_resolving_to_null_are_omitted():
+    """An unset workflow input must disappear from the request payload: an
+    explicit null and an absent field can mean different things upstream."""
+    spec = load_spec(
+        {
+            "workflows": [
+                {
+                    "workflowId": "wf",
+                    "steps": [
+                        {
+                            "stepId": "step",
+                            "operationId": "src.op",
+                            "requestBody": {
+                                "contentType": "application/json",
+                                "payload": {
+                                    "kept": "$inputs.present",
+                                    "dropped": "$inputs.missing",
+                                    "nested": {
+                                        "kept": "fixed",
+                                        "dropped": "$inputs.missing",
+                                    },
+                                },
+                            },
+                            "successCriteria": [{"condition": "$statusCode == 200"}],
+                        }
+                    ],
+                }
+            ]
+        }
+    )
+    transport = ScriptedTransport({"src.op": Response(200, {})})
+
+    await WorkflowExecutor(spec, transport).run("wf", {"present": "x", "missing": None})
+
+    assert transport.calls == [("src.op", {"kept": "x", "nested": {"kept": "fixed"}})]

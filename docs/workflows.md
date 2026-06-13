@@ -21,6 +21,7 @@ coord_cerca_odonimo["coord-cerca-odonimo"]
 coord_cerca_accesso["coord-cerca-accesso"]
 aggiorna_coordinate["aggiorna-coordinate"]
 aggiorna_coordinate_progressivo["aggiorna-coordinate-progressivo"]
+aggiorna_accesso["aggiorna-accesso"]
 cerca_odonimo["cerca-odonimo"]
 elenca_accessi["elenca-accessi"]
 sopprimi_odonimo["sopprimi-odonimo"]
@@ -117,6 +118,13 @@ Aggiorna le coordinate dell'accesso indicato dal progressivo
 
 - Operation: `anncsu-coordinate.gestionecoordinate`
 - Outputs: coordinate_aggiornate
+
+### 1: aggiorna-accesso
+
+Sostituisce lo stato dell'accesso indicato dai progressivi
+
+- Operation: `anncsu-accessi.gestioneAnncsuPdnd`
+- Outputs: accesso_aggiornato
 
 ### 1: cerca-odonimo
 

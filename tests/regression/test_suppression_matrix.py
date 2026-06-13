@@ -174,6 +174,46 @@ def test_suppression_of_an_odonimo_without_accessi_skips_the_loop():
     assert server.odonimo_suppressed is True
 
 
+def test_generic_accesso_update_through_the_real_sdk():
+    """The R replace payload reaches the wire complete and without nulls (ADR 0010)."""
+
+    class UpdateServer(FakeAnncsuServer):
+        def _accessi(self, body: dict) -> dict:
+            richiesta = body["richiesta"]
+            assert richiesta["progr_nazionale"] == "2000449"
+            accesso = richiesta["accesso"]
+            assert accesso["operazione_civico"] == "R"
+            # Unset optionals (metrico, specificita, isolato, ...) must be absent,
+            # not null: under replace semantics the difference matters.
+            assert None not in accesso.values()
+            assert "metrico" not in accesso
+            assert accesso["numero"] == "42"
+            assert accesso["esponente"] == "B"
+            assert accesso["sezione_censimento"] == "580911010001"
+            return {"esito": "0", "dati": [{"progr_civico": "1370588", "numero": "42"}]}
+
+    server = UpdateServer(accessi=[], mode="reject")
+
+    with _client(server) as client:
+        response = client.post(
+            "/v1/workflows/aggiorna-accesso-da-progressivo",
+            json={
+                "codcom": "H501",
+                "prognaz": "2000449",
+                "prognazacc": "1370588",
+                "numero": "42",
+                "esponente": "B",
+                "sezione_censimento": "580911010001",
+            },
+        )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["success"] is True
+    assert body["prognazacc"] == "1370588"
+    assert body["accesso"]["progr_civico"] == "1370588"
+
+
 def test_create_branch_path_through_the_real_sdk():
     """Happy/branch path of the upsert saga through the real SDK serialization."""
 

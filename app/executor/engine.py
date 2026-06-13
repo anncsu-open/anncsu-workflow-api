@@ -91,6 +91,10 @@ class WorkflowExecutor:
         if step.operation_id is None:
             raise WorkflowError(f"step {step.step_id!r} has no operationId")
         payload = resolve_value(step.payload, ctx) if step.payload is not None else None
+        # A payload entry that resolves to null (an unset workflow input) is
+        # omitted from the request: an explicit null and an absent field can
+        # mean different things to the upstream API.
+        payload = _without_unset(payload)
         ctx.response = await self._transport.dispatch(
             operation_id=step.operation_id,
             payload=payload,
@@ -154,6 +158,15 @@ class WorkflowExecutor:
             outputs=outputs,
             steps=ctx.steps,
         )
+
+
+def _without_unset(value: Any) -> Any:
+    """Drop ``None`` values from request payloads, recursively."""
+    if isinstance(value, dict):
+        return {key: _without_unset(item) for key, item in value.items() if item is not None}
+    if isinstance(value, list):
+        return [_without_unset(item) for item in value]
+    return value
 
 
 def _coalesced_outputs(workflow: Workflow, ctx: ExecutionContext) -> dict[str, Any]:

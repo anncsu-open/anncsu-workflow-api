@@ -317,7 +317,25 @@ as declared by `x-executor.foreach`), then the odonimo itself.
 }
 ```
 
-### 4. Search Complete Address
+### 4. Suppress a Single Accesso
+
+Suppresses one accesso (a single civico) addressed by the odonimo and accesso
+national progressives, without touching the odonimo. A dated logical suppression
+(ANNCSU operation S). This is the same workflow the odonimo suppression iterates
+internally, also available standalone.
+
+**Endpoint**: `POST /v1/workflows/sopprimi-accesso`
+
+```json
+{
+  "codcom": "H501",
+  "prognaz": "2000449",
+  "prognazacc": "1370588",
+  "data_soppressione": "08/10/2024"
+}
+```
+
+### 5. Search Complete Address
 
 Searches for addresses by odonimo and, optionally, numero civico.
 

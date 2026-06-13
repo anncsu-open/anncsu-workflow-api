@@ -465,14 +465,42 @@ def test_invalid_input_returns_a_422_problem():
     assert problem["errors"]  # validation detail as an RFC 7807 extension member
 
 
-def test_the_reusable_sub_workflow_is_not_exposed():
+def test_sopprimi_accesso_route_suppresses_one_accesso():
+    """Standalone single-accesso suppression (still also used by the odonimo foreach)."""
+    transport = ScriptedTransport(
+        {"anncsu-accessi.gestioneAnncsuPdnd": Response(200, {"esito": "0"})}
+    )
+    executor = WorkflowExecutor(load_spec(ARAZZO_SPEC), transport)
+    with _client_with(WorkflowApplicationService(executor)) as client:
+        response = client.post(
+            "/v1/workflows/sopprimi-accesso",
+            json={
+                "codcom": "H501",
+                "prognaz": "2000449",
+                "prognazacc": "1370588",
+                "data_soppressione": "08/10/2024",
+            },
+        )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["success"] is True
+    assert body["esito"] == "0"
+    accesso = transport.calls[0][1]["richiesta"]
+    assert accesso["progr_nazionale"] == "2000449"
+    assert accesso["accesso"]["progr_civico"] == "1370588"
+    assert accesso["accesso"]["operazione_civico"] == "S"
+    assert accesso["accesso"]["data_valid_amm"] == "08/10/2024"
+
+
+def test_sopprimi_accesso_requires_the_suppression_date():
     with _client_scripted({}) as client:
         response = client.post(
             "/v1/workflows/sopprimi-accesso",
-            json={"codcom": "H501"},
+            json={"codcom": "H501", "prognaz": "2000449", "prognazacc": "1370588"},
         )
-
-    assert response.status_code == 404
+    assert response.status_code == 422
+    assert response.headers["content-type"] == "application/problem+json"
 
 
 def test_the_production_service_wiring_builds_and_is_cached():
@@ -490,6 +518,7 @@ def test_workflow_routes_are_published_in_the_v1_openapi():
         "verifica-e-crea-indirizzo-completo",
         "aggiorna-accesso-da-progressivo",
         "sopprimi-odonimo-completo",
+        "sopprimi-accesso",
         "ricerca-indirizzo-completo",
     ):
         assert f"/v1/workflows/{workflow_id}" in document["paths"]
@@ -504,6 +533,7 @@ def test_workflow_routes_declare_their_problem_responses():
         "verifica-e-crea-indirizzo-completo",
         "aggiorna-accesso-da-progressivo",
         "sopprimi-odonimo-completo",
+        "sopprimi-accesso",
         "ricerca-indirizzo-completo",
     ):
         responses = document["paths"][f"/v1/workflows/{workflow_id}"]["post"]["responses"]

@@ -62,6 +62,19 @@
   "SopprimiOdonimoOutput.message": "Messaggio descrittivo del risultato",
   "SopprimiOdonimoOutput.errors": "Lista di eventuali errori",
 
+  "SopprimiAccessoInput.codcom": "Codice Belfiore del comune",
+  "SopprimiAccessoInput.prognaz": "Progressivo nazionale dell'odonimo",
+  "SopprimiAccessoInput.prognazacc": "Progressivo nazionale dell'accesso da sopprimere",
+  "SopprimiAccessoInput.data_soppressione": "Data di soppressione (DD/MM/YYYY)",
+
+  "SopprimiAccessoOutput.success": "Indica se il workflow è completato con successo",
+  "SopprimiAccessoOutput.esito": "Codice esito ANNCSU",
+  "SopprimiAccessoOutput.message": "Messaggio descrittivo del risultato",
+  "SopprimiAccessoOutput.errors": "Lista di eventuali errori",
+
+  "Suppress a single accesso": "Sopprime un singolo accesso",
+  "Suppress one accesso (operation S) without touching the odonimo.": "Sopprime un singolo accesso (operazione S) senza toccare l'odonimo.",
+
   "RicercaIndirizzoInput.codcom": "Codice Belfiore del comune",
   "RicercaIndirizzoInput.denom_odonimo": "Denominazione dell'odonimo (anche parziale)",
   "RicercaIndirizzoInput.numero_civico": "Numero civico (opzionale)",

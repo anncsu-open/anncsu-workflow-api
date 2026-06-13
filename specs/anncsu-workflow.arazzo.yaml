@@ -474,27 +474,29 @@ workflows:
           workflowId: sopprimi-accesso
           inputs:
             codcom: $inputs.codcom
-            progr_nazionale: $steps.cerca-odonimo.outputs.progressivo_nazionale
-            progr_civico: $accesso.prognazacc
+            prognaz: $steps.cerca-odonimo.outputs.progressivo_nazionale
+            prognazacc: $accesso.prognazacc
             data_soppressione: $inputs.data_soppressione
 
   - workflowId: sopprimi-accesso
     summary: Sopprime un singolo accesso (civico) di un odonimo
     description: |
-      Workflow riusabile invocato in loop dall'executor (vedi
-      sopprimi-odonimo-completo.x-executor.foreach) per sopprimere un accesso.
+      Soppressione di un singolo accesso (operazione S, soppressione datata).
+      Esposto come endpoint standalone (per togliere un civico senza toccare
+      l'odonimo) ed è anche il workflow riusabile iterato dal foreach di
+      sopprimi-odonimo-completo.
     inputs:
       type: object
       properties:
         codcom:
           type: string
           description: Codice Belfiore del comune
-        progr_nazionale:
+        prognaz:
           type: string
           description: Progressivo nazionale dell'odonimo
-        progr_civico:
+        prognazacc:
           type: string
-          description: Progressivo civico dell'accesso da sopprimere
+          description: Progressivo nazionale dell'accesso da sopprimere
         data_soppressione:
           type: string
           description: Data di soppressione (formato DD/MM/YYYY)
@@ -507,9 +509,9 @@ workflows:
           payload:
             richiesta:
               codcom: $inputs.codcom
-              progr_nazionale: $inputs.progr_nazionale
+              progr_nazionale: $inputs.prognaz
               accesso:
-                progr_civico: $inputs.progr_civico
+                progr_civico: $inputs.prognazacc
                 operazione_civico: S
                 data_valid_amm: $inputs.data_soppressione
         successCriteria:

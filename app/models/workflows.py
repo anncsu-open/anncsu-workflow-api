@@ -359,3 +359,51 @@ class RicercaIndirizzoOutput(BaseModel):
     accessi: list[AccessoResult] = Field(default_factory=list, description="List of accessi found")
     message: str = Field(..., description="Descriptive message of the result")
     errors: list[str] | None = Field(None, description="List of any errors")
+
+
+# ============================================================================
+# Workflow: Suppress a single accesso
+# ============================================================================
+
+
+class SopprimiAccessoInput(BaseModel):
+    """Input for the single-accesso suppression workflow.
+
+    A dated logical suppression (ANNCSU operation S), addressed by the odonimo and
+    accesso national progressives — removes one civico without touching the odonimo.
+    """
+
+    codcom: str = Field(
+        ...,
+        pattern=CODCOM_PATTERN,
+        description="Belfiore municipality code (codcom)",
+        json_schema_extra={"example": "H501"},
+    )
+    prognaz: str = Field(
+        ...,
+        max_length=10,
+        description="National progressive number of the odonimo",
+        json_schema_extra={"example": "2000449"},
+    )
+    prognazacc: str = Field(
+        ...,
+        max_length=15,
+        description="National progressive number of the accesso to suppress",
+        json_schema_extra={"example": "1370588"},
+    )
+    data_soppressione: str = Field(
+        ...,
+        description="Suppression date (DD/MM/YYYY)",
+        json_schema_extra={"example": "08/10/2024"},
+    )
+
+    _data_soppressione_is_a_date = field_validator("data_soppressione")(_ddmmyyyy)
+
+
+class SopprimiAccessoOutput(BaseModel):
+    """Output of the single-accesso suppression workflow."""
+
+    success: bool = Field(..., description="Whether the workflow completed successfully")
+    esito: str | None = Field(None, description="ANNCSU outcome code (esito)")
+    message: str = Field(..., description="Descriptive message of the result")
+    errors: list[str] | None = Field(None, description="List of any errors")

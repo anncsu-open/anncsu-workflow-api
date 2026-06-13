@@ -4,9 +4,9 @@ public Arazzo workflow.
 The published FastAPI contract (typed I/O models, localized via ADR 0005) is the
 conformance gate over the canonical Arazzo spec: each route validates input with
 the Phase A models, runs the workflow synchronously ([BLOCK_REST]), and maps the
-run's declared outputs onto the typed Output model. The reusable
-``sopprimi-accesso`` sub-workflow is intentionally not exposed — only the
-executor invokes it (via ``x-executor.foreach``).
+run's declared outputs onto the typed Output model. ``sopprimi-accesso`` is both
+a standalone route and the workflow the odonimo-suppression ``x-executor.foreach``
+invokes per accesso.
 """
 
 from __future__ import annotations
@@ -30,6 +30,8 @@ from app.models.workflows import (
     CreaIndirizzoCompletoOutput,
     RicercaIndirizzoInput,
     RicercaIndirizzoOutput,
+    SopprimiAccessoInput,
+    SopprimiAccessoOutput,
     SopprimiOdonimoInput,
     SopprimiOdonimoOutput,
 )
@@ -178,6 +180,24 @@ async def sopprimi_odonimo_completo(
         odonimo_soppresso=run.outputs.get("odonimo_soppresso"),
         progressivo_nazionale=run.outputs.get("progressivo_nazionale"),
         accessi_presenti=run.outputs.get("accessi_presenti"),
+        message=COMPLETED_MESSAGE,
+    )
+
+
+@router.post(
+    "/sopprimi-accesso",
+    response_model=SopprimiAccessoOutput,
+    summary="Suppress a single accesso",
+)
+async def sopprimi_accesso(
+    payload: SopprimiAccessoInput,
+    service: ServiceDep,
+) -> SopprimiAccessoOutput:
+    """Suppress one accesso (operation S) without touching the odonimo."""
+    run = await service.run("sopprimi-accesso", payload.model_dump())
+    return SopprimiAccessoOutput(
+        success=True,
+        esito=run.outputs.get("esito"),
         message=COMPLETED_MESSAGE,
     )
 

@@ -13,6 +13,7 @@ from app.models.workflows import (
     AggiornaAccessoDaProgressivoInput,
     CreaIndirizzoCompletoInput,
     RicercaIndirizzoInput,
+    SopprimiAccessoInput,
     SopprimiOdonimoInput,
 )
 
@@ -42,6 +43,12 @@ VALID = {
         "numero": "42",
         "sezione_censimento": "580911010001",
     },
+    SopprimiAccessoInput: {
+        "codcom": "H501",
+        "prognaz": "2000449",
+        "prognazacc": "1370588",
+        "data_soppressione": "08/10/2024",
+    },
 }
 
 
@@ -70,6 +77,10 @@ def test_valid_inputs_are_accepted(model):
         (CreaIndirizzoCompletoInput, "data_validita", "31/02/2025"),
         (SopprimiOdonimoInput, "data_soppressione", "2024-10-08"),
         (SopprimiOdonimoInput, "data_soppressione", "31/02/2025"),
+        (SopprimiAccessoInput, "codcom", "h501"),
+        (SopprimiAccessoInput, "prognaz", "1" * 11),  # max 10
+        (SopprimiAccessoInput, "prognazacc", "1" * 16),  # max 15
+        (SopprimiAccessoInput, "data_soppressione", "31/02/2025"),
         # generic accesso update (ADR 0010 / 0012)
         (AggiornaAccessoDaProgressivoInput, "metodo", "5"),  # survey method 1-4
         (AggiornaAccessoDaProgressivoInput, "codcom", "h501"),

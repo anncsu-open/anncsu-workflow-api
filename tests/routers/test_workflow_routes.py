@@ -11,7 +11,6 @@ RFC 7807 Problem Details via the app-level exception handlers.
 from contextlib import contextmanager
 from pathlib import Path
 
-import pytest
 from fastapi.testclient import TestClient
 
 from app.application.service import WorkflowApplicationService
@@ -148,245 +147,184 @@ def test_denomination_based_coordinate_workflow_is_removed():
     assert response.status_code == 404
 
 
-def test_aggiorna_coordinate_da_progressivo_route_skips_the_searches():
-    """The by-progressive variant (ADR 0009) goes straight to the write: one call."""
-    transport = ScriptedTransport(
+# The accesso as the consultation (prognazaccPost) currently returns it: a single
+# hit, attributes + coordinates, but no sezione_censimento (not exposed).
+def _read_response(**overrides):
+    data = {
+        "civico": "42",
+        "esp": "A",
+        "specif": "ROSSO",
+        "metrico": None,
+        "codacccomunale": "7569A",
+        "coordX": "13.1000000",
+        "coordY": "41.8000000",
+        "quota": "100",
+        "metodo": "1",
+    }
+    data.update(overrides)
+    return Response(200, {"res": "OK", "data": [data]})
+
+
+def _accesso_update_transport(read=None) -> ScriptedTransport:
+    return ScriptedTransport(
         {
-            "anncsu-coordinate.gestionecoordinate": Response(
-                200,
-                {
-                    "esito": "0",
-                    "dati": [{"coordinata_x": "13.1022000", "coordinata_y": "41.8847600"}],
-                },
-            ),
-        }
-    )
-    executor = WorkflowExecutor(load_spec(ARAZZO_SPEC), transport)
-    with _client_with(WorkflowApplicationService(executor)) as client:
-        response = client.post(
-            "/v1/workflows/aggiorna-coordinate-da-progressivo-accesso",
-            json={
-                "codcom": "H501",
-                "prognazacc": "1370588",
-                "coordinata_x": "13.1022000",
-                "coordinata_y": "41.8847600",
-            },
-        )
-
-    assert response.status_code == 200
-    body = response.json()
-    assert body["success"] is True
-    assert body["coordinate"] == {"coordinata_x": "13.1022000", "coordinata_y": "41.8847600"}
-    # No denomination resolution: the only outbound call is the coordinate write,
-    # and it carries the caller's prognazacc as the write payload's progr_civico.
-    assert [op for op, _ in transport.calls] == ["anncsu-coordinate.gestionecoordinate"]
-    assert transport.calls[0][1]["richiesta"]["accesso"]["progr_civico"] == "1370588"
-
-
-def test_aggiorna_accesso_route_sends_the_full_replace_payload():
-    """Generic update by progressivo (ADR 0010): one call, full state, R operation,
-    unset optionals omitted from the wire (not nulls)."""
-    transport = ScriptedTransport(
-        {
+            "anncsu-consultazione.prognazaccPost": read or _read_response(),
             "anncsu-accessi.gestioneAnncsuPdnd": Response(
                 200, {"esito": "0", "dati": [{"progr_civico": "1370588"}]}
             ),
         }
     )
+
+
+def _run_accesso_update(transport, payload):
     executor = WorkflowExecutor(load_spec(ARAZZO_SPEC), transport)
     with _client_with(WorkflowApplicationService(executor)) as client:
-        response = client.post(
-            "/v1/workflows/aggiorna-accesso-da-progressivo",
-            json={
-                "codcom": "H501",
-                "prognaz": "2000449",
-                "prognazacc": "1370588",
-                "numero": "42",
-                "esponente": "A",
-                "sezione_censimento": "580911010001",
-            },
-        )
-
-    assert response.status_code == 200
-    body = response.json()
-    assert body["success"] is True
-    assert body["prognazacc"] == "1370588"
-    assert [op for op, _ in transport.calls] == ["anncsu-accessi.gestioneAnncsuPdnd"]
-    richiesta = transport.calls[0][1]["richiesta"]
-    assert richiesta["codcom"] == "H501"
-    assert richiesta["progr_nazionale"] == "2000449"
-    assert richiesta["accesso"] == {
-        "progr_civico": "1370588",
-        "operazione_civico": "R",
-        "numero": "42",
-        "esponente": "A",
-        "sezione_censimento": "580911010001",
-    }
+        return client.post("/v1/workflows/aggiorna-accesso-da-progressivo", json=payload)
 
 
-def test_aggiorna_accesso_route_carries_every_optional_field_to_the_wire():
-    """Full-state replace: every optional attribute provided must reach the payload."""
-    transport = ScriptedTransport(
-        {"anncsu-accessi.gestioneAnncsuPdnd": Response(200, {"esito": "0", "dati": [{}]})}
-    )
-    executor = WorkflowExecutor(load_spec(ARAZZO_SPEC), transport)
-    with _client_with(WorkflowApplicationService(executor)) as client:
-        response = client.post(
-            "/v1/workflows/aggiorna-accesso-da-progressivo",
-            json={
-                "codcom": "H501",
-                "prognaz": "2000449",
-                "prognazacc": "1370588",
-                "numero": "42",
-                "esponente": "A",
-                "specificita": "ROSSO",
-                "isolato": "12",
-                "codice_civico_comunale": "7569A",
-                "sezione_censimento": "580911010001",
-                "data_validita": "08/10/2024",
-            },
-        )
-
-    assert response.status_code == 200
-    accesso = transport.calls[0][1]["richiesta"]["accesso"]
-    assert accesso == {
-        "progr_civico": "1370588",
-        "operazione_civico": "R",
-        "numero": "42",
-        "esponente": "A",
-        "specificita": "ROSSO",
-        "isolato": "12",
-        "codice_civico_comunale": "7569A",
-        "sezione_censimento": "580911010001",
-        "data_valid_amm": "08/10/2024",
-    }
-
-
-def test_aggiorna_accesso_route_carries_coordinates_to_the_wire():
-    """The accesso's full state includes its coordinates: the R replace must be
-    able to set them (and, under replace semantics, not silently drop them)."""
-    transport = ScriptedTransport(
-        {"anncsu-accessi.gestioneAnncsuPdnd": Response(200, {"esito": "0", "dati": [{}]})}
-    )
-    executor = WorkflowExecutor(load_spec(ARAZZO_SPEC), transport)
-    with _client_with(WorkflowApplicationService(executor)) as client:
-        response = client.post(
-            "/v1/workflows/aggiorna-accesso-da-progressivo",
-            json={
-                "codcom": "H501",
-                "prognaz": "2000449",
-                "prognazacc": "1370588",
-                "numero": "42",
-                "sezione_censimento": "580911010001",
-                "coordinata_x": "13.1022000",
-                "coordinata_y": "41.8847600",
-                "coordinata_z": "150",
-                "metodo": "3",
-            },
-        )
-
-    assert response.status_code == 200
-    accesso = transport.calls[0][1]["richiesta"]["accesso"]
-    assert accesso["coordinate"] == {
-        "x": "13.1022000",
-        "y": "41.8847600",
-        "z": "150",
-        "metodo": "3",
-    }
-
-
-def test_aggiorna_accesso_without_coordinates_sends_no_coordinate_block():
-    """Omitting coordinates must not send an empty coordinate object on the wire."""
-    transport = ScriptedTransport(
-        {"anncsu-accessi.gestioneAnncsuPdnd": Response(200, {"esito": "0", "dati": [{}]})}
-    )
-    executor = WorkflowExecutor(load_spec(ARAZZO_SPEC), transport)
-    with _client_with(WorkflowApplicationService(executor)) as client:
-        response = client.post(
-            "/v1/workflows/aggiorna-accesso-da-progressivo",
-            json={
-                "codcom": "H501",
-                "prognaz": "2000449",
-                "prognazacc": "1370588",
-                "numero": "42",
-                "sezione_censimento": "580911010001",
-            },
-        )
-
-    assert response.status_code == 200
-    assert "coordinate" not in transport.calls[0][1]["richiesta"]["accesso"]
-
-
-def test_aggiorna_accesso_route_accepts_explicit_nulls_as_unset():
-    """JSON nulls on nullable fields are accepted and treated as not provided:
-    they never reach the wire (the engine omits them)."""
-    transport = ScriptedTransport(
-        {"anncsu-accessi.gestioneAnncsuPdnd": Response(200, {"esito": "0", "dati": [{}]})}
-    )
-    executor = WorkflowExecutor(load_spec(ARAZZO_SPEC), transport)
-    with _client_with(WorkflowApplicationService(executor)) as client:
-        response = client.post(
-            "/v1/workflows/aggiorna-accesso-da-progressivo",
-            json={
-                "codcom": "H501",
-                "prognaz": "2000449",
-                "prognazacc": "1370588",
-                "metrico": "300",
-                "numero": None,
-                "esponente": None,
-                "specificita": None,
-                "isolato": None,
-                "codice_civico_comunale": None,
-                "sezione_censimento": "580911010001",
-                "data_validita": None,
-            },
-        )
-
-    assert response.status_code == 200
-    accesso = transport.calls[0][1]["richiesta"]["accesso"]
-    assert accesso == {
-        "progr_civico": "1370588",
-        "operazione_civico": "R",
-        "metrico": "300",
-        "sezione_censimento": "580911010001",
-    }
-
-
-@pytest.mark.parametrize("missing", ["coordinata_x", "coordinata_y"])
-def test_aggiorna_coordinate_requires_both_coordinates(missing):
-    """X and Y are co-required (SDK CoordinateDependencyError): absence fails early."""
-    payload = {
-        "codcom": "H501",
-        "prognazacc": "1370588",
-        "coordinata_x": "13.1022000",
-        "coordinata_y": "41.8847600",
-    }
-    payload.pop(missing)
-    with _client_scripted({}) as client:
-        response = client.post(
-            "/v1/workflows/aggiorna-coordinate-da-progressivo-accesso", json=payload
-        )
-
-    assert response.status_code == 422
-    assert response.headers["content-type"] == "application/problem+json"
-    assert any(missing in str(error.get("loc", ())) for error in response.json()["errors"])
-
-
-def test_aggiorna_coordinate_rejects_coordinates_outside_italy():
+def test_coordinate_only_by_progressive_workflow_is_removed():
+    """ADR 0012: coordinate updates are unified into aggiorna-accesso-da-progressivo."""
     with _client_scripted({}) as client:
         response = client.post(
             "/v1/workflows/aggiorna-coordinate-da-progressivo-accesso",
-            json={
-                "codcom": "H501",
-                "prognazacc": "1370588",
-                "coordinata_x": "2.3522",  # Paris longitude: outside 6.0-18.0
-                "coordinata_y": "48.8566",  # outside 36.0-47.0
-            },
+            json={"codcom": "H501", "prognazacc": "1370588"},
         )
+    assert response.status_code == 404
+
+
+def test_aggiorna_accesso_reads_then_writes():
+    """Read-modify-write (ADR 0012): consultation lookup precedes the R write."""
+    transport = _accesso_update_transport()
+    response = _run_accesso_update(
+        transport,
+        {
+            "codcom": "H501",
+            "prognaz": "2000449",
+            "prognazacc": "1370588",
+            "sezione_censimento": "580911010001",
+            "esponente": "B",
+        },
+    )
+
+    assert response.status_code == 200
+    assert [op for op, _ in transport.calls] == [
+        "anncsu-consultazione.prognazaccPost",
+        "anncsu-accessi.gestioneAnncsuPdnd",
+    ]
+    assert transport.calls[0][1] == {"req": "prognazacc", "prognazacc": "1370588"}
+
+
+def test_coordinate_only_update_preserves_attributes_from_the_read():
+    """Caller sends only coordinates: the read preserves civico/esponente/etc."""
+    transport = _accesso_update_transport()
+    response = _run_accesso_update(
+        transport,
+        {
+            "codcom": "H501",
+            "prognaz": "2000449",
+            "prognazacc": "1370588",
+            "sezione_censimento": "580911010001",
+            "coordinata_x": "13.5",
+            "coordinata_y": "42.0",
+        },
+    )
+
+    assert response.status_code == 200
+    accesso = transport.calls[1][1]["richiesta"]["accesso"]
+    assert accesso["numero"] == "42"  # preserved from read
+    assert accesso["esponente"] == "A"  # preserved
+    assert accesso["specificita"] == "ROSSO"  # preserved
+    assert accesso["codice_civico_comunale"] == "7569A"  # preserved
+    assert accesso["sezione_censimento"] == "580911010001"  # input only
+    assert accesso["coordinate"]["x"] == "13.5"  # input overrides read
+    assert accesso["coordinate"]["y"] == "42.0"
+
+
+def test_attribute_only_update_preserves_coordinates_from_the_read():
+    """Caller changes one attribute: the read preserves the coordinates."""
+    transport = _accesso_update_transport()
+    response = _run_accesso_update(
+        transport,
+        {
+            "codcom": "H501",
+            "prognaz": "2000449",
+            "prognazacc": "1370588",
+            "sezione_censimento": "580911010001",
+            "esponente": "Z",
+        },
+    )
+
+    assert response.status_code == 200
+    accesso = transport.calls[1][1]["richiesta"]["accesso"]
+    assert accesso["esponente"] == "Z"  # input overrides read
+    assert accesso["numero"] == "42"  # preserved
+    assert accesso["coordinate"] == {  # preserved from read
+        "x": "13.1000000",
+        "y": "41.8000000",
+        "z": "100",
+        "metodo": "1",
+    }
+
+
+def test_mixed_update_merges_input_over_read():
+    transport = _accesso_update_transport()
+    response = _run_accesso_update(
+        transport,
+        {
+            "codcom": "H501",
+            "prognaz": "2000449",
+            "prognazacc": "1370588",
+            "sezione_censimento": "580911010001",
+            "esponente": "Z",
+            "coordinata_x": "13.9",
+            "coordinata_y": "42.5",
+        },
+    )
+
+    assert response.status_code == 200
+    accesso = transport.calls[1][1]["richiesta"]["accesso"]
+    assert accesso["esponente"] == "Z"
+    assert accesso["specificita"] == "ROSSO"  # untouched -> from read
+    assert accesso["coordinate"]["x"] == "13.9"
+
+
+def test_accesso_with_no_coordinates_sends_no_coordinate_block():
+    transport = _accesso_update_transport(
+        read=_read_response(coordX=None, coordY=None, quota=None, metodo=None)
+    )
+    response = _run_accesso_update(
+        transport,
+        {
+            "codcom": "H501",
+            "prognaz": "2000449",
+            "prognazacc": "1370588",
+            "sezione_censimento": "580911010001",
+            "esponente": "B",
+        },
+    )
+
+    assert response.status_code == 200
+    assert "coordinate" not in transport.calls[1][1]["richiesta"]["accesso"]
+
+
+def test_update_of_a_missing_accesso_maps_to_422():
+    """The read finds no accesso (empty data) -> step fails -> Problem 422."""
+    transport = _accesso_update_transport(read=Response(200, {"res": "KO", "data": []}))
+    response = _run_accesso_update(
+        transport,
+        {
+            "codcom": "H501",
+            "prognaz": "2000449",
+            "prognazacc": "9999999",
+            "sezione_censimento": "580911010001",
+            "esponente": "B",
+        },
+    )
 
     assert response.status_code == 422
-    locs = str([error.get("loc") for error in response.json()["errors"]])
-    assert "coordinata_x" in locs and "coordinata_y" in locs
+    assert response.headers["content-type"] == "application/problem+json"
+    # The write must not run when the accesso does not exist.
+    assert "anncsu-accessi.gestioneAnncsuPdnd" not in [op for op, _ in transport.calls]
 
 
 def test_aggiorna_accesso_requires_the_sezione_censimento():
@@ -550,7 +488,6 @@ def test_workflow_routes_are_published_in_the_v1_openapi():
 
     for workflow_id in (
         "verifica-e-crea-indirizzo-completo",
-        "aggiorna-coordinate-da-progressivo-accesso",
         "aggiorna-accesso-da-progressivo",
         "sopprimi-odonimo-completo",
         "ricerca-indirizzo-completo",
@@ -565,7 +502,6 @@ def test_workflow_routes_declare_their_problem_responses():
 
     for workflow_id in (
         "verifica-e-crea-indirizzo-completo",
-        "aggiorna-coordinate-da-progressivo-accesso",
         "aggiorna-accesso-da-progressivo",
         "sopprimi-odonimo-completo",
         "ricerca-indirizzo-completo",

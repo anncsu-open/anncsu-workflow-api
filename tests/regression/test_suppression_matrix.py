@@ -174,22 +174,41 @@ def test_suppression_of_an_odonimo_without_accessi_skips_the_loop():
     assert server.odonimo_suppressed is True
 
 
-def test_generic_accesso_update_through_the_real_sdk():
-    """The R replace payload reaches the wire complete and without nulls (ADR 0010)."""
+def test_generic_accesso_update_reads_then_writes_through_the_real_sdk():
+    """Read-modify-write end-to-end (ADR 0012): the consultation read preserves the
+    fields the caller omits, and the R payload reaches the wire without nulls."""
 
     class UpdateServer(FakeAnncsuServer):
+        def _prognazacc(self, body: dict) -> dict:
+            # Current state of the accesso, as the consultation exposes it
+            # (no sezione_censimento).
+            assert body == {"req": "prognazacc", "prognazacc": "1370588"}
+            return {
+                "res": "OK",
+                "data": [
+                    {
+                        "prognazacc": "1370588",
+                        "civico": "42",
+                        "esp": "A",
+                        "specif": "ROSSO",
+                        "codacccomunale": "7569A",
+                        "coordX": "13.10",
+                        "coordY": "41.88",
+                        "quota": "100",
+                        "metodo": "1",
+                    }
+                ],
+            }
+
         def _accessi(self, body: dict) -> dict:
-            richiesta = body["richiesta"]
-            assert richiesta["progr_nazionale"] == "2000449"
-            accesso = richiesta["accesso"]
+            accesso = body["richiesta"]["accesso"]
             assert accesso["operazione_civico"] == "R"
-            # Unset optionals (metrico, specificita, isolato, ...) must be absent,
-            # not null: under replace semantics the difference matters.
-            assert None not in accesso.values()
-            assert "metrico" not in accesso
-            assert accesso["numero"] == "42"
-            assert accesso["esponente"] == "B"
-            assert accesso["sezione_censimento"] == "580911010001"
+            assert None not in accesso.values()  # unset fields omitted, not null
+            assert accesso["numero"] == "42"  # preserved from the read
+            assert accesso["esponente"] == "B"  # caller override
+            assert accesso["specificita"] == "ROSSO"  # preserved
+            assert accesso["sezione_censimento"] == "580911010001"  # input only
+            assert accesso["coordinate"]["x"] == "13.10"  # preserved from the read
             return {"esito": "0", "dati": [{"progr_civico": "1370588", "numero": "42"}]}
 
     server = UpdateServer(accessi=[], mode="reject")
@@ -201,9 +220,8 @@ def test_generic_accesso_update_through_the_real_sdk():
                 "codcom": "H501",
                 "prognaz": "2000449",
                 "prognazacc": "1370588",
-                "numero": "42",
-                "esponente": "B",
                 "sezione_censimento": "580911010001",
+                "esponente": "B",
             },
         )
 
@@ -212,6 +230,8 @@ def test_generic_accesso_update_through_the_real_sdk():
     assert body["success"] is True
     assert body["prognazacc"] == "1370588"
     assert body["accesso"]["progr_civico"] == "1370588"
+    # The read precedes the write.
+    assert [path for path, _ in server.log] == ["prognazacc", "accessi"]
 
 
 def test_create_branch_path_through_the_real_sdk():

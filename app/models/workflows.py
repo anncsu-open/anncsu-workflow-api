@@ -141,71 +141,6 @@ class CreaIndirizzoCompletoOutput(BaseModel):
 
 
 # ============================================================================
-# Workflow 2: Update access coordinates by national progressive
-# ============================================================================
-
-
-class AggiornaCoordinateDaProgressivoAccessoInput(BaseModel):
-    """Input for the coordinate update workflow addressing the accesso directly.
-
-    The accesso is identified by its national progressive (``prognazacc``, as the
-    consultation APIs return it): no denomination resolution, one upstream call.
-    """
-
-    codcom: str = Field(
-        ...,
-        pattern=CODCOM_PATTERN,
-        description="Belfiore municipality code (codcom)",
-        json_schema_extra={"example": "H501"},
-    )
-    prognazacc: str = Field(
-        ...,
-        max_length=15,
-        description="National progressive number of the accesso",
-        json_schema_extra={"example": "1370588"},
-    )
-    coordinata_x: str = Field(
-        ...,
-        max_length=12,
-        description="Longitude WGS84 (6.0-18.0)",
-        json_schema_extra={"example": "13.1022000"},
-    )
-    coordinata_y: str = Field(
-        ...,
-        max_length=12,
-        description="Latitude WGS84 (36.0-47.0)",
-        json_schema_extra={"example": "41.8847600"},
-    )
-    coordinata_z: str | None = Field(
-        None,
-        max_length=7,
-        description="Elevation in meters (optional)",
-        json_schema_extra={"example": "150"},
-    )
-    metodo: str = Field(
-        "3",
-        pattern=METODO_PATTERN,
-        description="Survey method (1-4)",
-        json_schema_extra={"example": "3"},
-    )
-
-    _x_is_in_italy = field_validator("coordinata_x")(_wgs84(6.0, 18.0))
-    _y_is_in_italy = field_validator("coordinata_y")(_wgs84(36.0, 47.0))
-
-
-class AggiornaCoordinateOutput(BaseModel):
-    """Output of the coordinate update workflow."""
-
-    success: bool = Field(..., description="Whether the workflow completed successfully")
-    progressivo_civico: str | None = Field(
-        None, description="Progressive number of the updated civico"
-    )
-    coordinate: dict | None = Field(None, description="Updated coordinates")
-    message: str = Field(..., description="Descriptive message of the result")
-    errors: list[str] | None = Field(None, description="List of any errors")
-
-
-# ============================================================================
 # Workflow: Generic accesso update by national progressives (ADR 0010)
 # ============================================================================
 
@@ -239,13 +174,13 @@ class AggiornaAccessoDaProgressivoInput(BaseModel):
     numero: str | None = Field(
         None,
         max_length=5,
-        description="Civico (street number); exactly one of numero/metrico",
+        description="Civico (street number); mutually exclusive with metrico",
         json_schema_extra={"example": "42"},
     )
     metrico: str | None = Field(
         None,
         max_length=6,
-        description="Metric identification; exactly one of numero/metrico",
+        description="Metric identification; mutually exclusive with numero",
         json_schema_extra={"example": "300"},
     )
     esponente: str | None = Field(
@@ -311,10 +246,12 @@ class AggiornaAccessoDaProgressivoInput(BaseModel):
     _y_is_in_italy = field_validator("coordinata_y")(_wgs84(36.0, 47.0))
 
     @model_validator(mode="after")
-    def _exactly_one_of_numero_or_metrico(self) -> AggiornaAccessoDaProgressivoInput:
-        if (self.numero is None) == (self.metrico is None):
+    def _at_most_one_of_numero_or_metrico(self) -> AggiornaAccessoDaProgressivoInput:
+        # Patch semantics: either may be omitted (preserved from the read); they
+        # are mutually exclusive only when both are provided.
+        if self.numero is not None and self.metrico is not None:
             raise ValueError(
-                "exactly one of 'numero' or 'metrico' must be provided "
+                "'numero' and 'metrico' are mutually exclusive "
                 "(an accesso is identified by civic number XOR metric system)"
             )
         return self

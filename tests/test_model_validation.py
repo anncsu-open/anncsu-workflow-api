@@ -11,7 +11,6 @@ from pydantic import ValidationError
 
 from app.models.workflows import (
     AggiornaAccessoDaProgressivoInput,
-    AggiornaCoordinateDaProgressivoAccessoInput,
     CreaIndirizzoCompletoInput,
     RicercaIndirizzoInput,
     SopprimiOdonimoInput,
@@ -25,12 +24,6 @@ VALID = {
         "numero_civico": "42",
         "data_validita": "08/10/2024",
         "sezione_censimento": "580911010001",
-    },
-    AggiornaCoordinateDaProgressivoAccessoInput: {
-        "codcom": "H501",
-        "prognazacc": "1370588",
-        "coordinata_x": "13.1022000",
-        "coordinata_y": "41.8847600",
     },
     SopprimiOdonimoInput: {
         "codcom": "H501",
@@ -65,29 +58,20 @@ def test_valid_inputs_are_accepted(model):
         (CreaIndirizzoCompletoInput, "codcom", "1234"),
         (CreaIndirizzoCompletoInput, "codcom", "H50"),
         (CreaIndirizzoCompletoInput, "codcom", "HH501"),
-        (AggiornaCoordinateDaProgressivoAccessoInput, "codcom", "roma1"),
         (SopprimiOdonimoInput, "codcom", "501H"),
         (RicercaIndirizzoInput, "codcom", "h501"),
         # OAS max lengths (AccessoMaxLengthError in the SDK)
         (CreaIndirizzoCompletoInput, "numero_civico", "123456"),  # max 5
         (CreaIndirizzoCompletoInput, "sezione_censimento", "1" * 14),  # max 13
         (CreaIndirizzoCompletoInput, "denom_odonimo", "X" * 121),  # max 120
-        (AggiornaCoordinateDaProgressivoAccessoInput, "prognazacc", "1" * 16),  # max 15
-        (AggiornaCoordinateDaProgressivoAccessoInput, "coordinata_x", "1" * 13),  # max 12
-        (AggiornaCoordinateDaProgressivoAccessoInput, "coordinata_z", "1" * 8),  # max 7
         (RicercaIndirizzoInput, "numero_civico", "123456"),
         # dates: valid DD/MM/YYYY calendar dates (InvalidDateFormatError in the SDK)
         (CreaIndirizzoCompletoInput, "data_validita", "2024-10-08"),
         (CreaIndirizzoCompletoInput, "data_validita", "31/02/2025"),
         (SopprimiOdonimoInput, "data_soppressione", "2024-10-08"),
         (SopprimiOdonimoInput, "data_soppressione", "31/02/2025"),
-        # metodo: survey method 1-4
-        (AggiornaCoordinateDaProgressivoAccessoInput, "metodo", "33"),
-        # coordinates: decimal numbers within the Italy bounds (SDK CoordinateRangeError)
-        (AggiornaCoordinateDaProgressivoAccessoInput, "coordinata_x", "not-a-number"),
-        (AggiornaCoordinateDaProgressivoAccessoInput, "coordinata_x", "5.9"),
-        (AggiornaCoordinateDaProgressivoAccessoInput, "coordinata_y", "35.9"),
-        # generic accesso update (ADR 0010)
+        # generic accesso update (ADR 0010 / 0012)
+        (AggiornaAccessoDaProgressivoInput, "metodo", "5"),  # survey method 1-4
         (AggiornaAccessoDaProgressivoInput, "codcom", "h501"),
         (AggiornaAccessoDaProgressivoInput, "prognaz", "1" * 11),  # max 10
         (AggiornaAccessoDaProgressivoInput, "prognazacc", "1" * 16),  # max 15
@@ -106,20 +90,20 @@ def test_invalid_value_is_rejected_with_the_field_named(model, field, bad_value)
     assert any(field in error["loc"] for error in excinfo.value.errors())
 
 
-@pytest.mark.parametrize(
-    "override",
-    [
-        {"numero": "42", "metrico": "300"},  # both set
-        {"numero": None},  # neither set (numero removed, metrico absent)
-    ],
-)
-def test_accesso_update_requires_exactly_one_of_numero_or_metrico(override):
-    """The OAS identifies an accesso as civic XOR metric: the mutex fails early."""
+def test_accesso_update_rejects_both_numero_and_metrico():
+    """Civic XOR metric: providing both is rejected (patch may omit both)."""
     with pytest.raises(ValidationError) as excinfo:
         AggiornaAccessoDaProgressivoInput(
-            **{**VALID[AggiornaAccessoDaProgressivoInput], **override}
+            **{**VALID[AggiornaAccessoDaProgressivoInput], "metrico": "300"}
         )
     assert "numero" in str(excinfo.value) and "metrico" in str(excinfo.value)
+
+
+def test_accesso_update_allows_neither_numero_nor_metrico():
+    """Patch (ADR 0012): both may be omitted and preserved from the read."""
+    payload = {**VALID[AggiornaAccessoDaProgressivoInput]}
+    payload.pop("numero")
+    assert AggiornaAccessoDaProgressivoInput(**payload)
 
 
 def test_accesso_update_accepts_explicit_none_on_every_nullable_field():

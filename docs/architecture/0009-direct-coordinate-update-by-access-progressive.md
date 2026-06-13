@@ -4,13 +4,10 @@ Date: 2026-06-12
 
 ## Status
 
-Accepted
-
-Note:
-[ADR 0010](0010-direct-accesso-operations-by-national-progressive.md)
-(proposed) may supersede this decision — folding coordinate updates into a
-generic accesso update — pending an empirical verification of the `R`
-semantics on UAT. Until that verification lands, this decision stands.
+Superseded by
+[ADR 0012](0012-unify-accesso-update-via-read-modify-write.md): coordinate
+updates are folded into the unified `aggiorna-accesso-da-progressivo` patch and
+`aggiorna-coordinate-da-progressivo-accesso` is removed.
 
 (Extends the canonical Arazzo contract of ADR 0002 with a new workflow; no change
 to the engine of ADR 0003 or to the hexagonal layering of ADR 0004.)

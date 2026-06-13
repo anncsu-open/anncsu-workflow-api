@@ -29,19 +29,6 @@
   "CreaIndirizzoCompletoOutput.message": "Messaggio descrittivo del risultato",
   "CreaIndirizzoCompletoOutput.errors": "Lista di eventuali errori",
 
-  "AggiornaCoordinateDaProgressivoAccessoInput.codcom": "Codice Belfiore del comune",
-  "AggiornaCoordinateDaProgressivoAccessoInput.prognazacc": "Progressivo nazionale dell'accesso",
-  "AggiornaCoordinateDaProgressivoAccessoInput.coordinata_x": "Longitudine WGS84 (6.0-18.0)",
-  "AggiornaCoordinateDaProgressivoAccessoInput.coordinata_y": "Latitudine WGS84 (36.0-47.0)",
-  "AggiornaCoordinateDaProgressivoAccessoInput.coordinata_z": "Quota in metri (opzionale)",
-  "AggiornaCoordinateDaProgressivoAccessoInput.metodo": "Metodo di rilevazione (1-4)",
-
-  "AggiornaCoordinateOutput.success": "Indica se il workflow è completato con successo",
-  "AggiornaCoordinateOutput.progressivo_civico": "Progressivo del civico aggiornato",
-  "AggiornaCoordinateOutput.coordinate": "Coordinate aggiornate",
-  "AggiornaCoordinateOutput.message": "Messaggio descrittivo del risultato",
-  "AggiornaCoordinateOutput.errors": "Lista di eventuali errori",
-
   "AggiornaAccessoDaProgressivoInput.codcom": "Codice Belfiore del comune",
   "AggiornaAccessoDaProgressivoInput.prognaz": "Progressivo nazionale dell'odonimo",
   "AggiornaAccessoDaProgressivoInput.prognazacc": "Progressivo nazionale dell'accesso",

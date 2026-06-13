@@ -73,14 +73,31 @@ def evaluate_condition(condition: str, ctx: ExecutionContext) -> bool:
 
 
 def resolve_value(value: Any, ctx: ExecutionContext) -> Any:
-    """Recursively resolve any runtime expressions inside a request payload."""
+    """Recursively resolve any runtime expressions inside a request payload.
+
+    A single-key object ``{"x-coalesce": [a, b, …]}`` resolves to the first
+    non-null of its operands — the coalesce semantics of ``x-executor.coalesce``,
+    usable inside a payload to merge caller input over a read step's outputs
+    (see ADR 0012).
+    """
     if isinstance(value, Mapping):
+        if set(value) == {"x-coalesce"}:
+            return _coalesce(value["x-coalesce"], ctx)
         return {key: resolve_value(item, ctx) for key, item in value.items()}
     if isinstance(value, (list, tuple)):
         return [resolve_value(item, ctx) for item in value]
     if is_expression(value):
         return evaluate_expression(value, ctx)
     return value
+
+
+def _coalesce(operands: Any, ctx: ExecutionContext) -> Any:
+    """First non-null among ``operands`` (each an expression or a literal value)."""
+    for operand in operands:
+        resolved = resolve_value(operand, ctx)
+        if resolved is not None:
+            return resolved
+    return None
 
 
 def _resolve_root(root: str, ctx: ExecutionContext) -> Any:

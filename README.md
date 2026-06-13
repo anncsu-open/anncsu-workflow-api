@@ -272,38 +272,21 @@ Creates a complete address, first verifying the existence of the odonimo and the
 The `sezione_censimento` (ISTAT `SEZ21_ID` format) is required: ANNCSU needs it
 to create the accesso and it cannot be derived from the consultation APIs.
 
-### 2. Update Access Coordinates by National Progressive
+### 2. Update an Accesso by National Progressives
 
-Updates the geographic (GPS) coordinates of an accesso addressed directly by its
-national progressive (`prognazacc`, as returned by the search workflow): no
-denomination resolution, one upstream call, deterministic target (see
-`docs/architecture/0009-direct-coordinate-update-by-access-progressive.md`).
+The single endpoint for every accesso change — attributes and/or coordinates —
+addressed by the odonimo and accesso national progressives. It is a **patch via
+read-modify-write** (see
+`docs/architecture/0012-unify-accesso-update-via-read-modify-write.md`): the
+workflow reads the current accesso and the fields you send override it, so
+unspecified fields are preserved without the caller having to know them. A
+**coordinate-only** update therefore sends just the coordinates.
 
-**Endpoint**: `POST /v1/workflows/aggiorna-coordinate-da-progressivo-accesso`
-
-```json
-{
-  "codcom": "H501",
-  "prognazacc": "1370588",
-  "coordinata_x": "13.1022000",
-  "coordinata_y": "41.8847600"
-}
-```
-
-Coordinates are validated up front: decimal WGS84 values within the Italy
-bounds (x 6.0–18.0, y 36.0–47.0), survey `metodo` 1–4.
-
-### 3. Update an Accesso by National Progressives
-
-Generic update (ANNCSU operation R) addressed by the odonimo and accesso
-national progressives. **Replace semantics**: the request describes the
-accesso's new state — attributes left out are not guaranteed preserved, so read
-the accesso first and send the full desired state (see
-`docs/architecture/0010-direct-accesso-operations-by-national-progressive.md`).
-Exactly one of `numero`/`metrico` is required, and `sezione_censimento` is
-required as for creations. Coordinates are part of the state and can be sent
-here (`coordinata_x`/`_y`/`_z`/`metodo`, co-dependent — x and y together);
-for coordinate-only changes the dedicated coordinate endpoints are lighter.
+`sezione_censimento` is **always required**: it is mandatory for the update and
+is not exposed by the consultation API, so it cannot be recovered by the read.
+Coordinates, when sent, are validated up front (decimal WGS84 within the Italy
+bounds x 6.0–18.0 / y 36.0–47.0, co-dependent — x and y together — survey
+`metodo` 1–4); `numero` and `metrico` are mutually exclusive.
 
 **Endpoint**: `POST /v1/workflows/aggiorna-accesso-da-progressivo`
 
@@ -312,13 +295,13 @@ for coordinate-only changes the dedicated coordinate endpoints are lighter.
   "codcom": "H501",
   "prognaz": "2000449",
   "prognazacc": "1370588",
-  "numero": "42",
-  "esponente": "A",
-  "sezione_censimento": "580911010001"
+  "sezione_censimento": "580911010001",
+  "coordinata_x": "13.1022000",
+  "coordinata_y": "41.8847600"
 }
 ```
 
-### 4. Suppress Complete Odonimo
+### 3. Suppress Complete Odonimo
 
 Suppresses an existing odonimo. Every accesso of the odonimo is suppressed first with
 an explicit, traceable call (the executor iterates the `sopprimi-accesso` sub-workflow
@@ -334,7 +317,7 @@ as declared by `x-executor.foreach`), then the odonimo itself.
 }
 ```
 
-### 5. Search Complete Address
+### 4. Search Complete Address
 
 Searches for addresses by odonimo and, optionally, numero civico.
 

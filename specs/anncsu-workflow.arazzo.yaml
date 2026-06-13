@@ -356,6 +356,87 @@ workflows:
     outputs:
       risultato: $steps.aggiorna-coordinate-progressivo.outputs.coordinate_aggiornate
 
+  - workflowId: aggiorna-accesso-da-progressivo
+    summary: Aggiorna lo stato di un accesso identificato dai progressivi nazionali
+    description: |
+      Aggiornamento generico dell'accesso (operazione R) identificato da
+      progressivo nazionale dell'odonimo e dell'accesso. Semantica replace:
+      la richiesta descrive il NUOVO stato dell'accesso; gli attributi omessi
+      non sono garantiti preservati. Le coordinate restano sui workflow
+      dedicati (API Coordinate).
+    inputs:
+      type: object
+      properties:
+        codcom:
+          type: string
+          description: Codice Belfiore del comune
+        prognaz:
+          type: string
+          description: Progressivo nazionale dell'odonimo
+        prognazacc:
+          type: string
+          description: Progressivo nazionale dell'accesso
+        numero:
+          type: string
+          maxLength: 5
+          description: Numero civico (esattamente uno tra numero e metrico)
+        metrico:
+          type: string
+          maxLength: 6
+          description: Identificazione metrica (esattamente uno tra numero e metrico)
+        esponente:
+          type: string
+          maxLength: 15
+          description: Esponente
+        specificita:
+          type: string
+          maxLength: 5
+          description: Specificità
+        isolato:
+          type: string
+          maxLength: 4
+          description: Codice isolato
+        codice_civico_comunale:
+          type: string
+          maxLength: 30
+          description: Codifica comunale dell'accesso
+        sezione_censimento:
+          type: string
+          maxLength: 13
+          description: Sezione di censimento (formato ISTAT SEZ21_ID)
+        data_validita:
+          type: string
+          description: Data di validità amministrativa (DD/MM/YYYY)
+    steps:
+      - stepId: aggiorna-accesso
+        description: Sostituisce lo stato dell'accesso indicato dai progressivi
+        operationId: anncsu-accessi.gestioneAnncsuPdnd
+        requestBody:
+          contentType: application/json
+          payload:
+            richiesta:
+              codcom: $inputs.codcom
+              progr_nazionale: $inputs.prognaz
+              accesso:
+                progr_civico: $inputs.prognazacc
+                operazione_civico: R
+                numero: $inputs.numero
+                metrico: $inputs.metrico
+                esponente: $inputs.esponente
+                specificita: $inputs.specificita
+                isolato: $inputs.isolato
+                codice_civico_comunale: $inputs.codice_civico_comunale
+                sezione_censimento: $inputs.sezione_censimento
+                data_valid_amm: $inputs.data_validita
+        successCriteria:
+          - condition: $statusCode == 200
+          - condition: $response.body.esito == "0"
+        outputs:
+          accesso_aggiornato: $response.body.dati[0]
+
+    outputs:
+      risultato: $steps.aggiorna-accesso.outputs.accesso_aggiornato
+
   - workflowId: sopprimi-odonimo-completo
     summary: Sopprime un odonimo previa soppressione degli accessi associati
     description: |

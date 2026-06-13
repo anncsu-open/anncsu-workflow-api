@@ -24,6 +24,8 @@ from app.errors import PROBLEM_CONTENT_TYPE, Problem
 from app.executor.engine import WorkflowExecutor
 from app.executor.spec import load_spec
 from app.models.workflows import (
+    AggiornaAccessoDaProgressivoInput,
+    AggiornaAccessoOutput,
     AggiornaCoordinateDaProgressivoAccessoInput,
     AggiornaCoordinateInput,
     AggiornaCoordinateOutput,
@@ -127,6 +129,31 @@ async def aggiorna_coordinate_da_progressivo_accesso(
         success=True,
         progressivo_civico=payload.prognazacc,
         coordinate=run.outputs.get("risultato"),
+        message=COMPLETED_MESSAGE,
+    )
+
+
+@router.post(
+    "/aggiorna-accesso-da-progressivo",
+    response_model=AggiornaAccessoOutput,
+    summary="Update an accesso by its national progressives",
+    description=(
+        "Generic accesso update (ANNCSU operation R) addressed by the odonimo and "
+        "accesso national progressives. Replace semantics: the request describes the "
+        "accesso's new state and attributes left out are not guaranteed preserved — "
+        "read the accesso first and send the full desired state."
+    ),
+)
+async def aggiorna_accesso_da_progressivo(
+    payload: AggiornaAccessoDaProgressivoInput,
+    service: ServiceDep,
+) -> AggiornaAccessoOutput:
+    """Replace the accesso's state (no searches; unset fields stay off the wire)."""
+    run = await service.run("aggiorna-accesso-da-progressivo", payload.model_dump())
+    return AggiornaAccessoOutput(
+        success=True,
+        prognazacc=payload.prognazacc,
+        accesso=run.outputs.get("risultato"),
         message=COMPLETED_MESSAGE,
     )
 

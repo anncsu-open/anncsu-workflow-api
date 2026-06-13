@@ -50,11 +50,17 @@ def register_exception_handlers(app: FastAPI) -> None:
 
     @app.exception_handler(RequestValidationError)
     async def invalid_request(request: Request, exc: RequestValidationError) -> JSONResponse:
+        # Keep only the JSON-safe keys: pydantic's ctx may carry the original
+        # exception object (e.g. from model validators).
+        errors = [
+            {"loc": list(error.get("loc", ())), "msg": error.get("msg"), "type": error.get("type")}
+            for error in exc.errors()
+        ]
         return _problem(
             422,
             "Invalid request",
             "The request payload failed validation.",
-            errors=list(exc.errors()),
+            errors=errors,
         )
 
     @app.exception_handler(StepFailedError)

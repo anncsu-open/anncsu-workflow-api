@@ -67,3 +67,18 @@ More difficult / accepted costs:
   fields change.
 - Versioned paths add a prefix the routers and tests must account for, and supporting
   multiple live versions later means maintaining more than one route set.
+
+## Update (2026-06-13): free-text localization
+
+The overlay was extended beyond schema field descriptions to the contract's
+**free text** — operation `summary`/`description` and request-example `summary` —
+keyed by the **English source string** (gettext-style) rather than a structural
+key. The catalog therefore holds two key shapes: `<Schema>.<field>` for field
+descriptions and the English string itself for free text; an alignment test
+validates each shape (field keys against models, free-text keys against the
+generated document, to catch drift).
+
+Known limit: **Swagger UI's own chrome** (the "Try it out", "Execute",
+"Parameters", "Schema" labels, etc.) is part of the Swagger UI bundle, not the
+OpenAPI document, so it is not localized by this mechanism and stays in English.
+Localizing it would require a Swagger UI i18n bundle, out of scope here.

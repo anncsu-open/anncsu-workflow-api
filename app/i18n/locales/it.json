@@ -70,5 +70,19 @@
   "RicercaIndirizzoOutput.odonimi": "Lista odonimi trovati",
   "RicercaIndirizzoOutput.accessi": "Lista accessi trovati",
   "RicercaIndirizzoOutput.message": "Messaggio descrittivo del risultato",
-  "RicercaIndirizzoOutput.errors": "Lista di eventuali errori"
+  "RicercaIndirizzoOutput.errors": "Lista di eventuali errori",
+
+  "Verify and create a complete address": "Verifica e crea un indirizzo completo",
+  "Upsert odonimo and accesso, returning the coalesced progressivi.": "Upsert di odonimo e accesso, ritornando i progressivi fusi.",
+  "Update an accesso by its national progressives": "Aggiorna un accesso tramite i progressivi nazionali",
+  "Update an accesso (ANNCSU operation R) addressed by the odonimo and accesso national progressives. Patch via read-modify-write: the workflow reads the current accesso and the fields you send override it, so unspecified fields are preserved. `sezione_censimento` is not exposed by the consultation API, so it is always required. Coordinate-only updates send just the coordinates.": "Aggiorna un accesso (operazione R di ANNCSU) identificato dai progressivi nazionali dell'odonimo e dell'accesso. Patch via read-modify-write: il workflow legge l'accesso attuale e i campi inviati lo sovrascrivono, così i campi non indicati sono preservati. La `sezione_censimento` non è esposta dall'API di consultazione, quindi è sempre obbligatoria. Per aggiornare solo le coordinate si inviano solo le coordinate.",
+  "Coordinates only (attributes preserved by the read)": "Solo coordinate (attributi preservati dalla lettura)",
+  "One attribute (coordinates preserved by the read)": "Un solo attributo (coordinate preservate dalla lettura)",
+  "Attributes and coordinates together": "Attributi e coordinate insieme",
+  "Suppress an odonimo and its accessi": "Sopprime un odonimo e i suoi accessi",
+  "Suppress every accesso first (x-executor.foreach), then the odonimo.": "Sopprime prima tutti gli accessi (x-executor.foreach), poi l'odonimo.",
+  "Search a complete address": "Ricerca un indirizzo completo",
+  "Read-only search of odonimi and accessi.": "Ricerca in sola lettura di odonimi e accessi.",
+  "Health check": "Controllo di stato",
+  "Service status.": "Stato del servizio."
 }

@@ -80,3 +80,50 @@ def test_schema_without_components_is_returned_unchanged():
 
 def test_empty_translations_is_a_noop(schema):
     assert localize_schema(schema, {}) == schema
+
+
+@pytest.fixture
+def paths_schema() -> dict:
+    return {
+        "paths": {
+            "/v1/workflows/x": {
+                "post": {
+                    "summary": "Update an accesso",
+                    "description": "Patch the accesso state.",
+                    "requestBody": {
+                        "content": {
+                            "application/json": {
+                                "examples": {
+                                    "coords": {"summary": "Coordinates only", "value": {}},
+                                }
+                            }
+                        }
+                    },
+                }
+            }
+        }
+    }
+
+
+def test_localizes_operation_summary_and_description(paths_schema):
+    translations = {
+        "Update an accesso": "Aggiorna un accesso",
+        "Patch the accesso state.": "Applica una patch allo stato dell'accesso.",
+    }
+    localized = localize_schema(paths_schema, translations)
+    op = localized["paths"]["/v1/workflows/x"]["post"]
+    assert op["summary"] == "Aggiorna un accesso"
+    assert op["description"] == "Applica una patch allo stato dell'accesso."
+
+
+def test_localizes_example_summaries(paths_schema):
+    localized = localize_schema(paths_schema, {"Coordinates only": "Solo coordinate"})
+    examples = localized["paths"]["/v1/workflows/x"]["post"]["requestBody"]["content"][
+        "application/json"
+    ]["examples"]
+    assert examples["coords"]["summary"] == "Solo coordinate"
+
+
+def test_untranslated_free_text_keeps_the_english_baseline(paths_schema):
+    localized = localize_schema(paths_schema, {"unrelated": "x"})
+    assert localized["paths"]["/v1/workflows/x"]["post"]["summary"] == "Update an accesso"

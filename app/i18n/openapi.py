@@ -1,9 +1,14 @@
 """Pure helpers for localizing the OpenAPI document.
 
 ``resolve_language`` picks the language from the ``lang`` query parameter, then the
-``Accept-Language`` header, then the default. ``localize_schema`` overlays translated
-field descriptions onto ``components.schemas.<Schema>.properties.<field>`` by the
-``"<Schema>.<field>"`` catalog key, leaving the English baseline where a key is absent.
+``Accept-Language`` header, then the default. ``localize_schema`` overlays
+translations from the catalog, leaving the English baseline where a key is absent:
+
+- field descriptions, by the ``"<Schema>.<field>"`` catalog key;
+- operation ``summary``/``description`` and request-example ``summary``, by their
+  **English source string** (gettext-style), so free text in the contract is
+  localized too.
+
 Both are pure and perform no I/O.
 """
 
@@ -36,13 +41,22 @@ def resolve_language(
 
 
 def localize_schema(schema: dict[str, Any], translations: Mapping[str, str]) -> dict[str, Any]:
-    """Return a copy of ``schema`` with field descriptions overlaid from ``translations``."""
-    schemas = schema.get("components", {}).get("schemas")
-    if not schemas or not translations:
+    """Return a copy of ``schema`` with translations overlaid from ``translations``."""
+    if not translations:
         return schema
 
     result = copy.deepcopy(schema)
-    for name, model in result["components"]["schemas"].items():
+    _localize_field_descriptions(result, translations)
+    _localize_free_text(result, translations)
+    return result
+
+
+def _localize_field_descriptions(schema: dict[str, Any], translations: Mapping[str, str]) -> None:
+    """Overlay ``components.schemas.<Schema>.properties.<field>`` descriptions by key."""
+    schemas = schema.get("components", {}).get("schemas")
+    if not isinstance(schemas, dict):
+        return
+    for name, model in schemas.items():
         properties = model.get("properties")
         if not isinstance(properties, dict):
             continue
@@ -50,7 +64,36 @@ def localize_schema(schema: dict[str, Any], translations: Mapping[str, str]) -> 
             translated = translations.get(f"{name}.{field}")
             if translated is not None and isinstance(prop, dict):
                 prop["description"] = translated
-    return result
+
+
+def _localize_free_text(schema: dict[str, Any], translations: Mapping[str, str]) -> None:
+    """Translate operation summary/description and example summaries by source string."""
+    for path_item in schema.get("paths", {}).values():
+        if not isinstance(path_item, dict):
+            continue
+        for operation in path_item.values():
+            if not isinstance(operation, dict):
+                continue
+            _translate_in_place(operation, "summary", translations)
+            _translate_in_place(operation, "description", translations)
+            for example in _request_examples(operation):
+                _translate_in_place(example, "summary", translations)
+
+
+def _request_examples(operation: dict[str, Any]) -> list[dict[str, Any]]:
+    content = operation.get("requestBody", {}).get("content", {})
+    examples: list[dict[str, Any]] = []
+    for media_type in content.values():
+        for example in (media_type or {}).get("examples", {}).values():
+            if isinstance(example, dict):
+                examples.append(example)
+    return examples
+
+
+def _translate_in_place(obj: dict[str, Any], key: str, translations: Mapping[str, str]) -> None:
+    value = obj.get(key)
+    if isinstance(value, str) and value in translations:
+        obj[key] = translations[value]
 
 
 def _parse_accept_language(header: str) -> list[str]:

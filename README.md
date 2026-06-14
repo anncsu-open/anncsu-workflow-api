@@ -42,6 +42,10 @@ Create a `.env` file in the project root:
 APP_NAME="ANNCSU Workflow Service"
 DEBUG=false
 
+# Logging
+LOG_LEVEL=INFO        # DEBUG | INFO | WARNING | ERROR
+LOG_FORMAT=json       # json (production) | console (development)
+
 # ANNCSU API URLs (Production)
 ANNCSU_CONSULTAZIONE_URL=https://modipa.agenziaentrate.gov.it/govway/rest/in/AgenziaEntrate-PDND/anncsu-consultazione/v1
 ANNCSU_ODONIMI_URL=https://modipa.agenziaentrate.it/govway/rest/in/AgenziaEntrate-PDND/anncsu-aggiornamento-odonimi/v1
@@ -78,6 +82,22 @@ openssl genrsa -out keys/private_key.pem 2048
 # Generate public key
 openssl rsa -in keys/private_key.pem -pubout -out keys/public_key.pem
 ```
+
+### Logging
+
+The service emits **structured logs** via [structlog](https://www.structlog.org/)
+(ADR 0014). `LOG_FORMAT=json` renders one JSON object per line for log
+aggregation; `LOG_FORMAT=console` renders a colourless, human-readable line handy
+under `--reload`. `LOG_LEVEL` sets the threshold — per-step (`workflow.step`) and
+per-dispatch (`transport.dispatch`) events are `DEBUG`; request boundaries
+(`request.start`/`request.end`) and handled failures are `INFO`/`WARNING`/`ERROR`.
+
+Every request carries a **correlation id**: an inbound `X-Request-ID` is reused
+(otherwise one is generated), bound to the logging context for the whole run,
+echoed on the `X-Request-ID` response header, and surfaced as `request_id` on the
+RFC 7807 Problem body. Sensitive keys (authorization, tokens, JWT/assertions,
+secrets) are masked by a central redaction processor, and request payloads are
+never logged.
 
 ## Testing
 

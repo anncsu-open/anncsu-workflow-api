@@ -21,7 +21,10 @@ from app.executor.expressions import (
     resolve_value,
 )
 from app.executor.spec import Action, ArazzoSpec, Step, Workflow
+from app.logging import get_logger
 from app.ports.transport import WorkflowTransport
+
+_log = get_logger("app.executor")
 
 # Backstop against a `goto` cycle that never terminates.
 MAX_STEPS = 1000
@@ -71,6 +74,14 @@ class WorkflowExecutor:
             await self._execute_step(step, ctx)
             succeeded = self._succeeded(step, ctx)
             action = self._select_action(step, succeeded=succeeded, ctx=ctx)
+            _log.debug(
+                "workflow.step",
+                workflow_id=workflow_id,
+                step_id=step.step_id,
+                operation_id=step.operation_id,
+                status_code=ctx.response.status_code if ctx.response else None,
+                succeeded=succeeded,
+            )
 
             if action is None:
                 if not succeeded:

@@ -17,7 +17,11 @@ from fastapi.staticfiles import StaticFiles
 from app.config import settings
 from app.errors import register_exception_handlers
 from app.i18n.fastapi import setup_localized_docs
+from app.logging import RequestContextMiddleware, configure_logging
 from app.routers import visualizer, workflows
+
+# Structured logging + per-request correlation id (ADR 0014), before the app.
+configure_logging(settings)
 
 # Specs directory (Arazzo + the 4 OpenAPI files), next to the repo root.
 SPECS_DIR = Path(__file__).resolve().parent.parent / "specs"
@@ -32,6 +36,9 @@ app = FastAPI(
     docs_url=None,
     redoc_url=None,
 )
+
+# Correlation-id + request logging (outermost middleware: wraps the handlers too).
+app.add_middleware(RequestContextMiddleware)
 
 # Versioned, language-aware OpenAPI + Swagger/ReDoc under /v1.
 setup_localized_docs(app, prefix="/v1")

@@ -1,5 +1,7 @@
 """Configuration settings for ANNCSU Workflow Service."""
 
+from typing import Literal
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -16,6 +18,10 @@ class Settings(BaseSettings):
     app_name: str = "ANNCSU Workflow Service"
     app_version: str = "1.0.0"
     debug: bool = False
+
+    # Logging (ADR 0014): structured logs, JSON in production, console in dev.
+    log_level: str = "INFO"
+    log_format: Literal["json", "console"] = "json"
 
     # ANNCSU API URLs
     anncsu_consultazione_url: str = (

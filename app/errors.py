@@ -17,9 +17,12 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
 from app.executor.engine import StepFailedError, WorkflowError
+from app.logging import current_request_id, get_logger
 from app.ports.transport import TransportError
 
 PROBLEM_CONTENT_TYPE = "application/problem+json"
+
+_log = get_logger("app.error")
 
 
 class Problem(BaseModel):
@@ -29,6 +32,9 @@ class Problem(BaseModel):
     title: str = Field(..., description="Short, human-readable summary of the problem type")
     status: int = Field(..., description="HTTP status code")
     detail: str = Field(..., description="Human-readable explanation of this occurrence")
+    request_id: str | None = Field(
+        None, description="Correlation id of the request (extension member)"
+    )
     errors: list[Any] | None = Field(
         None, description="Validation errors (extension member), when applicable"
     )
@@ -37,7 +43,13 @@ class Problem(BaseModel):
 def _problem(
     status: int, title: str, detail: str, *, errors: list[Any] | None = None
 ) -> JSONResponse:
-    problem = Problem(title=title, status=status, detail=detail, errors=errors)
+    problem = Problem(
+        title=title,
+        status=status,
+        detail=detail,
+        request_id=current_request_id(),
+        errors=errors,
+    )
     return JSONResponse(
         status_code=status,
         media_type=PROBLEM_CONTENT_TYPE,
@@ -65,12 +77,15 @@ def register_exception_handlers(app: FastAPI) -> None:
 
     @app.exception_handler(StepFailedError)
     async def step_failed(request: Request, exc: StepFailedError) -> JSONResponse:
+        _log.warning("workflow.step_failed", path=request.url.path, detail=str(exc))
         return _problem(422, "Workflow step failed", str(exc))
 
     @app.exception_handler(TransportError)
     async def transport_failed(request: Request, exc: TransportError) -> JSONResponse:
+        _log.error("transport.failed", path=request.url.path, detail=str(exc))
         return _problem(502, "Upstream ANNCSU call failed", str(exc))
 
     @app.exception_handler(WorkflowError)
     async def workflow_failed(request: Request, exc: WorkflowError) -> JSONResponse:
+        _log.error("workflow.error", path=request.url.path, detail=str(exc))
         return _problem(500, "Workflow execution error", str(exc))

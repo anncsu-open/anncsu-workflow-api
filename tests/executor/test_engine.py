@@ -10,9 +10,12 @@ transport.
 from pathlib import Path
 
 import pytest
+from structlog.testing import capture_logs
 
+from app.config import Settings
 from app.executor.engine import StepFailedError, WorkflowExecutor
 from app.executor.spec import load_spec
+from app.logging import configure_logging
 from app.ports.transport import Response
 from tests.executor.support import ScriptedTransport
 
@@ -319,3 +322,35 @@ async def test_payload_entries_resolving_to_null_are_omitted():
     await WorkflowExecutor(spec, transport).run("wf", {"present": "x", "missing": None})
 
     assert transport.calls == [("src.op", {"kept": "x", "nested": {"kept": "fixed"}})]
+
+
+async def test_run_logs_a_structured_event_per_step():
+    # Per-step events are DEBUG; raise the threshold so capture_logs sees them
+    # even when an earlier test configured logging at INFO.
+    configure_logging(Settings(log_level="DEBUG", log_format="json"))
+    spec = load_spec(
+        {
+            "workflows": [
+                {
+                    "workflowId": "wf",
+                    "steps": [
+                        {
+                            "stepId": "only",
+                            "operationId": "src.op",
+                            "requestBody": {"contentType": "application/json", "payload": {}},
+                            "successCriteria": [{"condition": "$statusCode == 200"}],
+                        }
+                    ],
+                }
+            ]
+        }
+    )
+    transport = ScriptedTransport({"src.op": Response(200, {})})
+
+    with capture_logs() as logs:
+        await WorkflowExecutor(spec, transport).run("wf", {})
+
+    steps = [e for e in logs if e.get("event") == "workflow.step"]
+    assert steps, "expected a per-step log event"
+    assert steps[0]["operation_id"] == "src.op"
+    assert steps[0]["succeeded"] is True

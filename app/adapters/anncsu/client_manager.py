@@ -13,12 +13,28 @@ import asyncio
 from collections.abc import Mapping
 from typing import Any
 
-from anncsu.accessi import AnncsuAccessi
-from anncsu.coordinate import AnncsuCoordinate
-from anncsu.odonimi import AnncsuOdonimi
-from anncsu.pa import AnncsuConsultazione
-
 from app.config import Settings
+
+
+def server_urls_from_settings(settings: Settings) -> dict[str, str]:
+    """Per-source server URL, honoring the validation environment (ADR 0015).
+
+    The single source of truth for the source-to-URL mapping, consumed by the
+    authenticated client build in the application lifespan.
+    """
+    validation = settings.use_validation_env
+    return {
+        "anncsu-consultazione": (
+            settings.anncsu_consultazione_val_url
+            if validation
+            else settings.anncsu_consultazione_url
+        ),
+        "anncsu-odonimi": (
+            settings.anncsu_odonimi_val_url if validation else settings.anncsu_odonimi_url
+        ),
+        "anncsu-accessi": settings.anncsu_accessi_url,
+        "anncsu-coordinate": settings.anncsu_coordinate_url,
+    }
 
 
 class AnncsuClientManager:
@@ -27,27 +43,6 @@ class AnncsuClientManager:
     def __init__(self, clients: Mapping[str, Any]) -> None:
         self._clients = dict(clients)
         self._locks: dict[str, asyncio.Lock] = {}
-
-    @classmethod
-    def from_settings(cls, settings: Settings) -> AnncsuClientManager:
-        """Build the four sub-SDK clients with the configured server URLs."""
-        validation = settings.use_validation_env
-        return cls(
-            clients={
-                "anncsu-consultazione": AnncsuConsultazione(
-                    server_url=settings.anncsu_consultazione_val_url
-                    if validation
-                    else settings.anncsu_consultazione_url
-                ),
-                "anncsu-odonimi": AnncsuOdonimi(
-                    server_url=settings.anncsu_odonimi_val_url
-                    if validation
-                    else settings.anncsu_odonimi_url
-                ),
-                "anncsu-accessi": AnncsuAccessi(server_url=settings.anncsu_accessi_url),
-                "anncsu-coordinate": AnncsuCoordinate(server_url=settings.anncsu_coordinate_url),
-            }
-        )
 
     def client(self, source: str) -> Any:
         """The SDK client serving ``source``."""

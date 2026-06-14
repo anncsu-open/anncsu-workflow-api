@@ -589,13 +589,6 @@ def test_update_of_a_missing_odonimo_maps_to_422():
     assert "anncsu-odonimi.gestioneAnncsuOdonimiPdnd" not in [op for op, _ in transport.calls]
 
 
-def test_the_production_service_wiring_builds_and_is_cached():
-    """The default provider wires spec + SDK transport once (no network at build)."""
-    first = get_workflow_service()
-    assert isinstance(first, WorkflowApplicationService)
-    assert get_workflow_service() is first
-
-
 def test_workflow_routes_are_published_in_the_v1_openapi():
     with _client_scripted({}) as client:
         document = client.get("/v1/openapi.json").json()

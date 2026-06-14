@@ -11,15 +11,24 @@ invokes per accesso.
 
 from __future__ import annotations
 
-from functools import cache
+from collections.abc import Callable, Mapping
 from pathlib import Path
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Body, Depends
+from anncsu.common.auth import PDNDAuthManager
+from anncsu.common.config import ClientAssertionSettings
+from fastapi import APIRouter, Body, Depends, Request
 
 from app.adapters.anncsu import AnncsuClientManager, AnncsuSdkTransport
+from app.adapters.anncsu.auth import (
+    SDK_CLASSES,
+    build_auth_managers,
+    build_clients,
+    register_modi_hook_if_configured,
+)
+from app.adapters.anncsu.client_manager import server_urls_from_settings
 from app.application.service import WorkflowApplicationService
-from app.config import settings
+from app.config import Settings, resolve_token_endpoint
 from app.errors import PROBLEM_CONTENT_TYPE, Problem
 from app.executor.engine import WorkflowExecutor
 from app.executor.spec import load_spec
@@ -63,15 +72,48 @@ PROBLEM_RESPONSES: dict[int | str, dict[str, Any]] = {
 router = APIRouter(prefix="/v1/workflows", tags=["workflows"], responses=PROBLEM_RESPONSES)
 
 
-@cache
-def _default_service() -> WorkflowApplicationService:
-    transport = AnncsuSdkTransport(AnncsuClientManager.from_settings(settings))
-    return WorkflowApplicationService(WorkflowExecutor(load_spec(ARAZZO_SPEC), transport))
+def build_workflow_service(
+    settings: Settings,
+    assertion_settings: ClientAssertionSettings,
+    *,
+    manager_factory: Callable[..., Any] = PDNDAuthManager,
+    sdk_classes: Mapping[str, Any] = SDK_CLASSES,
+    modi_registrar: Callable[..., None] = register_modi_hook_if_configured,
+) -> tuple[WorkflowApplicationService, dict[str, Any], AnncsuClientManager]:
+    """Build the authenticated service, the per-source auth managers, and the manager.
+
+    Called once from the application lifespan (ADR 0015). No token is fetched here:
+    each SDK client pulls a voucher lazily on first request via its security
+    provider. The auth managers and the client manager are returned so ``/ready``
+    can probe each source under its per-source lock.
+    """
+    token_endpoint = resolve_token_endpoint(settings.use_validation_env)
+    server_urls = server_urls_from_settings(settings)
+    auth_managers = build_auth_managers(
+        assertion_settings,
+        token_endpoint=token_endpoint,
+        server_urls=server_urls,
+        manager_factory=manager_factory,
+    )
+    clients = build_clients(
+        auth_managers,
+        server_urls,
+        assertion_settings,
+        sdk_classes=sdk_classes,
+        modi_registrar=modi_registrar,
+    )
+    client_manager = AnncsuClientManager(clients=clients)
+    transport = AnncsuSdkTransport(client_manager)
+    service = WorkflowApplicationService(WorkflowExecutor(load_spec(ARAZZO_SPEC), transport))
+    return service, auth_managers, client_manager
 
 
-def get_workflow_service() -> WorkflowApplicationService:
-    """Dependency provider; tests override it to inject a scripted transport."""
-    return _default_service()
+def get_workflow_service(request: Request) -> WorkflowApplicationService:
+    """Resolve the lifespan-built authenticated service from app state (ADR 0015).
+
+    Tests override this dependency to inject a scripted transport.
+    """
+    return request.app.state.workflow_service
 
 
 ServiceDep = Annotated[WorkflowApplicationService, Depends(get_workflow_service)]

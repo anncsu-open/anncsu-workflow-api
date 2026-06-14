@@ -26,7 +26,16 @@ from app.config import Settings
 REQUEST_ID_HEADER = "X-Request-ID"
 
 # Substrings that mark a value as sensitive: never log its content.
-_SENSITIVE = ("authorization", "token", "jwt", "assertion", "secret", "password", "pdnd_client")
+_SENSITIVE = (
+    "authorization",
+    "token",
+    "jwt",
+    "assertion",
+    "secret",
+    "password",
+    "pdnd_client",
+    "private_key",
+)
 _REDACTED = "***"
 
 

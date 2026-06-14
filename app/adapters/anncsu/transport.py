@@ -18,6 +18,7 @@ SDK methods once async hooks land upstream.
 from __future__ import annotations
 
 import asyncio
+import time
 from typing import Any
 
 import httpx
@@ -26,7 +27,10 @@ from anncsu.common.hooks.token_validation import TokenRefreshError
 
 from app.adapters.anncsu.client_manager import AnncsuClientManager
 from app.adapters.anncsu.registry import operation_for, resolve_method
+from app.logging import get_logger
 from app.ports.transport import Response, TransportError
+
+_log = get_logger("app.transport")
 
 
 class AnncsuSdkTransport:
@@ -47,20 +51,31 @@ class AnncsuSdkTransport:
         method = resolve_method(self._manager.client(operation.source), operation.method_path)
         kwargs = dict(payload) if payload else {}
 
+        start = time.perf_counter()
         async with self._manager.lock(operation.source):
             try:
                 model = await asyncio.to_thread(method, **kwargs)
             except AnncsuBaseError as error:
-                return _response_from_error(error)
+                response = _response_from_error(error)
+                _log.debug(
+                    "transport.dispatch",
+                    operation_id=operation_id,
+                    status_code=response.status_code,
+                    duration_ms=round((time.perf_counter() - start) * 1000, 1),
+                )
+                return response
             except (httpx.HTTPError, NoResponseError, TokenRefreshError) as error:
                 raise TransportError(
                     f"call for {operation_id!r} failed before an HTTP outcome: {error}"
                 ) from error
 
-        return Response(
+        _log.debug(
+            "transport.dispatch",
+            operation_id=operation_id,
             status_code=200,
-            body=model.model_dump(mode="json", by_alias=True),
+            duration_ms=round((time.perf_counter() - start) * 1000, 1),
         )
+        return Response(status_code=200, body=model.model_dump(mode="json", by_alias=True))
 
 
 def _response_from_error(error: AnncsuBaseError) -> Response:

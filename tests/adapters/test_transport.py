@@ -22,10 +22,13 @@ from anncsu.common.errors import NoResponseError
 from anncsu.common.hooks.token_validation import TokenRefreshError
 from anncsu.pa import errors as pa_errors
 from anncsu.pa import models as pa_models
+from structlog.testing import capture_logs
 
 from app.adapters.anncsu.client_manager import AnncsuClientManager
 from app.adapters.anncsu.registry import UnknownOperationError
 from app.adapters.anncsu.transport import AnncsuSdkTransport
+from app.config import Settings
+from app.logging import configure_logging
 from app.ports.transport import TransportError, WorkflowTransport
 
 ESISTE_ODONIMO = "anncsu-consultazione.esisteOdonimoPost"
@@ -234,3 +237,17 @@ async def test_dispatches_to_different_apis_can_overlap():
         transport.dispatch(operation_id=ESISTE_ODONIMO, payload={}, content_type=None),
         transport.dispatch(operation_id=GESTIONE_ACCESSI, payload={}, content_type=None),
     )
+
+
+async def test_dispatch_is_logged_with_operation_and_status():
+    # Per-dispatch events are DEBUG; raise the threshold so capture_logs sees them.
+    configure_logging(Settings(log_level="DEBUG", log_format="json"))
+    method, _ = _recorded(pa_models.EsisteOdonimoPostResponse(data=True))
+    transport = _transport(_consultazione(method))
+
+    with capture_logs() as logs:
+        await transport.dispatch(operation_id=ESISTE_ODONIMO, payload={}, content_type=None)
+
+    dispatched = [e for e in logs if e.get("event") == "transport.dispatch"]
+    assert dispatched and dispatched[0]["operation_id"] == ESISTE_ODONIMO
+    assert dispatched[0]["status_code"] == 200

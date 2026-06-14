@@ -12,7 +12,7 @@ named field instead of surfacing an opaque server error mid-workflow.
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import UTC, datetime
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
@@ -45,6 +45,16 @@ def _ddmmyyyy(value: str | None) -> str | None:
         datetime.strptime(value, "%d/%m/%Y")  # noqa: DTZ007 - date only, no tz involved
     except ValueError as error:
         raise ValueError("must be a valid DD/MM/YYYY date") from error
+    return value
+
+
+def _ddmmyyyy_not_future(value: str | None) -> str | None:
+    """A DD/MM/YYYY date that is not in the future (odonimi rule: data_valid_amm)."""
+    value = _ddmmyyyy(value)
+    if value is not None:
+        parsed = datetime.strptime(value, "%d/%m/%Y").date()  # noqa: DTZ007 - format pre-validated
+        if parsed > datetime.now(UTC).date():
+            raise ValueError("must not be in the future")
     return value
 
 
@@ -112,7 +122,7 @@ class CreaIndirizzoCompletoInput(BaseModel):
     )
     data_validita: str | None = Field(
         None,
-        description="Administrative validity date (DD/MM/YYYY) for creations",
+        description="Administrative validity date (DD/MM/YYYY) for creations, not in the future",
         json_schema_extra={"example": "08/10/2024"},
     )
     sezione_censimento: str = Field(
@@ -125,7 +135,8 @@ class CreaIndirizzoCompletoInput(BaseModel):
         json_schema_extra={"example": "580911010001"},
     )
 
-    _data_validita_is_a_date = field_validator("data_validita")(_ddmmyyyy)
+    # The odonimo branch forbids a future data_valid_amm; harmless for the accesso branch.
+    _data_validita_not_future = field_validator("data_validita")(_ddmmyyyy_not_future)
 
 
 class CreaIndirizzoCompletoOutput(BaseModel):
@@ -390,11 +401,12 @@ class AggiornaOdonimoDaProgressivoInput(BaseModel):
     aut_prefettura: AutPrefettura | None = Field(None, description="Prefecture authorization")
     data_validita: str | None = Field(
         None,
-        description="Administrative validity date (DD/MM/YYYY)",
+        description="Administrative validity date (DD/MM/YYYY), not in the future",
         json_schema_extra={"example": "08/10/2024"},
     )
 
-    _data_validita_is_a_date = field_validator("data_validita")(_ddmmyyyy)
+    # ANNCSU forbids a future data_valid_amm for odonimi (unlike accessi).
+    _data_validita_not_future = field_validator("data_validita")(_ddmmyyyy_not_future)
 
 
 class AggiornaOdonimoOutput(BaseModel):

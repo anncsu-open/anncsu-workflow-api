@@ -81,6 +81,7 @@ def test_valid_inputs_are_accepted(model):
         # dates: valid DD/MM/YYYY calendar dates (InvalidDateFormatError in the SDK)
         (CreaIndirizzoCompletoInput, "data_validita", "2024-10-08"),
         (CreaIndirizzoCompletoInput, "data_validita", "31/02/2025"),
+        (CreaIndirizzoCompletoInput, "data_validita", "01/01/2099"),  # not in future (odonimo rule)
         (SopprimiOdonimoInput, "data_soppressione", "2024-10-08"),
         (SopprimiOdonimoInput, "data_soppressione", "31/02/2025"),
         (SopprimiAccessoInput, "codcom", "h501"),
@@ -93,8 +94,11 @@ def test_valid_inputs_are_accepted(model):
         (AggiornaOdonimoDaProgressivoInput, "denom_delibera", "X" * 121),  # max 120
         (AggiornaOdonimoDaProgressivoInput, "dug", "X" * 31),  # max 30
         (AggiornaOdonimoDaProgressivoInput, "denom_localita", "X" * 152),  # max 151
+        (AggiornaOdonimoDaProgressivoInput, "denom_in_lingua_1", "X" * 151),  # max 150
+        (AggiornaOdonimoDaProgressivoInput, "denom_in_lingua_2", "X" * 151),  # max 150
         (AggiornaOdonimoDaProgressivoInput, "codice_comunale", "X" * 31),  # max 30
         (AggiornaOdonimoDaProgressivoInput, "data_validita", "31/02/2025"),
+        (AggiornaOdonimoDaProgressivoInput, "data_validita", "01/01/2099"),  # not in future
         # generic accesso update (ADR 0010 / 0012)
         (AggiornaAccessoDaProgressivoInput, "metodo", "5"),  # survey method 1-4
         (AggiornaAccessoDaProgressivoInput, "codcom", "h501"),
@@ -260,3 +264,28 @@ def test_odonimo_prefettura_fields_are_co_required(pref):
 
 def test_odonimo_prefettura_accepts_both_fields():
     assert _odonimo(aut_prefettura={"data_pref": "01/01/2024", "protocollo_pref": "PREF1"})
+
+
+@pytest.mark.parametrize(
+    "provvedimento",
+    [
+        {"flag_delibera": "0", "data": "01/01/2024"},  # protocollo missing
+        {"flag_delibera": "1", "protocollo": "P1"},  # data missing
+    ],
+)
+def test_odonimo_flag_delibera_0_1_rejects_partial_details(provvedimento):
+    """flag 0/1 requires BOTH data and protocollo — one alone is not enough."""
+    with pytest.raises(ValidationError):
+        _odonimo(provvedimento=provvedimento)
+
+
+@pytest.mark.parametrize(
+    "nested",
+    [
+        {"provvedimento": {"flag_delibera": "1", "data": "31/02/2024", "protocollo": "P1"}},
+        {"aut_prefettura": {"data_pref": "2024-01-01", "protocollo_pref": "P1"}},
+    ],
+)
+def test_odonimo_nested_dates_must_be_ddmmyyyy(nested):
+    with pytest.raises(ValidationError):
+        _odonimo(**nested)

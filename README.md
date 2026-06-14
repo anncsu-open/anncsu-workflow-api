@@ -52,35 +52,51 @@ ANNCSU_ODONIMI_URL=https://modipa.agenziaentrate.it/govway/rest/in/AgenziaEntrat
 ANNCSU_ACCESSI_URL=https://modipa.agenziaentrate.it/govway/rest/in/AgenziaEntrate/anncsuaccessi/v1
 ANNCSU_COORDINATE_URL=https://modipa.agenziaentrate.it/govway/rest/in/AgenziaEntrate/anncsuaccessi/v1
 
-# PDND Authentication
-PDND_CLIENT_ID=your_client_id
-PDND_CLIENT_SECRET=your_client_secret
-PDND_TOKEN_URL=https://auth.interop.pagopa.it/token.oauth2
-PDND_AUDIENCE=your_audience
+# PDND authentication — the SDK's ClientAssertionSettings contract (ADR 0015).
+# These PDND_* variables are read by the anncsu-sdk directly; the token endpoint
+# is derived from USE_VALIDATION_ENV (UAT vs production), so PDND_AUDIENCE must
+# point at the matching environment.
+PDND_KID=your_kid
+PDND_ISSUER=your_client_id
+PDND_SUBJECT=your_client_id
+PDND_AUDIENCE=https://auth.interop.pagopa.it/token.oauth2
+PDND_KEY_PATH=./keys/private_key.pem        # or PDND_PRIVATE_KEY=<PEM contents>
 
-# JWT Settings (per Agid-JWT-Signature e Agid-JWT-TrackingEvidence)
-JWT_PRIVATE_KEY_PATH=./keys/private_key.pem
-JWT_ALGORITHM=RS256
+# Purpose id per API — ALL must be present (may be empty for the APIs this
+# service does not use: interni and coordinate_bulk).
+PDND_PURPOSE_ID_PA=your_pa_purpose_id
+PDND_PURPOSE_ID_ACCESSI=your_accessi_purpose_id
+PDND_PURPOSE_ID_ODONIMI=your_odonimi_purpose_id
+PDND_PURPOSE_ID_COORDINATE=your_coordinate_purpose_id
+PDND_PURPOSE_ID_COORDINATE_BULK=
+PDND_PURPOSE_ID_INTERNI=
 
-# Tracking Evidence (Audit)
-USER_ID=your_user_id
-USER_LOCATION=your_location
-LOA=3
+# ModI signing for the write APIs (Agid-JWT-Signature / audit). GovWay requires a
+# dedicated signing key (different from the voucher key) in production.
+PDND_MODI_KID=your_modi_kid
+PDND_MODI_KEY_PATH=./keys/modi_private_key.pem   # or PDND_MODI_PRIVATE_KEY=<PEM contents>
+PDND_MODI_USER_ID=your_user_id
+PDND_MODI_USER_LOCATION=your_location
+PDND_MODI_LOA=3
 
 # Environment
-USE_VALIDATION_ENV=false  # true to use the validation environment
+USE_VALIDATION_ENV=false  # true → validation (UAT) URLs and UAT token endpoint
 ```
 
-### Generating JWT keys
+### Generating the PDND keys
 
-To generate the required RSA keys:
+Generate the RSA key referenced by `PDND_KEY_PATH` (the voucher signing key); in
+production the write APIs also need a separate ModI signing key for
+`PDND_MODI_KEY_PATH`:
 
 ```bash
 mkdir -p keys
-# Generate private key
+# Voucher signing key (PDND_KEY_PATH)
 openssl genrsa -out keys/private_key.pem 2048
-# Generate public key
 openssl rsa -in keys/private_key.pem -pubout -out keys/public_key.pem
+# Dedicated ModI signing key (PDND_MODI_KEY_PATH), required by GovWay in production
+openssl genrsa -out keys/modi_private_key.pem 2048
+openssl rsa -in keys/modi_private_key.pem -pubout -out keys/modi_public_key.pem
 ```
 
 ### Logging
@@ -96,8 +112,23 @@ Every request carries a **correlation id**: an inbound `X-Request-ID` is reused
 (otherwise one is generated), bound to the logging context for the whole run,
 echoed on the `X-Request-ID` response header, and surfaced as `request_id` on the
 RFC 7807 Problem body. Sensitive keys (authorization, tokens, JWT/assertions,
-secrets) are masked by a central redaction processor, and request payloads are
-never logged.
+secrets, private keys) are masked by a central redaction processor, and request
+payloads are never logged.
+
+### Health and readiness
+
+Two probes are exposed (ADR 0015):
+
+- `GET /health` — **liveness**: returns `200 {"status": "ok"}` whenever the
+  process is up, with no external dependency, so an orchestrator never restarts
+  the pod over a transient PDND blip.
+- `GET /ready` — **readiness**: confirms every Arazzo source can obtain a PDND
+  voucher (cached, refreshed only near expiry). Returns `200` with a per-source
+  token TTL when all four authenticate, or `503` otherwise.
+
+PDND auth is built once at startup (the lifespan): a misconfigured `PDND_*`
+environment fails fast, while access tokens are fetched lazily on first use and
+refreshed automatically.
 
 ## Testing
 
@@ -503,25 +534,33 @@ spec:
         image: ghcr.io/anncsu-open/anncsu-workflow-api:latest
         ports:
         - containerPort: 8000
-        env:
-        - name: PDND_CLIENT_ID
-          valueFrom:
-            secretKeyRef:
-              name: anncsu-secrets
-              key: client-id
+        envFrom:
+        - secretRef:
+            name: anncsu-pdnd        # provides the PDND_* / PDND_MODI_* variables
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: 8000
 ```
 
 ## Troubleshooting
 
 ### Common errors
 
-**Error: "Invalid JWT"**
-- Verify that the JWT keys have been generated correctly
-- Check that `JWT_PRIVATE_KEY_PATH` points to the correct file
+**Error: "Invalid JWT" / signature errors**
+- Verify that the RSA keys have been generated correctly
+- Check that `PDND_KEY_PATH` (and `PDND_MODI_KEY_PATH` for the write APIs) point to
+  the correct files
 
-**Error: "PDND Authentication Failed"**
-- Verify `PDND_CLIENT_ID` and `PDND_CLIENT_SECRET`
-- Check connectivity to `PDND_TOKEN_URL`
+**Error: "PDND authentication failed"**
+- Verify `PDND_KID`, `PDND_ISSUER`/`PDND_SUBJECT`, and the `PDND_PURPOSE_ID_*` for
+  the API in use
+- Ensure `PDND_AUDIENCE` matches the environment selected by `USE_VALIDATION_ENV`
+- Hit `GET /ready` to see which source fails to authenticate
 
 **Error: "ANNCSU API unreachable"**
 - Verify the API URLs in `.env`

@@ -131,6 +131,8 @@
   "Suppress a single accesso by national progressive": "Sopprime un singolo accesso per progressivo nazionale",
   "Search by odonimo only (all its accessi)": "Ricerca per solo odonimo (tutti i suoi accessi)",
   "Search a specific civico": "Ricerca un civico specifico",
-  "Health check": "Controllo di stato",
-  "Service status.": "Stato del servizio."
+  "Liveness check": "Controllo di liveness",
+  "Liveness: the process is up. No external dependency is checked.": "Liveness: il processo è attivo. Nessuna dipendenza esterna viene verificata.",
+  "Readiness check (PDND authentication)": "Controllo di readiness (autenticazione PDND)",
+  "Readiness: every source can obtain a PDND voucher (cached, refreshed near expiry).": "Readiness: ogni sorgente può ottenere un voucher PDND (in cache, rinnovato in prossimità della scadenza)."
 }

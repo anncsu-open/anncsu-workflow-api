@@ -4,6 +4,10 @@ from typing import Literal
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+# PDND token endpoints (the SDK uses the same UAT/production split).
+PROD_TOKEN_ENDPOINT = "https://auth.interop.pagopa.it/token.oauth2"
+UAT_TOKEN_ENDPOINT = "https://auth.uat.interop.pagopa.it/token.oauth2"
+
 
 class Settings(BaseSettings):
     """Application settings."""
@@ -49,20 +53,9 @@ class Settings(BaseSettings):
         "AgenziaEntrate-PDND/anncsu-aggiornamento-odonimi/v1"
     )
 
-    # Security - PDND Authentication
-    pdnd_client_id: str = ""
-    pdnd_client_secret: str = ""
-    pdnd_token_url: str = "https://auth.interop.pagopa.it/token.oauth2"
-    pdnd_audience: str = ""
-
-    # JWT Settings for Agid-JWT-Signature and Agid-JWT-TrackingEvidence
-    jwt_private_key_path: str = "./keys/private_key.pem"
-    jwt_algorithm: str = "RS256"
-
-    # Tracking Evidence (Audit)
-    user_id: str = ""  # Internal user ID
-    user_location: str = ""  # User workstation
-    loa: str = "3"  # Authentication level (1-4)
+    # PDND credentials are NOT here: they live in the SDK's ClientAssertionSettings
+    # (PDND_* env), loaded from the same .env (ADR 0015). Keeping them in one place
+    # avoids the divergent, dead config this service used to carry.
 
     # HTTP Client
     http_timeout: int = 30
@@ -70,6 +63,11 @@ class Settings(BaseSettings):
 
     # Environment
     use_validation_env: bool = False  # If True, use the validation URLs
+
+
+def resolve_token_endpoint(use_validation_env: bool) -> str:
+    """Return the PDND token endpoint for the selected environment (ADR 0015)."""
+    return UAT_TOKEN_ENDPOINT if use_validation_env else PROD_TOKEN_ENDPOINT
 
 
 settings = Settings()

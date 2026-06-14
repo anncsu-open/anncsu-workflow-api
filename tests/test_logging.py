@@ -34,6 +34,7 @@ def test_redact_masks_sensitive_keys_only():
             "token": "t",
             "jwt_assertion": "a",
             "pdnd_client_secret": "s",
+            "pdnd_private_key": "-----BEGIN RSA PRIVATE KEY-----",
             "codcom": "H501",
         },
     )
@@ -41,6 +42,7 @@ def test_redact_masks_sensitive_keys_only():
     assert out["token"] == "***"
     assert out["jwt_assertion"] == "***"
     assert out["pdnd_client_secret"] == "***"
+    assert out["pdnd_private_key"] == "***"
     assert out["codcom"] == "H501"  # a domain identifier, not a secret
 
 

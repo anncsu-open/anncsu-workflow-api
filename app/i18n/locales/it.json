@@ -125,6 +125,12 @@
   "Suppress every accesso first (x-executor.foreach), then the odonimo.": "Sopprime prima tutti gli accessi (x-executor.foreach), poi l'odonimo.",
   "Search a complete address": "Ricerca un indirizzo completo",
   "Read-only search of odonimi and accessi.": "Ricerca in sola lettura di odonimi e accessi.",
+  "Required fields only (server dates default to today)": "Solo campi obbligatori (le date lato server assumono la data odierna)",
+  "With an explicit administrative validity date": "Con una data di validità amministrativa esplicita",
+  "Suppress an odonimo (its accessi are suppressed first)": "Sopprime un odonimo (gli accessi sono soppressi prima)",
+  "Suppress a single accesso by national progressive": "Sopprime un singolo accesso per progressivo nazionale",
+  "Search by odonimo only (all its accessi)": "Ricerca per solo odonimo (tutti i suoi accessi)",
+  "Search a specific civico": "Ricerca un civico specifico",
   "Health check": "Controllo di stato",
   "Service status.": "Stato del servizio."
 }

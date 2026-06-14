@@ -77,13 +77,39 @@ def get_workflow_service() -> WorkflowApplicationService:
 ServiceDep = Annotated[WorkflowApplicationService, Depends(get_workflow_service)]
 
 
+# The address creation carries one optional field (data_validita) — show both shapes.
+_CREA_INDIRIZZO_EXAMPLES: dict[str, Any] = {
+    "minimal": {
+        "summary": "Required fields only (server dates default to today)",
+        "value": {
+            "codcom": "H501",
+            "denom_odonimo": "ROMA",
+            "dug": "VIA",
+            "numero_civico": "42",
+            "sezione_censimento": "580911010001",
+        },
+    },
+    "with_validity_date": {
+        "summary": "With an explicit administrative validity date",
+        "value": {
+            "codcom": "H501",
+            "denom_odonimo": "ROMA",
+            "dug": "VIA",
+            "numero_civico": "42",
+            "sezione_censimento": "580911010001",
+            "data_validita": "08/10/2024",
+        },
+    },
+}
+
+
 @router.post(
     "/verifica-e-crea-indirizzo-completo",
     response_model=CreaIndirizzoCompletoOutput,
     summary="Verify and create a complete address",
 )
 async def verifica_e_crea_indirizzo_completo(
-    payload: CreaIndirizzoCompletoInput,
+    payload: Annotated[CreaIndirizzoCompletoInput, Body(openapi_examples=_CREA_INDIRIZZO_EXAMPLES)],
     service: ServiceDep,
 ) -> CreaIndirizzoCompletoOutput:
     """Upsert odonimo and accesso, returning the coalesced progressivi."""
@@ -217,13 +243,49 @@ async def aggiorna_odonimo_da_progressivo(
     )
 
 
+# All fields are required for these workflows -> a single representative example.
+_SOPPRIMI_ODONIMO_EXAMPLES: dict[str, Any] = {
+    "default": {
+        "summary": "Suppress an odonimo (its accessi are suppressed first)",
+        "value": {
+            "codcom": "H501",
+            "denom_odonimo": "VECCHIA STRADA",
+            "data_soppressione": "08/10/2024",
+        },
+    },
+}
+
+_SOPPRIMI_ACCESSO_EXAMPLES: dict[str, Any] = {
+    "default": {
+        "summary": "Suppress a single accesso by national progressive",
+        "value": {
+            "codcom": "H501",
+            "prognaz": "2000449",
+            "prognazacc": "1370588",
+            "data_soppressione": "08/10/2024",
+        },
+    },
+}
+
+_RICERCA_EXAMPLES: dict[str, Any] = {
+    "by_odonimo": {
+        "summary": "Search by odonimo only (all its accessi)",
+        "value": {"codcom": "H501", "denom_odonimo": "ROMA"},
+    },
+    "by_odonimo_and_civico": {
+        "summary": "Search a specific civico",
+        "value": {"codcom": "H501", "denom_odonimo": "ROMA", "numero_civico": "42"},
+    },
+}
+
+
 @router.post(
     "/sopprimi-odonimo-completo",
     response_model=SopprimiOdonimoOutput,
     summary="Suppress an odonimo and its accessi",
 )
 async def sopprimi_odonimo_completo(
-    payload: SopprimiOdonimoInput,
+    payload: Annotated[SopprimiOdonimoInput, Body(openapi_examples=_SOPPRIMI_ODONIMO_EXAMPLES)],
     service: ServiceDep,
 ) -> SopprimiOdonimoOutput:
     """Suppress every accesso first (x-executor.foreach), then the odonimo."""
@@ -243,7 +305,7 @@ async def sopprimi_odonimo_completo(
     summary="Suppress a single accesso",
 )
 async def sopprimi_accesso(
-    payload: SopprimiAccessoInput,
+    payload: Annotated[SopprimiAccessoInput, Body(openapi_examples=_SOPPRIMI_ACCESSO_EXAMPLES)],
     service: ServiceDep,
 ) -> SopprimiAccessoOutput:
     """Suppress one accesso (operation S) without touching the odonimo."""
@@ -261,7 +323,7 @@ async def sopprimi_accesso(
     summary="Search a complete address",
 )
 async def ricerca_indirizzo_completo(
-    payload: RicercaIndirizzoInput,
+    payload: Annotated[RicercaIndirizzoInput, Body(openapi_examples=_RICERCA_EXAMPLES)],
     service: ServiceDep,
 ) -> RicercaIndirizzoOutput:
     """Read-only search of odonimi and accessi."""

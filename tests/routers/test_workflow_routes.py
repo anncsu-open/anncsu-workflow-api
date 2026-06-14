@@ -631,6 +631,28 @@ def test_workflow_routes_declare_their_problem_responses():
             )
 
 
+def test_all_workflows_declare_named_request_examples():
+    """Every workflow publishes named request examples; workflows with optional
+    fields cover the with/without variations (not just one minimal example)."""
+    expected = {
+        "verifica-e-crea-indirizzo-completo": {"minimal", "with_validity_date"},
+        "aggiorna-accesso-da-progressivo": {"coordinates_only", "attribute_only", "mixed"},
+        "aggiorna-odonimo-da-progressivo": {"locality_only", "with_delibera"},
+        "ricerca-indirizzo-completo": {"by_odonimo", "by_odonimo_and_civico"},
+        "sopprimi-odonimo-completo": {"default"},
+        "sopprimi-accesso": {"default"},
+    }
+    with _client_scripted({}) as client:
+        document = client.get("/v1/openapi.json").json()
+
+    for workflow_id, names in expected.items():
+        content = document["paths"][f"/v1/workflows/{workflow_id}"]["post"]["requestBody"][
+            "content"
+        ]["application/json"]
+        examples = set(content.get("examples", {}))
+        assert names <= examples, f"{workflow_id} missing examples: {names - examples}"
+
+
 def test_the_visualizer_page_is_not_part_of_the_contract():
     """/workflows/ui is an HTML page for humans, not API surface."""
     with _client_scripted({}) as client:

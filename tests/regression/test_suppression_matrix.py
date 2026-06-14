@@ -234,6 +234,59 @@ def test_generic_accesso_update_reads_then_writes_through_the_real_sdk():
     assert [path for path, _ in server.log] == ["prognazacc", "accessi"]
 
 
+def test_generic_odonimo_update_reads_then_writes_through_the_real_sdk():
+    """Read-modify-write end-to-end (ADR 0013): the consultation read preserves the
+    odonimo fields the caller omits; denom_delibera comes from input."""
+
+    class UpdateServer(FakeAnncsuServer):
+        def _prognazarea(self, body: dict) -> dict:
+            assert body == {"req": "prognazarea", "prognaz": "2000449"}
+            return {
+                "res": "OK",
+                "data": [
+                    {
+                        "prognaz": "2000449",
+                        "cododocomunale": "ABC123",
+                        "dug": "VIA",
+                        "denomloc": "CENTRO",
+                        "denomlingua1": "STRASSE ROM",
+                        "denomlingua2": None,
+                    }
+                ],
+            }
+
+        def _odonimi(self, body: dict) -> dict:
+            richiesta = body["richiesta"]
+            assert richiesta["tipo_operazione"] == "R"
+            assert richiesta["progr_nazionale"] == "2000449"
+            assert richiesta["denom_delibera"] == "VIA ROMA"  # input only
+            assert richiesta["dug"] == "VIA"  # preserved from the read
+            assert richiesta["denom_in_lingua_1"] == "STRASSE ROM"  # preserved
+            assert richiesta["codice_comunale"] == "ABC123"  # preserved
+            assert richiesta["denom_localita"] == "PERIFERIA"  # caller override
+            assert None not in richiesta.values()  # unset fields omitted, not null
+            return {"esito": "0", "dati": [{"progr_nazionale": "2000449"}]}
+
+    server = UpdateServer(accessi=[], mode="reject")
+
+    with _client(server) as client:
+        response = client.post(
+            "/v1/workflows/aggiorna-odonimo-da-progressivo",
+            json={
+                "codcom": "H501",
+                "prognaz": "2000449",
+                "denom_delibera": "VIA ROMA",
+                "denom_localita": "PERIFERIA",
+            },
+        )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["success"] is True
+    assert body["prognaz"] == "2000449"
+    assert [path for path, _ in server.log] == ["prognazarea", "odonimi"]
+
+
 def test_create_branch_path_through_the_real_sdk():
     """Happy/branch path of the upsert saga through the real SDK serialization."""
 

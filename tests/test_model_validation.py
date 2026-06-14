@@ -11,6 +11,7 @@ from pydantic import ValidationError
 
 from app.models.workflows import (
     AggiornaAccessoDaProgressivoInput,
+    AggiornaOdonimoDaProgressivoInput,
     CreaIndirizzoCompletoInput,
     RicercaIndirizzoInput,
     SopprimiAccessoInput,
@@ -49,6 +50,11 @@ VALID = {
         "prognazacc": "1370588",
         "data_soppressione": "08/10/2024",
     },
+    AggiornaOdonimoDaProgressivoInput: {
+        "codcom": "H501",
+        "prognaz": "2000449",
+        "denom_delibera": "VIA ROMA",
+    },
 }
 
 
@@ -81,6 +87,14 @@ def test_valid_inputs_are_accepted(model):
         (SopprimiAccessoInput, "prognaz", "1" * 11),  # max 10
         (SopprimiAccessoInput, "prognazacc", "1" * 16),  # max 15
         (SopprimiAccessoInput, "data_soppressione", "31/02/2025"),
+        # odonimo update (ADR 0013)
+        (AggiornaOdonimoDaProgressivoInput, "codcom", "h501"),
+        (AggiornaOdonimoDaProgressivoInput, "prognaz", "1" * 11),  # max 10
+        (AggiornaOdonimoDaProgressivoInput, "denom_delibera", "X" * 121),  # max 120
+        (AggiornaOdonimoDaProgressivoInput, "dug", "X" * 31),  # max 30
+        (AggiornaOdonimoDaProgressivoInput, "denom_localita", "X" * 152),  # max 151
+        (AggiornaOdonimoDaProgressivoInput, "codice_comunale", "X" * 31),  # max 30
+        (AggiornaOdonimoDaProgressivoInput, "data_validita", "31/02/2025"),
         # generic accesso update (ADR 0010 / 0012)
         (AggiornaAccessoDaProgressivoInput, "metodo", "5"),  # survey method 1-4
         (AggiornaAccessoDaProgressivoInput, "codcom", "h501"),
@@ -195,3 +209,54 @@ def test_accesso_update_rejects_invalid_coordinate_values(field, bad_value):
     with pytest.raises(ValidationError) as excinfo:
         AggiornaAccessoDaProgressivoInput(**_BASE, **coords)
     assert any(field in error["loc"] for error in excinfo.value.errors())
+
+
+# --- odonimo update: administrative-object co-dependencies (ADR 0013) ---
+
+_ODONIMO_BASE = VALID[AggiornaOdonimoDaProgressivoInput]
+
+
+def _odonimo(**extra) -> AggiornaOdonimoDaProgressivoInput:
+    # model_validate mirrors the JSON -> dict -> model path the route uses, so the
+    # nested administrative objects (provvedimento/aut_prefettura) are coerced as dicts.
+    return AggiornaOdonimoDaProgressivoInput.model_validate({**_ODONIMO_BASE, **extra})
+
+
+def test_odonimo_update_accepts_minimal_input():
+    assert _odonimo()
+
+
+@pytest.mark.parametrize("flag", ["5", "9", "x"])
+def test_odonimo_rejects_invalid_flag_delibera(flag):
+    with pytest.raises(ValidationError):
+        _odonimo(provvedimento={"flag_delibera": flag, "data": "01/01/2024", "protocollo": "P1"})
+
+
+@pytest.mark.parametrize("flag", ["0", "1"])
+def test_odonimo_flag_delibera_0_1_requires_data_and_protocollo(flag):
+    with pytest.raises(ValidationError):
+        _odonimo(provvedimento={"flag_delibera": flag})
+
+
+def test_odonimo_flag_delibera_0_1_accepts_data_and_protocollo():
+    assert _odonimo(provvedimento={"flag_delibera": "1", "data": "01/01/2024", "protocollo": "P1"})
+
+
+def test_odonimo_flag_delibera_2_does_not_require_data_protocollo():
+    assert _odonimo(provvedimento={"flag_delibera": "2"})
+
+
+@pytest.mark.parametrize(
+    "pref",
+    [
+        {"data_pref": "01/01/2024"},  # protocollo_pref missing
+        {"protocollo_pref": "PREF1"},  # data_pref missing
+    ],
+)
+def test_odonimo_prefettura_fields_are_co_required(pref):
+    with pytest.raises(ValidationError):
+        _odonimo(aut_prefettura=pref)
+
+
+def test_odonimo_prefettura_accepts_both_fields():
+    assert _odonimo(aut_prefettura={"data_pref": "01/01/2024", "protocollo_pref": "PREF1"})

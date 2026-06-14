@@ -42,6 +42,9 @@ OPERATION_REGISTRY: dict[str, Operation] = {
     "anncsu-consultazione.prognazaccPost": Operation(
         "anncsu-consultazione", "json_post.prognazacc_post"
     ),
+    "anncsu-consultazione.prognazareaPost": Operation(
+        "anncsu-consultazione", "json_post.prognazarea_post"
+    ),
     "anncsu-odonimi.gestioneAnncsuOdonimiPdnd": Operation(
         "anncsu-odonimi", "anncsu.gestione_anncsu_odonimi_pdnd"
     ),

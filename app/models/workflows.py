@@ -280,6 +280,134 @@ class AggiornaAccessoOutput(BaseModel):
 
 
 # ============================================================================
+# Workflow: Generic odonimo update by national progressive (ADR 0013)
+# ============================================================================
+
+# flag_delibera 0..4; values 0 and 1 require the delibera's data + protocollo.
+FLAG_DELIBERA_PATTERN = r"^[0-4]$"
+_FLAG_DELIBERA_NEEDS_DETAILS = {"0", "1"}
+
+
+class Provvedimento(BaseModel):
+    """The administrative act (delibera) authorizing the odonimo."""
+
+    flag_delibera: str | None = Field(
+        None,
+        pattern=FLAG_DELIBERA_PATTERN,
+        description="Delibera flag (0-4); 0 and 1 require data and protocollo",
+        json_schema_extra={"example": "2"},
+    )
+    data: str | None = Field(
+        None, description="Delibera date (DD/MM/YYYY)", json_schema_extra={"example": "01/01/2024"}
+    )
+    protocollo: str | None = Field(
+        None, description="Delibera protocol", json_schema_extra={"example": "PROT/123"}
+    )
+
+    _data_is_a_date = field_validator("data")(_ddmmyyyy)
+
+    @model_validator(mode="after")
+    def _flag_0_1_requires_details(self) -> Provvedimento:
+        if self.flag_delibera in _FLAG_DELIBERA_NEEDS_DETAILS and (
+            self.data is None or self.protocollo is None
+        ):
+            raise ValueError(
+                f"provvedimento.data and provvedimento.protocollo are required "
+                f"when flag_delibera is {self.flag_delibera!r}"
+            )
+        return self
+
+
+class AutPrefettura(BaseModel):
+    """Prefecture authorization; its two fields are co-required."""
+
+    data_pref: str | None = Field(
+        None,
+        description="Prefecture date (DD/MM/YYYY)",
+        json_schema_extra={"example": "01/01/2024"},
+    )
+    protocollo_pref: str | None = Field(
+        None, description="Prefecture protocol", json_schema_extra={"example": "PREF/1"}
+    )
+
+    _data_pref_is_a_date = field_validator("data_pref")(_ddmmyyyy)
+
+    @model_validator(mode="after")
+    def _both_or_neither(self) -> AutPrefettura:
+        if (self.data_pref is None) != (self.protocollo_pref is None):
+            raise ValueError("data_pref and protocollo_pref must be provided together")
+        return self
+
+
+class AggiornaOdonimoDaProgressivoInput(BaseModel):
+    """Input for the odonimo update (ANNCSU operation R), by national progressive.
+
+    Patch via read-modify-write: fields left out are preserved from the read.
+    ``denom_delibera`` is the odonimo's denomination and is not exposed by the
+    consultation, so it is required (ADR 0013).
+    """
+
+    codcom: str = Field(
+        ...,
+        pattern=CODCOM_PATTERN,
+        description="Belfiore municipality code (codcom)",
+        json_schema_extra={"example": "H501"},
+    )
+    prognaz: str = Field(
+        ...,
+        max_length=10,
+        description="National progressive number of the odonimo",
+        json_schema_extra={"example": "2000449"},
+    )
+    denom_delibera: str = Field(
+        ...,
+        max_length=120,
+        description="Odonimo denomination from the delibera; not derivable from consultation",
+        json_schema_extra={"example": "VIA ROMA"},
+    )
+    dug: str | None = Field(
+        None,
+        max_length=30,
+        description="Generic urban denomination (preserved from the read if omitted)",
+        json_schema_extra={"example": "VIA"},
+    )
+    denom_localita: str | None = Field(
+        None,
+        max_length=151,
+        description="Locality denomination",
+        json_schema_extra={"example": "CENTRO"},
+    )
+    denom_in_lingua_1: str | None = Field(
+        None, max_length=150, description="Denomination in language 1"
+    )
+    denom_in_lingua_2: str | None = Field(
+        None, max_length=150, description="Denomination in language 2"
+    )
+    codice_comunale: str | None = Field(
+        None, max_length=30, description="Municipal code of the odonimo"
+    )
+    provvedimento: Provvedimento | None = Field(None, description="Authorizing delibera")
+    aut_prefettura: AutPrefettura | None = Field(None, description="Prefecture authorization")
+    data_validita: str | None = Field(
+        None,
+        description="Administrative validity date (DD/MM/YYYY)",
+        json_schema_extra={"example": "08/10/2024"},
+    )
+
+    _data_validita_is_a_date = field_validator("data_validita")(_ddmmyyyy)
+
+
+class AggiornaOdonimoOutput(BaseModel):
+    """Output of the odonimo update workflow."""
+
+    success: bool = Field(..., description="Whether the workflow completed successfully")
+    prognaz: str | None = Field(None, description="National progressive number of the odonimo")
+    odonimo: dict | None = Field(None, description="Odonimo state returned by ANNCSU")
+    message: str = Field(..., description="Descriptive message of the result")
+    errors: list[str] | None = Field(None, description="List of any errors")
+
+
+# ============================================================================
 # Workflow 3: Suppress complete odonimo
 # ============================================================================
 

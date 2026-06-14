@@ -26,6 +26,8 @@ from app.executor.spec import load_spec
 from app.models.workflows import (
     AggiornaAccessoDaProgressivoInput,
     AggiornaAccessoOutput,
+    AggiornaOdonimoDaProgressivoInput,
+    AggiornaOdonimoOutput,
     CreaIndirizzoCompletoInput,
     CreaIndirizzoCompletoOutput,
     RicercaIndirizzoInput,
@@ -160,6 +162,57 @@ async def aggiorna_accesso_da_progressivo(
         success=True,
         prognazacc=payload.prognazacc,
         accesso=run.outputs.get("risultato"),
+        message=COMPLETED_MESSAGE,
+    )
+
+
+# Named request examples for the odonimo update (ADR 0013).
+_ODONIMO_UPDATE_EXAMPLES: dict[str, Any] = {
+    "locality_only": {
+        "summary": "Update the locality (other fields preserved by the read)",
+        "value": {
+            "codcom": "H501",
+            "prognaz": "2000449",
+            "denom_delibera": "VIA ROMA",
+            "denom_localita": "CENTRO STORICO",
+        },
+    },
+    "with_delibera": {
+        "summary": "Denomination with an authorizing delibera",
+        "value": {
+            "codcom": "H501",
+            "prognaz": "2000449",
+            "denom_delibera": "VIA ROMA",
+            "dug": "VIA",
+            "provvedimento": {"flag_delibera": "1", "data": "01/01/2024", "protocollo": "PROT/123"},
+        },
+    },
+}
+
+
+@router.post(
+    "/aggiorna-odonimo-da-progressivo",
+    response_model=AggiornaOdonimoOutput,
+    summary="Update an odonimo by its national progressive",
+    description=(
+        "Update an odonimo (ANNCSU operation R) addressed by its national progressive. "
+        "Patch via read-modify-write: the workflow reads the current odonimo and the "
+        "fields you send override it, so unspecified fields are preserved. "
+        "`denom_delibera` is not exposed by the consultation API, so it is always required."
+    ),
+)
+async def aggiorna_odonimo_da_progressivo(
+    payload: Annotated[
+        AggiornaOdonimoDaProgressivoInput, Body(openapi_examples=_ODONIMO_UPDATE_EXAMPLES)
+    ],
+    service: ServiceDep,
+) -> AggiornaOdonimoOutput:
+    """Read the odonimo, overlay the provided fields, write the R replace."""
+    run = await service.run("aggiorna-odonimo-da-progressivo", payload.model_dump())
+    return AggiornaOdonimoOutput(
+        success=True,
+        prognaz=payload.prognaz,
+        odonimo=run.outputs.get("risultato"),
         message=COMPLETED_MESSAGE,
     )
 

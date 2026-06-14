@@ -372,6 +372,122 @@ workflows:
     outputs:
       risultato: $steps.aggiorna-accesso.outputs.accesso_aggiornato
 
+  - workflowId: aggiorna-odonimo-da-progressivo
+    summary: Aggiorna un odonimo identificato dal progressivo nazionale
+    description: |
+      Aggiornamento generico dell'odonimo (operazione R) identificato dal
+      progressivo nazionale. Patch via read-modify-write: legge lo stato attuale
+      (prognazareaPost) e i campi forniti dal chiamante lo sovrascrivono
+      (x-coalesce input-su-letto), così i campi non indicati sono preservati. La
+      denominazione di delibera e i provvedimenti NON sono esposti dalla
+      consultazione: denom_delibera è obbligatoria in input.
+    inputs:
+      type: object
+      properties:
+        codcom:
+          type: string
+          description: Codice Belfiore del comune
+        prognaz:
+          type: string
+          description: Progressivo nazionale dell'odonimo
+        denom_delibera:
+          type: string
+          maxLength: 120
+          description: Denominazione dell'odonimo da delibera, obbligatoria
+        dug:
+          type: string
+          maxLength: 30
+          description: Denominazione Urbanistica Generica
+        denom_localita:
+          type: string
+          maxLength: 151
+          description: Denominazione località
+        denom_in_lingua_1:
+          type: string
+          maxLength: 150
+          description: Denominazione in lingua 1
+        denom_in_lingua_2:
+          type: string
+          maxLength: 150
+          description: Denominazione in lingua 2
+        codice_comunale:
+          type: string
+          maxLength: 30
+          description: Codice comunale dell'odonimo
+        provvedimento:
+          type: object
+          description: Provvedimento (delibera) che autorizza l'odonimo
+        aut_prefettura:
+          type: object
+          description: Autorizzazione della prefettura
+        data_validita:
+          type: string
+          description: Data di validità amministrativa (DD/MM/YYYY)
+    steps:
+      - stepId: leggi-odonimo
+        description: Legge lo stato attuale dell'odonimo per progressivo nazionale
+        operationId: anncsu-consultazione.prognazareaPost
+        requestBody:
+          contentType: application/json
+          payload:
+            req: prognazarea
+            prognaz: $inputs.prognaz
+        successCriteria:
+          - condition: $statusCode == 200
+          - condition: $response.body.data.length > 0
+        outputs:
+          dug: $response.body.data[0].dug
+          denom_localita: $response.body.data[0].denomloc
+          denom_in_lingua_1: $response.body.data[0].denomlingua1
+          denom_in_lingua_2: $response.body.data[0].denomlingua2
+          codice_comunale: $response.body.data[0].cododocomunale
+
+      # I campi non forniti dal chiamante sono preservati dal valore letto
+      # (x-coalesce: input PRIMA, lettura POI). denom_delibera/provvedimento/
+      # aut_prefettura non sono leggibili, quindi vengono solo dall'input.
+      - stepId: aggiorna-odonimo
+        description: Sostituisce lo stato dell'odonimo preservando i campi non indicati
+        operationId: anncsu-odonimi.gestioneAnncsuOdonimiPdnd
+        requestBody:
+          contentType: application/json
+          payload:
+            richiesta:
+              codcom: $inputs.codcom
+              tipo_operazione: R
+              progr_nazionale: $inputs.prognaz
+              denom_delibera: $inputs.denom_delibera
+              provvedimento: $inputs.provvedimento
+              aut_prefettura: $inputs.aut_prefettura
+              data_valid_amm: $inputs.data_validita
+              dug:
+                x-coalesce:
+                  - $inputs.dug
+                  - $steps.leggi-odonimo.outputs.dug
+              denom_localita:
+                x-coalesce:
+                  - $inputs.denom_localita
+                  - $steps.leggi-odonimo.outputs.denom_localita
+              denom_in_lingua_1:
+                x-coalesce:
+                  - $inputs.denom_in_lingua_1
+                  - $steps.leggi-odonimo.outputs.denom_in_lingua_1
+              denom_in_lingua_2:
+                x-coalesce:
+                  - $inputs.denom_in_lingua_2
+                  - $steps.leggi-odonimo.outputs.denom_in_lingua_2
+              codice_comunale:
+                x-coalesce:
+                  - $inputs.codice_comunale
+                  - $steps.leggi-odonimo.outputs.codice_comunale
+        successCriteria:
+          - condition: $statusCode == 200
+          - condition: $response.body.esito == "0"
+        outputs:
+          odonimo_aggiornato: $response.body.dati[0]
+
+    outputs:
+      risultato: $steps.aggiorna-odonimo.outputs.odonimo_aggiornato
+
   - workflowId: sopprimi-odonimo-completo
     summary: Sopprime un odonimo previa soppressione degli accessi associati
     description: |

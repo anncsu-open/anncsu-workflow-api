@@ -93,6 +93,31 @@ Sostituisce lo stato dell'accesso preservando i campi non indicati
 - Operation: `anncsu-accessi.gestioneAnncsuPdnd`
 - Outputs: accesso_aggiornato
 
+## aggiorna-odonimo-da-progressivo
+
+Aggiorna un odonimo identificato dal progressivo nazionale
+
+```mermaid
+graph TD
+  leggi_odonimo["leggi-odonimo"]
+  aggiorna_odonimo["aggiorna-odonimo"]
+  leggi_odonimo --> aggiorna_odonimo
+```
+
+### 1. leggi-odonimo
+
+Legge lo stato attuale dell'odonimo per progressivo nazionale
+
+- Operation: `anncsu-consultazione.prognazareaPost`
+- Outputs: dug, denom_localita, denom_in_lingua_1, denom_in_lingua_2, codice_comunale
+
+### 2. aggiorna-odonimo
+
+Sostituisce lo stato dell'odonimo preservando i campi non indicati
+
+- Operation: `anncsu-odonimi.gestioneAnncsuOdonimiPdnd`
+- Outputs: odonimo_aggiornato
+
 ## sopprimi-odonimo-completo
 
 Sopprime un odonimo previa soppressione degli accessi associati

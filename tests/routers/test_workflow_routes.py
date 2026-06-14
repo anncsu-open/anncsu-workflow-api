@@ -503,6 +503,92 @@ def test_sopprimi_accesso_requires_the_suppression_date():
     assert response.headers["content-type"] == "application/problem+json"
 
 
+# The odonimo as the consultation (prognazareaPost) returns it: a single hit with
+# the denomination fields, but no delibera/provvedimento (administrative, not exposed).
+def _odonimo_read_response(**overrides):
+    data = {
+        "prognaz": "2000449",
+        "cododocomunale": "ABC123",
+        "dug": "VIA",
+        "denomloc": "CENTRO",
+        "denomlingua1": "STRASSE ROM",
+        "denomlingua2": None,
+    }
+    data.update(overrides)
+    return Response(200, {"res": "OK", "data": [data]})
+
+
+def _odonimo_update_transport(read=None) -> ScriptedTransport:
+    return ScriptedTransport(
+        {
+            "anncsu-consultazione.prognazareaPost": read or _odonimo_read_response(),
+            "anncsu-odonimi.gestioneAnncsuOdonimiPdnd": Response(
+                200, {"esito": "0", "dati": [{"progr_nazionale": "2000449"}]}
+            ),
+        }
+    )
+
+
+def _run_odonimo_update(transport, payload):
+    executor = WorkflowExecutor(load_spec(ARAZZO_SPEC), transport)
+    with _client_with(WorkflowApplicationService(executor)) as client:
+        return client.post("/v1/workflows/aggiorna-odonimo-da-progressivo", json=payload)
+
+
+_ODONIMO_BASE = {
+    "codcom": "H501",
+    "prognaz": "2000449",
+    "denom_delibera": "VIA ROMA",
+}
+
+
+def test_aggiorna_odonimo_reads_then_writes():
+    """Read-modify-write (ADR 0013): consultation lookup precedes the R write."""
+    transport = _odonimo_update_transport()
+    response = _run_odonimo_update(transport, {**_ODONIMO_BASE, "denom_localita": "PERIFERIA"})
+
+    assert response.status_code == 200
+    assert [op for op, _ in transport.calls] == [
+        "anncsu-consultazione.prognazareaPost",
+        "anncsu-odonimi.gestioneAnncsuOdonimiPdnd",
+    ]
+    assert transport.calls[0][1] == {"req": "prognazarea", "prognaz": "2000449"}
+
+
+def test_odonimo_update_preserves_fetched_fields_and_overrides_input():
+    transport = _odonimo_update_transport()
+    response = _run_odonimo_update(transport, {**_ODONIMO_BASE, "denom_localita": "PERIFERIA"})
+
+    assert response.status_code == 200
+    richiesta = transport.calls[1][1]["richiesta"]
+    assert richiesta["tipo_operazione"] == "R"
+    assert richiesta["progr_nazionale"] == "2000449"
+    assert richiesta["denom_delibera"] == "VIA ROMA"  # input only
+    assert richiesta["dug"] == "VIA"  # preserved from read
+    assert richiesta["denom_in_lingua_1"] == "STRASSE ROM"  # preserved from read
+    assert richiesta["codice_comunale"] == "ABC123"  # preserved from read
+    assert richiesta["denom_localita"] == "PERIFERIA"  # input overrides read
+
+
+def test_odonimo_update_requires_denom_delibera():
+    with _client_scripted({}) as client:
+        response = client.post(
+            "/v1/workflows/aggiorna-odonimo-da-progressivo",
+            json={"codcom": "H501", "prognaz": "2000449"},
+        )
+    assert response.status_code == 422
+    assert response.headers["content-type"] == "application/problem+json"
+    assert any("denom_delibera" in str(error.get("loc", ())) for error in response.json()["errors"])
+
+
+def test_update_of_a_missing_odonimo_maps_to_422():
+    transport = _odonimo_update_transport(read=Response(200, {"res": "KO", "data": []}))
+    response = _run_odonimo_update(transport, {**_ODONIMO_BASE})
+
+    assert response.status_code == 422
+    assert "anncsu-odonimi.gestioneAnncsuOdonimiPdnd" not in [op for op, _ in transport.calls]
+
+
 def test_the_production_service_wiring_builds_and_is_cached():
     """The default provider wires spec + SDK transport once (no network at build)."""
     first = get_workflow_service()
@@ -517,6 +603,7 @@ def test_workflow_routes_are_published_in_the_v1_openapi():
     for workflow_id in (
         "verifica-e-crea-indirizzo-completo",
         "aggiorna-accesso-da-progressivo",
+        "aggiorna-odonimo-da-progressivo",
         "sopprimi-odonimo-completo",
         "sopprimi-accesso",
         "ricerca-indirizzo-completo",
@@ -532,6 +619,7 @@ def test_workflow_routes_declare_their_problem_responses():
     for workflow_id in (
         "verifica-e-crea-indirizzo-completo",
         "aggiorna-accesso-da-progressivo",
+        "aggiorna-odonimo-da-progressivo",
         "sopprimi-odonimo-completo",
         "sopprimi-accesso",
         "ricerca-indirizzo-completo",

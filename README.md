@@ -301,7 +301,29 @@ bounds x 6.0–18.0 / y 36.0–47.0, co-dependent — x and y together — surve
 }
 ```
 
-### 3. Suppress Complete Odonimo
+### 3. Update an Odonimo by National Progressive
+
+Updates an odonimo (ANNCSU operation R) addressed by its national progressive. Same
+**patch via read-modify-write** as the accesso update (see
+`docs/architecture/0013-odonimo-update-by-progressive.md`): the workflow reads the
+current odonimo and the fields you send override it, so unspecified fields are
+preserved. `denom_delibera` is **always required** — it is the odonimo's denomination
+and is not exposed by the consultation API, so it cannot be recovered by the read. The
+optional `provvedimento` (delibera flag `0`–`4`; `0`/`1` require `data` + `protocollo`)
+and `aut_prefettura` (`data_pref` and `protocollo_pref` co-required) are validated up front.
+
+**Endpoint**: `POST /v1/workflows/aggiorna-odonimo-da-progressivo`
+
+```json
+{
+  "codcom": "H501",
+  "prognaz": "2000449",
+  "denom_delibera": "VIA ROMA",
+  "denom_localita": "CENTRO STORICO"
+}
+```
+
+### 4. Suppress Complete Odonimo
 
 Suppresses an existing odonimo. Every accesso of the odonimo is suppressed first with
 an explicit, traceable call (the executor iterates the `sopprimi-accesso` sub-workflow
@@ -317,7 +339,7 @@ as declared by `x-executor.foreach`), then the odonimo itself.
 }
 ```
 
-### 4. Suppress a Single Accesso
+### 5. Suppress a Single Accesso
 
 Suppresses one accesso (a single civico) addressed by the odonimo and accesso
 national progressives, without touching the odonimo. A dated logical suppression
@@ -335,7 +357,7 @@ internally, also available standalone.
 }
 ```
 
-### 5. Search Complete Address
+### 6. Search Complete Address
 
 Searches for addresses by odonimo and, optionally, numero civico.
 

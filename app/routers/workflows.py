@@ -33,6 +33,7 @@ from app.models.workflows import (
     AggiornaOdonimoOutput,
     CreaIndirizzoCompletoInput,
     CreaIndirizzoCompletoOutput,
+    RicercaAccessiPerOdonimoInput,
     RicercaIndirizzoInput,
     RicercaIndirizzoOutput,
     SopprimiAccessoInput,
@@ -394,6 +395,39 @@ async def ricerca_indirizzo_completo(
 ) -> RicercaIndirizzoOutput:
     """Read-only search of odonimi and accessi."""
     run = await service.run("ricerca-indirizzo-completo", payload.model_dump())
+    return RicercaIndirizzoOutput(
+        success=True,
+        odonimi=run.outputs.get("odonimi") or [],
+        accessi=run.outputs.get("accessi") or [],
+        message=COMPLETED_MESSAGE,
+    )
+
+
+_RICERCA_ACCESSI_EXAMPLES: dict[str, Any] = {
+    "by_civico": {
+        "summary": "Filter by a civic value (accparz, required)",
+        "value": {"codcom": "H501", "prognaz": "907720", "numero_civico": "1"},
+    },
+    "by_metrico": {
+        "summary": "Filter by a metric value (accparz accepts civic or metric)",
+        "value": {"codcom": "H501", "prognaz": "907720", "numero_civico": "300"},
+    },
+}
+
+
+@router.post(
+    "/ricerca-accessi-per-odonimo",
+    response_model=RicercaIndirizzoOutput,
+    summary="Search the accessi of an odonimo by progressive",
+)
+async def ricerca_accessi_per_odonimo(
+    payload: Annotated[
+        RicercaAccessiPerOdonimoInput, Body(openapi_examples=_RICERCA_ACCESSI_EXAMPLES)
+    ],
+    service: ServiceDep,
+) -> RicercaIndirizzoOutput:
+    """Read-only search of a specific odonimo's accessi (by prognaz; ADR 0018)."""
+    run = await service.run("ricerca-accessi-per-odonimo", payload.model_dump())
     return RicercaIndirizzoOutput(
         success=True,
         odonimi=run.outputs.get("odonimi") or [],

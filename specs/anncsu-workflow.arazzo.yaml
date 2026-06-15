@@ -753,6 +753,14 @@ workflows:
             type: end
             criteria:
               - condition: $inputs.numero_civico == null
+          # Disambiguazione (ADR 0018): se la denominazione matcha più odonimi, non
+          # interrogare silenziosamente il primo (data[0]) -> termina restituendo
+          # tutti i candidati con accessi vuoti, così il chiamante ri-cerca per
+          # prognaz con ricerca-accessi-per-odonimo (come fa la CLI dell'SDK).
+          - name: odonimi-ambigui
+            type: end
+            criteria:
+              - condition: $response.body.data.length > 1
         # ANNCSU risponde 404 quando la ricerca odonimi non trova nulla: come per
         # gli accessi, "zero risultati" termina con liste vuote, non è un errore.
         onFailure:
@@ -788,6 +796,74 @@ workflows:
 
     outputs:
       odonimi: $steps.cerca-odonimi.outputs.odonimi_trovati
+      accessi: $steps.cerca-accessi.outputs.accessi_trovati
+
+  - workflowId: ricerca-accessi-per-odonimo
+    summary: Ricerca degli accessi di un odonimo per progressivo nazionale (sola lettura)
+    description: |
+      Risolve l'odonimo per progressivo nazionale (`prognaz`) e ne elenca gli
+      accessi (ADR 0018). È il percorso da usare quando l'odonimo è già noto — per
+      esempio dopo la disambiguazione di `ricerca-indirizzo-completo` — e l'unico
+      che può mirare un odonimo specifico e cercarne accessi metrici: `numero_civico`
+      è mappato su `accparz`, che accetta un valore di civico oppure metrico.
+    inputs:
+      type: object
+      properties:
+        codcom:
+          type: string
+          description: Codice Belfiore del comune
+        prognaz:
+          type: string
+          description: Progressivo nazionale dell'odonimo
+        numero_civico:
+          type: string
+          description: Valore civico o metrico (accparz), anche parziale (obbligatorio)
+    steps:
+      - stepId: leggi-odonimo
+        description: Risolve l'odonimo per progressivo nazionale
+        operationId: anncsu-consultazione.prognazareaPost
+        requestBody:
+          contentType: application/json
+          payload:
+            req: prognazarea
+            prognaz: $inputs.prognaz
+        successCriteria:
+          - condition: $statusCode == 200
+          - condition: $response.body.data.length > 0
+        # Progressivo sconosciuto -> 404: termina con liste vuote, non è un errore.
+        onFailure:
+          - name: odonimo-non-trovato
+            type: end
+            criteria:
+              - condition: $statusCode == 404
+        outputs:
+          odonimi_trovati: $response.body.data
+
+      - stepId: cerca-accessi
+        description: Elenca gli accessi dell'odonimo risolto
+        operationId: anncsu-consultazione.elencoaccessiprogPost
+        requestBody:
+          contentType: application/json
+          payload:
+            req: elencoaccessiprog
+            prognaz: $inputs.prognaz
+            # accparz è richiesto dall'API (senza, l'operazione fallisce, non è un
+            # 404): per questo numero_civico è obbligatorio nell'input model, niente
+            # default magico (ADR 0018). Accetta un valore civico o metrico.
+            accparz: $inputs.numero_civico
+        successCriteria:
+          - condition: $statusCode == 200
+        # Nessun accesso per i valori forniti -> 404: accessi vuoti, non un errore.
+        onFailure:
+          - name: nessun-accesso-trovato
+            type: end
+            criteria:
+              - condition: $statusCode == 404
+        outputs:
+          accessi_trovati: $response.body.data
+
+    outputs:
+      odonimi: $steps.leggi-odonimo.outputs.odonimi_trovati
       accessi: $steps.cerca-accessi.outputs.accessi_trovati
 
 x-arazzo-extensions:

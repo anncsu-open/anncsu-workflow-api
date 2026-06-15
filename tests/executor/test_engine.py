@@ -348,6 +348,118 @@ async def test_real_spec_search_returns_empty_on_odonimi_404():
     assert [op for op, _ in transport.calls] == ["anncsu-consultazione.elencoodonimiprogPost"]
 
 
+async def test_real_spec_search_disambiguates_multiple_odonimi():
+    # The SDK never silently picks the first match; when the denomination matches
+    # more than one odonimo, return all candidates with empty accessi so the caller
+    # can re-query a specific prognaz (ADR 0018) instead of querying data[0].
+    spec = load_spec(ARAZZO_SPEC)
+    transport = ScriptedTransport(
+        {
+            "anncsu-consultazione.elencoodonimiprogPost": Response(
+                200,
+                {
+                    "data": [
+                        {"prognaz": "907719", "dug": "CIRCONVALLAZIONE", "duf": "AURELIA"},
+                        {"prognaz": "907720", "dug": "VIA", "duf": "AURELIA"},
+                    ]
+                },
+            ),
+            # Scripted but must never be reached on an ambiguous match.
+            "anncsu-consultazione.elencoaccessiprogPost": Response(
+                200, {"data": [{"prognazacc": "1"}]}
+            ),
+        }
+    )
+
+    run = await WorkflowExecutor(spec, transport).run(
+        "ricerca-indirizzo-completo",
+        {"codcom": "H501", "denom_odonimo": "AURELIA", "numero_civico": "1"},
+    )
+
+    assert run.status in ("completed", "ended")
+    assert len(run.outputs["odonimi"]) == 2
+    assert not run.outputs.get("accessi")
+    assert [op for op, _ in transport.calls] == ["anncsu-consultazione.elencoodonimiprogPost"]
+
+
+async def test_real_spec_ricerca_accessi_per_odonimo_resolves_odonimo_and_accessi():
+    # The by-prognaz search (ADR 0018): resolve the odonimo via prognazarea, then
+    # list its accessi. accparz carries the optional numero_civico (civic or metric).
+    spec = load_spec(ARAZZO_SPEC)
+    transport = ScriptedTransport(
+        {
+            "anncsu-consultazione.prognazareaPost": Response(
+                200, {"data": [{"prognaz": "907720", "dug": "VIA", "duf": "AURELIA"}]}
+            ),
+            "anncsu-consultazione.elencoaccessiprogPost": Response(
+                200, {"data": [{"prognazacc": "5400478", "civico": "1", "coordX": "12.4"}]}
+            ),
+        }
+    )
+
+    run = await WorkflowExecutor(spec, transport).run(
+        "ricerca-accessi-per-odonimo",
+        {"codcom": "H501", "prognaz": "907720", "numero_civico": "1"},
+    )
+
+    assert run.status in ("completed", "ended")
+    assert run.outputs["odonimi"][0]["prognaz"] == "907720"
+    assert run.outputs["odonimi"][0]["duf"] == "AURELIA"
+    assert run.outputs["accessi"][0]["prognazacc"] == "5400478"
+    # accparz must carry the supplied civic/metric value.
+    accessi_call = next(p for op, p in transport.calls if op.endswith("elencoaccessiprogPost"))
+    assert accessi_call["accparz"] == "1"
+    assert accessi_call["prognaz"] == "907720"
+
+
+async def test_real_spec_ricerca_accessi_per_odonimo_empty_accessi_on_404():
+    # A by-prognaz search that finds no accessi (404) returns the resolved odonimo
+    # with an empty accessi list, not a 422.
+    spec = load_spec(ARAZZO_SPEC)
+    transport = ScriptedTransport(
+        {
+            "anncsu-consultazione.prognazareaPost": Response(
+                200, {"data": [{"prognaz": "907720", "dug": "VIA", "duf": "AURELIA"}]}
+            ),
+            "anncsu-consultazione.elencoaccessiprogPost": Response(
+                404, {"title": "non trovati accessi per valori forniti"}
+            ),
+        }
+    )
+
+    run = await WorkflowExecutor(spec, transport).run(
+        "ricerca-accessi-per-odonimo",
+        {"codcom": "H501", "prognaz": "907720", "numero_civico": "999"},
+    )
+
+    assert run.status in ("completed", "ended")
+    assert run.outputs["odonimi"][0]["prognaz"] == "907720"
+    assert not run.outputs.get("accessi")
+
+
+async def test_real_spec_ricerca_accessi_per_odonimo_unknown_prognaz_is_empty():
+    # An unknown prognaz (prognazarea 404) returns empty lists, not a 422.
+    spec = load_spec(ARAZZO_SPEC)
+    transport = ScriptedTransport(
+        {
+            "anncsu-consultazione.prognazareaPost": Response(
+                404, {"title": "non trovata area per progressivo nazionale"}
+            ),
+        }
+    )
+
+    run = await WorkflowExecutor(spec, transport).run(
+        "ricerca-accessi-per-odonimo",
+        {"codcom": "H501", "prognaz": "999999999", "numero_civico": "1"},
+    )
+
+    assert run.status in ("completed", "ended")
+    assert not run.outputs.get("odonimi")
+    assert not run.outputs.get("accessi")
+    # The accessi search is never attempted when the odonimo does not resolve.
+    assert [op for op, _ in transport.calls] == ["anncsu-consultazione.prognazareaPost"]
+
+
 async def test_real_spec_create_address_exists_path_resolves_outputs():
     spec = load_spec(ARAZZO_SPEC)
     transport = ScriptedTransport(

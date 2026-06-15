@@ -1,0 +1,53 @@
+meta {
+  name: Ricerca Accessi per Odonimo
+  type: http
+  seq: 12
+}
+
+post {
+  url: {{baseUrl}}/v1/workflows/ricerca-accessi-per-odonimo
+  body: json
+  auth: inherit
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "codcom": "H501",
+    "prognaz": "907720",
+    "numero_civico": "131"
+  }
+}
+
+settings {
+  encodeUrl: false
+  timeout: 0
+}
+
+tests {
+  test("returns 200 with the resolved odonimo and its accessi", function() {
+    expect(res.status).to.equal(200);
+    expect(res.body.odonimi[0].prognaz).to.equal("907720");
+    expect(res.body.odonimi[0].duf).to.equal("AURELIA");
+    expect(res.body.accessi).to.be.an("array").that.is.not.empty;
+  });
+
+  test("access carries the real wire field names", function() {
+    var a = res.body.accessi[0];
+    expect(a).to.have.property("prognazacc");
+    expect(a).to.have.property("civico");
+    expect(a).to.have.property("coordX");
+  });
+}
+
+docs {
+  By-prognaz search (ADR 0018): resolve a specific odonimo by its national
+  progressive and list its accessi. `numero_civico` maps to `accparz` (a partial
+  civic OR metric value) and is required — ANNCSU has no unfiltered listing.
+
+  Validated against PDND collaudo (UAT): VIA AURELIA (prognaz 907720), accparz
+  "131" -> odonimi=1, accessi=2 (civic "1311", a partial match of "131").
+}

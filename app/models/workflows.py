@@ -632,6 +632,31 @@ class RicercaIndirizzoOutput(BaseModel):
     errors: list[str] | None = Field(None, description="List of any errors")
 
 
+class RicercaAccessiPerOdonimoInput(BaseModel):
+    """Input for the by-prognaz access search workflow (ADR 0018)."""
+
+    codcom: str = Field(
+        ...,
+        pattern=CODCOM_PATTERN,
+        description="Belfiore municipality code (codcom)",
+        json_schema_extra={"example": "H501"},
+    )
+    prognaz: str = Field(
+        ...,
+        description="National progressive number of the odonimo (prognaz)",
+        json_schema_extra={"example": "907720"},
+    )
+    # Maps to ANNCSU's `accparz`, which the API requires and which accepts a civic
+    # OR a metric value (partial allowed). It is mandatory here (no magic default,
+    # ADR 0018) and not constrained to the civic length used elsewhere.
+    numero_civico: str = Field(
+        ...,
+        min_length=1,
+        description="Civic or metric value (accparz), partial allowed (required)",
+        json_schema_extra={"example": "1"},
+    )
+
+
 # ============================================================================
 # Workflow: Suppress a single accesso
 # ============================================================================

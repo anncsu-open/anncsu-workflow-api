@@ -194,3 +194,28 @@ Cerca gli accessi del primo odonimo trovato
 
 - Operation: `anncsu-consultazione.elencoaccessiprogPost`
 - Outputs: accessi_trovati
+
+## ricerca-accessi-per-odonimo
+
+Ricerca degli accessi di un odonimo per progressivo nazionale (sola lettura)
+
+```mermaid
+graph TD
+  leggi_odonimo["leggi-odonimo"]
+  cerca_accessi["cerca-accessi"]
+  leggi_odonimo --> cerca_accessi
+```
+
+### 1. leggi-odonimo
+
+Risolve l'odonimo per progressivo nazionale
+
+- Operation: `anncsu-consultazione.prognazareaPost`
+- Outputs: odonimi_trovati
+
+### 2. cerca-accessi
+
+Elenca gli accessi dell'odonimo risolto
+
+- Operation: `anncsu-consultazione.elencoaccessiprogPost`
+- Outputs: accessi_trovati

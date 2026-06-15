@@ -420,7 +420,10 @@ internally, also available standalone.
 
 ### 6. Search Complete Address
 
-Searches for addresses by odonimo and, optionally, numero civico.
+Searches for addresses by odonimo and, optionally, numero civico. When the
+denomination matches more than one odonimo the search returns all candidates with
+an empty `accessi` list (it never silently picks the first match); re-query the
+chosen one with workflow 7 (ADR 0018).
 
 **Endpoint**: `POST /v1/workflows/ricerca-indirizzo-completo`
 
@@ -429,6 +432,24 @@ Searches for addresses by odonimo and, optionally, numero civico.
   "codcom": "H501",
   "denom_odonimo": "ROM",
   "numero_civico": "42"
+}
+```
+
+### 7. Search Accessi by Odonimo Progressive
+
+Resolves an odonimo by its national progressive (`prognaz`) and lists the accessi
+matching a filter. This is the path to target a specific odonimo and to search
+metric accessi: `numero_civico` maps to ANNCSU's `accparz`, which accepts a civic
+**or** a metric value (partial allowed). `accparz` is **required** by ANNCSU — there
+is no unfiltered listing — so `numero_civico` is mandatory here (ADR 0018).
+
+**Endpoint**: `POST /v1/workflows/ricerca-accessi-per-odonimo`
+
+```json
+{
+  "codcom": "H501",
+  "prognaz": "907720",
+  "numero_civico": "1"
 }
 ```
 

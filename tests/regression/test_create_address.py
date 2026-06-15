@@ -113,6 +113,14 @@ class FakeAnncsu:
             ],
         }
 
+    def _prognazarea(self, body: dict) -> dict:
+        # leggi-odonimo (by-prognaz search): same odonimo shape as elencoodonimiprog,
+        # `denomuff` aliased to the real wire `duf` (anncsu-sdk#12).
+        return {
+            "res": "OK",
+            "data": [{"prognaz": "907720", "dug": "VIA", "duf": "AURELIA", "cododocomunale": "1"}],
+        }
+
     def _esisteaccesso(self, body: dict) -> dict:
         return {"res": "OK", "data": self.accesso_exists}
 
@@ -262,3 +270,23 @@ def test_ricerca_returns_empty_accessi_when_the_sdk_raises_a_real_404():
     assert body["odonimi"][0]["duf"] == "ROMA"  # odonimi still returned
     assert body["accessi"] == []  # 404 -> empty, the search did not hard-fail
     assert "elencoaccessiprog" in [path for path, _ in server.log]
+
+
+def test_ricerca_accessi_per_odonimo_maps_real_wire_fields_through_the_sdk():
+    # The by-prognaz search (ADR 0018) through the REAL SDK: prognazarea resolves
+    # the odonimo (duf via alias) and elencoaccessiprog lists the accessi (coordX),
+    # with numero_civico carried as accparz.
+    server = FakeAnncsu()
+    with _client(server) as client:
+        response = client.post(
+            "/v1/workflows/ricerca-accessi-per-odonimo",
+            json={"codcom": "H501", "prognaz": "907720", "numero_civico": "1"},
+        )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["odonimi"][0]["prognaz"] == "907720"
+    assert body["odonimi"][0]["duf"] == "AURELIA"  # real wire field via the SDK alias
+    assert body["accessi"][0]["coordX"] == "12.49"
+    # accparz carried the supplied value to the wire.
+    assert server.received("elencoaccessiprog")["accparz"] == "1"

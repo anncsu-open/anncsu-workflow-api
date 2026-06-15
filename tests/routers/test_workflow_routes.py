@@ -251,6 +251,45 @@ def test_ricerca_route_maps_search_results():
     assert body["accessi"][0]["civico"] == "42"
 
 
+def test_ricerca_accessi_per_odonimo_route_maps_results():
+    # By-prognaz search (ADR 0018): resolve the odonimo, then list its accessi.
+    responses = {
+        "anncsu-consultazione.prognazareaPost": Response(
+            200, {"data": [{"prognaz": "907720", "dug": "VIA", "duf": "AURELIA"}]}
+        ),
+        "anncsu-consultazione.elencoaccessiprogPost": Response(
+            200, {"data": [{"prognazacc": "5400478", "civico": "1", "coordX": "12.4"}]}
+        ),
+    }
+    with _client_scripted(responses) as client:
+        response = client.post(
+            "/v1/workflows/ricerca-accessi-per-odonimo",
+            json={"codcom": "H501", "prognaz": "907720", "numero_civico": "1"},
+        )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["success"] is True
+    assert body["odonimi"][0]["prognaz"] == "907720"
+    assert body["odonimi"][0]["duf"] == "AURELIA"
+    assert body["accessi"][0]["prognazacc"] == "5400478"
+
+
+def test_ricerca_accessi_per_odonimo_requires_numero_civico():
+    # ANNCSU's elencoaccessiprog requires accparz, so the by-prognaz search makes
+    # numero_civico (the civic/metric filter) mandatory rather than defaulting it
+    # to a magic value (ADR 0018, option B): no civic/metric -> 422 at validation.
+    with _client_scripted({}) as client:
+        response = client.post(
+            "/v1/workflows/ricerca-accessi-per-odonimo",
+            json={"codcom": "H501", "prognaz": "907720"},
+        )
+
+    assert response.status_code == 422
+    assert response.headers["content-type"] == "application/problem+json"
+    assert any("numero_civico" in str(e.get("loc", ())) for e in response.json()["errors"])
+
+
 def test_denomination_based_coordinate_workflow_is_removed():
     """ADR 0011: the non-deterministic by-denomination coordinate write is gone."""
     with _client_scripted({}) as client:
@@ -721,6 +760,7 @@ def test_workflow_routes_are_published_in_the_v1_openapi():
         "sopprimi-odonimo-completo",
         "sopprimi-accesso",
         "ricerca-indirizzo-completo",
+        "ricerca-accessi-per-odonimo",
     ):
         assert f"/v1/workflows/{workflow_id}" in document["paths"]
 
@@ -737,6 +777,7 @@ def test_workflow_routes_declare_their_problem_responses():
         "sopprimi-odonimo-completo",
         "sopprimi-accesso",
         "ricerca-indirizzo-completo",
+        "ricerca-accessi-per-odonimo",
     ):
         responses = document["paths"][f"/v1/workflows/{workflow_id}"]["post"]["responses"]
         for status in ("422", "500", "502"):
@@ -753,6 +794,7 @@ def test_all_workflows_declare_named_request_examples():
         "aggiorna-accesso-da-progressivo": {"coordinates_only", "attribute_only", "mixed"},
         "aggiorna-odonimo-da-progressivo": {"locality_only", "with_delibera"},
         "ricerca-indirizzo-completo": {"by_odonimo", "by_odonimo_and_civico"},
+        "ricerca-accessi-per-odonimo": {"by_civico", "by_metrico"},
         "sopprimi-odonimo-completo": {"default"},
         "sopprimi-accesso": {"default"},
     }

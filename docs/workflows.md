@@ -22,7 +22,9 @@ graph TD
   verifica_accesso --> crea_accesso
   crea_accesso --> cerca_accesso
   verifica_odonimo -. goto .-> cerca_odonimo
+  crea_odonimo -. goto .-> crea_accesso
   crea_odonimo -. goto .-> verifica_accesso
+  cerca_odonimo -. goto .-> crea_accesso
   verifica_accesso -. goto .-> cerca_accesso
 ```
 

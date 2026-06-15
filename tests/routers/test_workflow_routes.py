@@ -106,6 +106,127 @@ def test_crea_indirizzo_requires_the_sezione_censimento():
     )
 
 
+def _crea_transport() -> ScriptedTransport:
+    """Both create branches run: neither the odonimo nor the accesso exists yet."""
+    return ScriptedTransport(
+        {
+            "anncsu-consultazione.esisteOdonimoPost": Response(200, {"data": False}),
+            "anncsu-odonimi.gestioneAnncsuOdonimiPdnd": Response(
+                200, {"esito": "0", "dati": [{"progr_nazionale": "2000449"}]}
+            ),
+            "anncsu-consultazione.esisteAccessoPost": Response(200, {"data": False}),
+            "anncsu-accessi.gestioneAnncsuPdnd": Response(
+                200, {"esito": "0", "dati": [{"progr_civico": "1370588"}]}
+            ),
+        }
+    )
+
+
+def test_crea_indirizzo_civic_sends_full_accesso_and_odonimo_fields():
+    transport = _crea_transport()
+    executor = WorkflowExecutor(load_spec(ARAZZO_SPEC), transport)
+    with _client_with(WorkflowApplicationService(executor)) as client:
+        response = client.post(
+            "/v1/workflows/verifica-e-crea-indirizzo-completo",
+            json={
+                "codcom": "H501",
+                "denom_odonimo": "ROMA",
+                "dug": "VIA",
+                "numero_civico": "42",
+                "sezione_censimento": "580911010001",
+                "esponente": "A",
+                "specificita": "ROSSO",
+                "isolato": "12",
+                "codice_civico_comunale": "7569A",
+                "coordinata_x": "13.1022000",
+                "coordinata_y": "41.8847600",
+                "coordinata_z": "150",
+                "metodo": "3",
+                "denom_localita": "CENTRO",
+                "codice_comunale": "C1",
+            },
+        )
+
+    assert response.status_code == 200
+    accesso = next(p for op, p in transport.calls if op == "anncsu-accessi.gestioneAnncsuPdnd")[
+        "richiesta"
+    ]["accesso"]
+    assert accesso["esponente"] == "A"
+    assert accesso["specificita"] == "ROSSO"
+    assert accesso["isolato"] == "12"
+    assert accesso["codice_civico_comunale"] == "7569A"
+    assert accesso["coordinate"]["x"] == "13.1022000"
+    assert accesso["coordinate"]["metodo"] == "3"
+    odonimo = next(
+        p for op, p in transport.calls if op == "anncsu-odonimi.gestioneAnncsuOdonimiPdnd"
+    )["richiesta"]
+    assert odonimo["denom_localita"] == "CENTRO"
+    assert odonimo["codice_comunale"] == "C1"
+
+
+def test_crea_indirizzo_metric_skips_the_civic_existence_check():
+    transport = _crea_transport()
+    executor = WorkflowExecutor(load_spec(ARAZZO_SPEC), transport)
+    with _client_with(WorkflowApplicationService(executor)) as client:
+        response = client.post(
+            "/v1/workflows/verifica-e-crea-indirizzo-completo",
+            json={
+                "codcom": "H501",
+                "denom_odonimo": "ROMA",
+                "dug": "VIA",
+                "metrico": "300",
+                "sezione_censimento": "580911010001",
+            },
+        )
+
+    assert response.status_code == 200
+    ops = [op for op, _ in transport.calls]
+    # esisteAccessoPost is civic-only, so the metric branch must skip it (ADR 0016).
+    assert "anncsu-consultazione.esisteAccessoPost" not in ops
+    accesso = next(p for op, p in transport.calls if op == "anncsu-accessi.gestioneAnncsuPdnd")[
+        "richiesta"
+    ]["accesso"]
+    assert accesso["metrico"] == "300"
+    assert "numero" not in accesso  # the unset civic number is pruned
+
+
+def test_crea_indirizzo_metric_with_existing_odonimo_forks_from_cerca():
+    # Odonimo already exists -> cerca-odonimo runs; the metric fork must skip the
+    # civic check from that branch too, and progr_nazionale comes from the read.
+    transport = ScriptedTransport(
+        {
+            "anncsu-consultazione.esisteOdonimoPost": Response(200, {"data": True}),
+            "anncsu-consultazione.elencoodonimiprogPost": Response(
+                200, {"data": [{"prognaz": "2000449"}]}
+            ),
+            "anncsu-accessi.gestioneAnncsuPdnd": Response(
+                200, {"esito": "0", "dati": [{"progr_civico": "1370588"}]}
+            ),
+        }
+    )
+    executor = WorkflowExecutor(load_spec(ARAZZO_SPEC), transport)
+    with _client_with(WorkflowApplicationService(executor)) as client:
+        response = client.post(
+            "/v1/workflows/verifica-e-crea-indirizzo-completo",
+            json={
+                "codcom": "H501",
+                "denom_odonimo": "ROMA",
+                "dug": "VIA",
+                "metrico": "300",
+                "sezione_censimento": "580911010001",
+            },
+        )
+
+    assert response.status_code == 200
+    ops = [op for op, _ in transport.calls]
+    assert "anncsu-consultazione.esisteAccessoPost" not in ops
+    richiesta = next(p for op, p in transport.calls if op == "anncsu-accessi.gestioneAnncsuPdnd")[
+        "richiesta"
+    ]
+    assert richiesta["accesso"]["metrico"] == "300"
+    assert richiesta["progr_nazionale"] == "2000449"  # coalesced from cerca-odonimo
+
+
 def test_ricerca_route_maps_search_results():
     responses = {
         "anncsu-consultazione.elencoodonimiprogPost": Response(

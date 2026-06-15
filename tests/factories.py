@@ -143,6 +143,37 @@ class CreaIndirizzoCompletoInputFactory(ModelFactory[CreaIndirizzoCompletoInput]
     def data_validita(cls) -> str | None:
         return data_italiana() if fake.boolean(chance_of_getting_true=70) else None
 
+    # Generate a civic accesso with no coordinates/delibera overrides: the new
+    # optional fields carry XOR/coordinate/pattern rules that random values would
+    # violate, so pin them to None (ADR 0016).
+    @classmethod
+    def metrico(cls) -> None:
+        return None
+
+    @classmethod
+    def coordinata_x(cls) -> None:
+        return None
+
+    @classmethod
+    def coordinata_y(cls) -> None:
+        return None
+
+    @classmethod
+    def coordinata_z(cls) -> None:
+        return None
+
+    @classmethod
+    def metodo(cls) -> None:
+        return None
+
+    @classmethod
+    def provvedimento(cls) -> None:
+        return None
+
+    @classmethod
+    def aut_prefettura(cls) -> None:
+        return None
+
 
 class CreaIndirizzoCompletoOutputFactory(ModelFactory[CreaIndirizzoCompletoOutput]):
     """Factory for CreaIndirizzoCompletoOutput."""

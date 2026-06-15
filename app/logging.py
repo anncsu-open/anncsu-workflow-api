@@ -67,10 +67,12 @@ def configure_logging(settings: Settings) -> None:
         cache_logger_on_first_use=False,
     )
 
+    # Console format is colorized only when stdout is a terminal, so logs stay
+    # plain when redirected to a file or captured in CI.
     renderer: Any = (
         structlog.processors.JSONRenderer()
         if settings.log_format == "json"
-        else structlog.dev.ConsoleRenderer(colors=False)
+        else structlog.dev.ConsoleRenderer(colors=sys.stdout.isatty())
     )
     formatter = structlog.stdlib.ProcessorFormatter(
         foreign_pre_chain=shared,

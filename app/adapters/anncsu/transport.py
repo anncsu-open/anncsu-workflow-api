@@ -48,13 +48,15 @@ class AnncsuSdkTransport:
     ) -> Response:
         """Run ``operation_id`` with ``payload`` as keyword arguments to the SDK."""
         operation = operation_for(operation_id)
-        method = resolve_method(self._manager.client(operation.source), operation.method_path)
         kwargs = dict(payload) if payload else {}
 
         start = time.perf_counter()
         async with self._manager.lock(operation.source):
             try:
-                model = await asyncio.to_thread(method, **kwargs)
+                # Resolve the client inside the thread: building it lazily fetches a
+                # voucher to discover the server URL (ADR 0017), a blocking call that
+                # must not run on the event loop, and is serialized by the lock.
+                model = await asyncio.to_thread(self._invoke, operation, kwargs)
             except AnncsuBaseError as error:
                 response = _response_from_error(error)
                 _log.debug(
@@ -76,6 +78,16 @@ class AnncsuSdkTransport:
             duration_ms=round((time.perf_counter() - start) * 1000, 1),
         )
         return Response(status_code=200, body=model.model_dump(mode="json", by_alias=True))
+
+    def _invoke(self, operation: Any, kwargs: dict[str, Any]) -> Any:
+        """Resolve the (possibly lazily built) client and call the SDK method.
+
+        Synchronous — runs in a worker thread, because resolving the client may
+        build it lazily, which fetches a voucher (a blocking call, ADR 0017).
+        """
+        client = self._manager.client(operation.source)
+        method = resolve_method(client, operation.method_path)
+        return method(**kwargs)
 
 
 def _response_from_error(error: AnncsuBaseError) -> Response:

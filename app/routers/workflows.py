@@ -11,7 +11,7 @@ invokes per accesso.
 
 from __future__ import annotations
 
-from collections.abc import Callable, Mapping
+from collections.abc import Callable
 from pathlib import Path
 from typing import Annotated, Any
 
@@ -20,13 +20,7 @@ from anncsu.common.config import ClientAssertionSettings
 from fastapi import APIRouter, Body, Depends, Request
 
 from app.adapters.anncsu import AnncsuClientManager, AnncsuSdkTransport
-from app.adapters.anncsu.auth import (
-    SDK_CLASSES,
-    build_auth_managers,
-    build_clients,
-    register_modi_hook_if_configured,
-)
-from app.adapters.anncsu.client_manager import server_urls_from_settings
+from app.adapters.anncsu.auth import build_auth_managers, build_client_builders
 from app.application.service import WorkflowApplicationService
 from app.config import Settings, resolve_token_endpoint
 from app.errors import PROBLEM_CONTENT_TYPE, Problem
@@ -77,32 +71,24 @@ def build_workflow_service(
     assertion_settings: ClientAssertionSettings,
     *,
     manager_factory: Callable[..., Any] = PDNDAuthManager,
-    sdk_classes: Mapping[str, Any] = SDK_CLASSES,
-    modi_registrar: Callable[..., None] = register_modi_hook_if_configured,
 ) -> tuple[WorkflowApplicationService, dict[str, Any], AnncsuClientManager]:
     """Build the authenticated service, the per-source auth managers, and the manager.
 
-    Called once from the application lifespan (ADR 0015). No token is fetched here:
-    each SDK client pulls a voucher lazily on first request via its security
-    provider. The auth managers and the client manager are returned so ``/ready``
-    can probe each source under its per-source lock.
+    Called once from the application lifespan. No token or e-service URL is resolved
+    here: each SDK client is built lazily on first use, discovering its server URL
+    from the voucher audience (ADR 0017). The auth managers and the client manager
+    are returned so ``/ready`` can probe each source under its per-source lock.
     """
     token_endpoint = resolve_token_endpoint(settings.use_validation_env)
-    server_urls = server_urls_from_settings(settings)
     auth_managers = build_auth_managers(
         assertion_settings,
         token_endpoint=token_endpoint,
-        server_urls=server_urls,
         manager_factory=manager_factory,
     )
-    clients = build_clients(
-        auth_managers,
-        server_urls,
-        assertion_settings,
-        sdk_classes=sdk_classes,
-        modi_registrar=modi_registrar,
+    builders = build_client_builders(
+        auth_managers, assertion_settings, verify_ssl=settings.verify_ssl
     )
-    client_manager = AnncsuClientManager(clients=clients)
+    client_manager = AnncsuClientManager(builders=builders)
     transport = AnncsuSdkTransport(client_manager)
     service = WorkflowApplicationService(WorkflowExecutor(load_spec(ARAZZO_SPEC), transport))
     return service, auth_managers, client_manager

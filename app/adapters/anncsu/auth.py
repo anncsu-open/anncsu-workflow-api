@@ -15,9 +15,10 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from typing import Any
 
+import httpx
 from anncsu.accessi import AnncsuAccessi
 from anncsu.accessi.models import Security as AccessiSecurity
-from anncsu.common.auth import PDNDAuthManager
+from anncsu.common.auth import PDNDAuthManager, extract_voucher_audience
 from anncsu.common.config import APIType, ClientAssertionSettings
 from anncsu.common.hooks import SDKHooks, register_modi_hook
 from anncsu.common.modi import AuditContext, ModIConfig
@@ -77,10 +78,13 @@ def build_auth_managers(
     assertion_settings: ClientAssertionSettings,
     *,
     token_endpoint: str,
-    server_urls: Mapping[str, str],
     manager_factory: Callable[..., Any] = PDNDAuthManager,
 ) -> dict[str, Any]:
-    """Build one auth manager per source (eager build, but no token fetched here)."""
+    """Build one auth manager per source (eager build, but no token fetched here).
+
+    The server URL is no longer needed here: it is discovered from the voucher when
+    the SDK client is lazily built (ADR 0017).
+    """
     managers: dict[str, Any] = {}
     for source, spec in SOURCES.items():
         managers[source] = manager_factory(
@@ -141,26 +145,72 @@ def register_modi_hook_if_configured(
         _log.warning("auth.modi_hook_failed", detail=str(error))
 
 
-def build_clients(
-    auth_managers: Mapping[str, Any],
-    server_urls: Mapping[str, str],
+class AudienceDiscoveryError(RuntimeError):
+    """The voucher carried no audience, so the e-service URL can't be discovered."""
+
+
+def make_client_builder(  # noqa: PLR0913 - a wiring factory with injectable seams
+    source: str,
+    spec: SourceAuth,
+    auth_manager: Any,
     assertion_settings: ClientAssertionSettings,
     *,
-    sdk_classes: Mapping[str, Any] = SDK_CLASSES,
+    verify_ssl: bool,
+    sdk_class: Any,
+    audience_resolver: Callable[[str], str | None] = extract_voucher_audience,
     modi_registrar: Callable[..., None] = register_modi_hook_if_configured,
-) -> dict[str, Any]:
-    """Build an authenticated SDK client per source (writers also get the ModI hook)."""
-    clients: dict[str, Any] = {}
-    for source, spec in SOURCES.items():
-        url = server_urls[source]
-        provider = make_security_provider(
-            auth_managers[source], spec.security_cls, spec.bearer_kwarg
-        )
-        sdk_cls = sdk_classes[source]
+) -> Callable[[], Any]:
+    """Return a callable that lazily builds the authenticated SDK client (ADR 0017).
+
+    The build fetches the voucher, derives the e-service ``server_url`` from its
+    audience, and constructs the client with a ``verify_ssl``-configured HTTP client
+    and the per-request security provider (writers also get the ModI hook). It is a
+    synchronous, blocking call (voucher fetch) and must run off the event loop —
+    the transport invokes it inside ``asyncio.to_thread`` under the per-source lock.
+    """
+
+    def build() -> Any:
+        url = audience_resolver(auth_manager.get_access_token())
+        if not url:
+            _log.error("client.no_audience", source=source)
+            raise AudienceDiscoveryError(f"no audience in the voucher for {source!r}")
+        provider = make_security_provider(auth_manager, spec.security_cls, spec.bearer_kwarg)
+        kwargs: dict[str, Any] = {
+            "server_url": url,
+            "security": provider,
+            "client": httpx.Client(verify=verify_ssl),
+        }
         if spec.is_writer:
             hooks = SDKHooks()
             modi_registrar(hooks, assertion_settings, url)
-            clients[source] = sdk_cls(server_url=url, security=provider, hooks=hooks)
-        else:
-            clients[source] = sdk_cls(server_url=url, security=provider)
-    return clients
+            kwargs["hooks"] = hooks
+        client = sdk_class(**kwargs)
+        _log.info("client.built", source=source, server_url=url)
+        return client
+
+    return build
+
+
+def build_client_builders(  # noqa: PLR0913 - a wiring factory with injectable seams
+    auth_managers: Mapping[str, Any],
+    assertion_settings: ClientAssertionSettings,
+    *,
+    verify_ssl: bool,
+    sdk_classes: Mapping[str, Any] = SDK_CLASSES,
+    modi_registrar: Callable[..., None] = register_modi_hook_if_configured,
+    audience_resolver: Callable[[str], str | None] = extract_voucher_audience,
+) -> dict[str, Callable[[], Any]]:
+    """A lazy SDK-client builder per source (URL discovered from the voucher)."""
+    return {
+        source: make_client_builder(
+            source,
+            spec,
+            auth_managers[source],
+            assertion_settings,
+            verify_ssl=verify_ssl,
+            sdk_class=sdk_classes[source],
+            audience_resolver=audience_resolver,
+            modi_registrar=modi_registrar,
+        )
+        for source, spec in SOURCES.items()
+    }

@@ -55,22 +55,17 @@ def test_build_workflow_service_wires_an_authenticated_service_without_network()
     def manager_factory(**kwargs):
         return _FakeManager()
 
-    def noop_sdk(**kwargs):
-        return object()
-
     service, auth_managers, client_manager = build_workflow_service(
         settings,
         _assertion_settings(),
         manager_factory=manager_factory,
-        sdk_classes=dict.fromkeys(SOURCES, noop_sdk),
-        modi_registrar=lambda *args, **kwargs: None,
     )
 
     assert isinstance(service, WorkflowApplicationService)
     assert set(auth_managers) == set(SOURCES)
     # The client manager exposes a per-source lock (used by /ready).
     assert all(client_manager.lock(source) is not None for source in SOURCES)
-    # Building the service must not fetch any token (lazy).
+    # Building the service must not fetch any token (lazy: clients/URLs built on first use).
     assert all(manager.calls == 0 for manager in auth_managers.values())
 
 

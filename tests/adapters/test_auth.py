@@ -6,12 +6,17 @@ pin the wiring — one manager per source, a lazy per-request security provider,
 the ModI hook only on the write clients — without real credentials or network.
 """
 
+import base64
+import json
+
 from anncsu.common.config import ClientAssertionSettings
+from anncsu.pa import AnncsuConsultazione
 
 from app.adapters.anncsu.auth import (
     SOURCES,
     build_auth_managers,
-    build_clients,
+    build_client_builders,
+    make_client_builder,
     make_security_provider,
 )
 
@@ -48,10 +53,6 @@ class _FakeManager:
         return f"voucher-{self.calls}"
 
 
-def _urls() -> dict[str, str]:
-    return {source: f"https://{source}.example.test" for source in SOURCES}
-
-
 def test_security_provider_returns_a_fresh_bearer_on_every_call():
     manager = _FakeManager()
     captured: list[dict] = []
@@ -81,7 +82,6 @@ def test_build_auth_managers_builds_one_per_source_with_distinct_api_types():
     managers = build_auth_managers(
         settings,
         token_endpoint="https://token.example.test",
-        server_urls=_urls(),
         manager_factory=factory,
     )
 
@@ -93,8 +93,7 @@ def test_build_auth_managers_builds_one_per_source_with_distinct_api_types():
     assert len({kwargs["api_type"] for kwargs in built}) == len(SOURCES)
 
 
-def test_build_clients_wires_security_everywhere_and_modi_only_for_writers():
-    urls = _urls()
+def test_build_client_builders_discover_url_wire_security_and_writer_modi():
     managers = {source: _FakeManager() for source in SOURCES}
     recorded: dict[str, dict] = {}
 
@@ -106,43 +105,79 @@ def test_build_clients_wires_security_everywhere_and_modi_only_for_writers():
         return make
 
     sdk_classes = {source: sdk_factory(source) for source in SOURCES}
-    modi_calls: list[tuple] = []
+    modi_audiences: list[str] = []
 
     def fake_modi(hooks, settings, modi_audience):
-        modi_calls.append((settings, modi_audience))
+        modi_audiences.append(modi_audience)
 
-    clients = build_clients(
+    builders = build_client_builders(
         managers,
-        urls,
-        assertion_settings=_assertion_settings(),
+        _assertion_settings(),
+        verify_ssl=True,
         sdk_classes=sdk_classes,
         modi_registrar=fake_modi,
+        audience_resolver=lambda voucher: f"https://disc.test/{voucher}",
     )
 
-    assert set(clients) == set(SOURCES)
-    # Every client gets a callable security provider; only writers get hooks.
+    for source in SOURCES:
+        builders[source]()  # lazily build each client
+
+    assert set(recorded) == set(SOURCES)
+    # The server_url is the discovered voucher audience; an http client is passed.
+    assert recorded[READER]["server_url"] == "https://disc.test/voucher-1"
     assert callable(recorded[READER]["security"])
+    assert "client" in recorded[READER]
     assert "hooks" not in recorded[READER]
     for writer in WRITERS:
-        assert callable(recorded[writer]["security"])
         assert "hooks" in recorded[writer]
-    # ModI registered exactly for the writers, with their server_url as audience.
-    assert len(modi_calls) == len(WRITERS)
-    assert {audience for _settings, audience in modi_calls} == {urls[w] for w in WRITERS}
+    # ModI registered exactly for the writers, with the discovered url as audience.
+    assert len(modi_audiences) == len(WRITERS)
+    assert all(a == "https://disc.test/voucher-1" for a in modi_audiences)
 
 
-def test_build_clients_is_lazy_and_does_not_fetch_tokens():
+def test_build_client_builders_are_lazy():
     managers = {source: _FakeManager() for source in SOURCES}
-
-    def noop_factory(**kwargs):
-        return object()
-
-    build_clients(
+    builders = build_client_builders(
         managers,
-        _urls(),
-        assertion_settings=_assertion_settings(),
-        sdk_classes=dict.fromkeys(SOURCES, noop_factory),
+        _assertion_settings(),
+        verify_ssl=True,
+        sdk_classes=dict.fromkeys(SOURCES, lambda **kwargs: object()),
         modi_registrar=lambda *args, **kwargs: None,
+        audience_resolver=lambda voucher: "https://disc.test/x",
     )
 
+    # Building the builders fetches no voucher yet.
     assert all(manager.calls == 0 for manager in managers.values())
+    # Invoking a builder fetches the voucher once (for URL discovery).
+    builders[READER]()
+    assert managers[READER].calls == 1
+
+
+def _voucher(aud: str) -> str:
+    """A minimal unsigned JWT carrying an ``aud`` claim (what the SDK reads)."""
+    payload = base64.urlsafe_b64encode(json.dumps({"aud": aud}).encode()).decode().rstrip("=")
+    return f"header.{payload}.signature"
+
+
+class _VoucherManager:
+    def __init__(self, aud: str) -> None:
+        self._aud = aud
+
+    def get_access_token(self) -> str:
+        return _voucher(self._aud)
+
+
+def test_builder_sets_the_discovered_url_on_the_real_sdk_client():
+    # Real AnncsuConsultazione + the real extract_voucher_audience: the discovered
+    # server URL (from the voucher's aud) must land on the SDK client (ADR 0017).
+    builder = make_client_builder(
+        "anncsu-consultazione",
+        SOURCES["anncsu-consultazione"],
+        _VoucherManager("https://anncsu.test/consultazione/v1"),
+        _assertion_settings(),
+        verify_ssl=False,
+        sdk_class=AnncsuConsultazione,
+    )
+
+    client = builder()
+    assert client.sdk_configuration.server_url == "https://anncsu.test/consultazione/v1"

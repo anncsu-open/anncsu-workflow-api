@@ -31,8 +31,12 @@ def test_settings_keeps_application_fields():
     s = Settings()
     assert s.app_name
     assert s.log_format in ("json", "console")
-    assert s.anncsu_accessi_url.startswith("https://")
     assert isinstance(s.use_validation_env, bool)
+
+
+def test_settings_verify_ssl_defaults_to_true():
+    # Collaudo serves a self-signed certificate; VERIFY_SSL=false disables checks (ADR 0017).
+    assert Settings().verify_ssl is True
 
 
 def test_settings_drops_dead_pdnd_and_jwt_fields():

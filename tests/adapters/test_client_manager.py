@@ -1,34 +1,29 @@
-"""Tests for the client manager: holds the per-source SDK clients + per-API locks,
-and resolves the per-source server URL from settings.
+"""Tests for AnncsuClientManager: pre-built or lazily built clients + per-API locks.
 
-The per-source ``asyncio.Lock`` serializes calls into each API so the SDK's sync-only
-PDND token refresh (anncsu-sdk#35) never runs concurrently for the same auth manager.
+A client is either supplied pre-built (tests/regression) or built lazily on first
+use from a per-source builder (production discovers the URL from the voucher, ADR
+0017). The per-source ``asyncio.Lock`` serializes calls into each API.
 """
 
-from app.adapters.anncsu.client_manager import AnncsuClientManager, server_urls_from_settings
-from app.config import Settings
+from app.adapters.anncsu.client_manager import AnncsuClientManager
 
 
-def test_server_urls_use_production_urls_by_default():
-    # Explicit flag so the test is hermetic (independent of any local .env).
-    settings = Settings(use_validation_env=False)
-    assert server_urls_from_settings(settings) == {
-        "anncsu-consultazione": settings.anncsu_consultazione_url,
-        "anncsu-odonimi": settings.anncsu_odonimi_url,
-        "anncsu-accessi": settings.anncsu_accessi_url,
-        "anncsu-coordinate": settings.anncsu_coordinate_url,
-    }
+def test_client_returns_a_prebuilt_client():
+    manager = AnncsuClientManager(clients={"a": "client-a"})
+    assert manager.client("a") == "client-a"
 
 
-def test_server_urls_use_validation_urls_when_enabled():
-    settings = Settings(use_validation_env=True)
-    urls = server_urls_from_settings(settings)
+def test_client_builds_lazily_once_and_caches():
+    calls: list[int] = []
 
-    assert urls["anncsu-consultazione"] == settings.anncsu_consultazione_val_url
-    assert urls["anncsu-odonimi"] == settings.anncsu_odonimi_val_url
-    # accessi/coordinate have no separate validation URL.
-    assert urls["anncsu-accessi"] == settings.anncsu_accessi_url
-    assert urls["anncsu-coordinate"] == settings.anncsu_coordinate_url
+    def builder():
+        calls.append(1)
+        return "built"
+
+    manager = AnncsuClientManager(builders={"a": builder})
+    assert manager.client("a") == "built"
+    assert manager.client("a") == "built"  # second call reuses the cache
+    assert len(calls) == 1  # the builder ran exactly once
 
 
 def test_lock_is_one_per_source_and_stable():

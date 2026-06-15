@@ -30,31 +30,8 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
     log_format: Literal["json", "console"] = "json"
 
-    # ANNCSU API URLs
-    anncsu_consultazione_url: str = (
-        "https://modipa.agenziaentrate.gov.it/govway/rest/in/"
-        "AgenziaEntrate-PDND/anncsu-consultazione/v1"
-    )
-    anncsu_odonimi_url: str = (
-        "https://modipa.agenziaentrate.it/govway/rest/in/"
-        "AgenziaEntrate-PDND/anncsu-aggiornamento-odonimi/v1"
-    )
-    anncsu_accessi_url: str = (
-        "https://modipa.agenziaentrate.it/govway/rest/in/AgenziaEntrate/anncsuaccessi/v1"
-    )
-    anncsu_coordinate_url: str = (
-        "https://modipa.agenziaentrate.it/govway/rest/in/AgenziaEntrate/anncsuaccessi/v1"
-    )
-
-    # Validation environment URLs
-    anncsu_consultazione_val_url: str = (
-        "https://modipa-val.agenziaentrate.gov.it/govway/rest/in/"
-        "AgenziaEntrate-PDND/anncsu-consultazione/v1"
-    )
-    anncsu_odonimi_val_url: str = (
-        "https://modipa-val.agenziaentrate.it/govway/rest/in/"
-        "AgenziaEntrate-PDND/anncsu-aggiornamento-odonimi/v1"
-    )
+    # ANNCSU API server URLs are NOT configured here: each SDK client discovers its
+    # e-service URL from the voucher audience on first use (ADR 0017).
 
     # PDND credentials are NOT here: they live in the SDK's ClientAssertionSettings
     # (PDND_* env), loaded from the same .env (ADR 0015). Keeping them in one place
@@ -63,9 +40,12 @@ class Settings(BaseSettings):
     # HTTP Client
     http_timeout: int = 30
     http_max_retries: int = 3
+    # TLS verification for the ANNCSU calls; collaudo serves a self-signed cert,
+    # so VERIFY_SSL=false disables it there (ADR 0017). Keep True in production.
+    verify_ssl: bool = True
 
     # Environment
-    use_validation_env: bool = False  # If True, use the validation URLs
+    use_validation_env: bool = False  # selects the PDND token endpoint (UAT vs prod)
 
 
 def resolve_token_endpoint(use_validation_env: bool) -> str:

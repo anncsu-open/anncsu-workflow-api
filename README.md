@@ -52,11 +52,10 @@ DEBUG=false
 LOG_LEVEL=INFO        # DEBUG | INFO | WARNING | ERROR
 LOG_FORMAT=json       # json (production) | console (development)
 
-# ANNCSU API URLs (Production)
-ANNCSU_CONSULTAZIONE_URL=https://modipa.agenziaentrate.gov.it/govway/rest/in/AgenziaEntrate-PDND/anncsu-consultazione/v1
-ANNCSU_ODONIMI_URL=https://modipa.agenziaentrate.it/govway/rest/in/AgenziaEntrate-PDND/anncsu-aggiornamento-odonimi/v1
-ANNCSU_ACCESSI_URL=https://modipa.agenziaentrate.it/govway/rest/in/AgenziaEntrate/anncsuaccessi/v1
-ANNCSU_COORDINATE_URL=https://modipa.agenziaentrate.it/govway/rest/in/AgenziaEntrate/anncsuaccessi/v1
+# ANNCSU API URLs are discovered from the voucher audience (ADR 0017), not set here.
+# Collaudo serves a self-signed certificate, so disable TLS verification there
+# (keep it on in production):
+VERIFY_SSL=true
 
 # PDND authentication — the SDK's ClientAssertionSettings contract (ADR 0015).
 # PDND_AUDIENCE is the client assertion audience (no scheme, ends with
@@ -91,7 +90,7 @@ PDND_MODI_LOA=3
 # PDND_MODI_KEY_PATH=./keys/modi_private_key.pem
 
 # Environment
-USE_VALIDATION_ENV=false  # true → validation (UAT) URLs and UAT token endpoint
+USE_VALIDATION_ENV=false  # true → UAT token endpoint (and UAT voucher audiences)
 ```
 
 ### Generating the PDND keys

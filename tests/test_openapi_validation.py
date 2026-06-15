@@ -333,9 +333,10 @@ class TestRequiredFields:
         assert "codcom" in required
         assert "denom_odonimo" in required
         assert "dug" in required
-        assert "numero_civico" in required
+        assert "sezione_censimento" in required
 
-        # This is optional
+        # numero_civico is now optional (an accesso may be metric instead); data_validita optional
+        assert "numero_civico" not in required
         assert "data_validita" not in required
 
     def test_output_models_required_fields(self):

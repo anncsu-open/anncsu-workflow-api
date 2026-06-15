@@ -142,6 +142,44 @@ _CREA_INDIRIZZO_EXAMPLES: dict[str, Any] = {
             "data_validita": "08/10/2024",
         },
     },
+    "metric_access": {
+        "summary": "A metric accesso (no civic number; skips the civic existence check)",
+        "value": {
+            "codcom": "H501",
+            "denom_odonimo": "ROMA",
+            "dug": "VIA",
+            "metrico": "300",
+            "sezione_censimento": "580911010001",
+        },
+    },
+    "with_coordinates_and_attributes": {
+        "summary": "Civic accesso with coordinates and optional attributes",
+        "value": {
+            "codcom": "H501",
+            "denom_odonimo": "ROMA",
+            "dug": "VIA",
+            "numero_civico": "42",
+            "esponente": "A",
+            "sezione_censimento": "580911010001",
+            "coordinata_x": "13.1022000",
+            "coordinata_y": "41.8847600",
+            "coordinata_z": "150",
+            "metodo": "3",
+        },
+    },
+    "with_odonimo_metadata": {
+        "summary": "With odonimo metadata and an explicit delibera",
+        "value": {
+            "codcom": "H501",
+            "denom_odonimo": "ROMA",
+            "dug": "VIA",
+            "numero_civico": "42",
+            "sezione_censimento": "580911010001",
+            "denom_localita": "CENTRO",
+            "denom_delibera": "VIA ROMA",
+            "provvedimento": {"flag_delibera": "1", "data": "01/01/2024", "protocollo": "PROT/123"},
+        },
+    },
 }
 
 

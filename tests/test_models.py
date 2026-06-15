@@ -65,17 +65,16 @@ class TestCreaIndirizzoCompletoInput:
             CreaIndirizzoCompletoInput(
                 codcom="H501",
                 denom_odonimo="ROMA",
-                # dug missing
-                # numero_civico missing
+                numero_civico="42",  # an accesso identifier (keeps the XOR satisfied)
+                # dug and sezione_censimento missing
             )
         # Type-safe access to ValidationError.errors()
         validation_error = exc_info.value
         assert isinstance(validation_error, ValidationError)
         errors = validation_error.errors()
-        assert len(errors) >= 2
-        error_fields = {e["loc"][0] for e in errors}
+        error_fields = {e["loc"][0] for e in errors if e["loc"]}
         assert "dug" in error_fields
-        assert "numero_civico" in error_fields
+        assert "sezione_censimento" in error_fields
 
     def test_optional_fields_can_be_none(self):
         """Test that optional fields can be None."""

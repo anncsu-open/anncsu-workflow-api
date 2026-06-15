@@ -58,7 +58,10 @@ workflows:
           description: Denominazione Urbanistica Generica (es. VIA, PIAZZA)
         numero_civico:
           type: string
-          description: Numero civico
+          description: Numero civico (esattamente uno tra numero_civico e metrico)
+        metrico:
+          type: string
+          description: Identificazione metrica (esattamente uno tra numero_civico e metrico)
         data_validita:
           type: string
           description: Data di validità amministrativa (DD/MM/YYYY) per le creazioni
@@ -69,6 +72,51 @@ workflows:
             Sezione di censimento dell'accesso (formato ISTAT SEZ21_ID, max 13
             caratteri). Obbligatoria per la creazione dell'accesso
             (operazione_civico I/R); non è derivabile dalle API di consultazione.
+        esponente:
+          type: string
+          description: Esponente del civico
+        specificita:
+          type: string
+          description: Specificità del civico
+        isolato:
+          type: string
+          description: Codice isolato
+        codice_civico_comunale:
+          type: string
+          description: Codice comunale dell'accesso
+        coordinata_x:
+          type: string
+          description: Longitudine WGS84
+        coordinata_y:
+          type: string
+          description: Latitudine WGS84
+        coordinata_z:
+          type: string
+          description: Quota in metri
+        metodo:
+          type: string
+          description: Metodo di rilevazione delle coordinate (1-4)
+        denom_localita:
+          type: string
+          description: Denominazione della località dell'odonimo
+        denom_in_lingua_1:
+          type: string
+          description: Denominazione dell'odonimo in lingua 1
+        denom_in_lingua_2:
+          type: string
+          description: Denominazione dell'odonimo in lingua 2
+        codice_comunale:
+          type: string
+          description: Codice comunale dell'odonimo
+        denom_delibera:
+          type: string
+          description: Denominazione da delibera dell'odonimo (default denom_odonimo)
+        provvedimento:
+          type: object
+          description: Atto amministrativo (delibera) che autorizza l'odonimo
+        aut_prefettura:
+          type: object
+          description: Autorizzazione prefettizia dell'odonimo
     steps:
       # 1) Verifica esistenza odonimo. Se esiste -> goto cerca-odonimo,
       #    altrimenti prosegue (fall-through) verso crea-odonimo.
@@ -104,14 +152,24 @@ workflows:
               codcom: $inputs.codcom
               tipo_operazione: I
               dug: $inputs.dug
-              denom_delibera: $inputs.denom_odonimo
-              provvedimento:
-                flag_delibera: "2"
+              denom_localita: $inputs.denom_localita
+              denom_in_lingua_1: $inputs.denom_in_lingua_1
+              denom_in_lingua_2: $inputs.denom_in_lingua_2
+              codice_comunale: $inputs.codice_comunale
+              denom_delibera: $inputs.denom_delibera
+              provvedimento: $inputs.provvedimento
+              aut_prefettura: $inputs.aut_prefettura
               data_valid_amm: $inputs.data_validita
         successCriteria:
           - condition: $statusCode == 200
           - condition: $response.body.esito == "0"
         onSuccess:
+          # Accesso metrico: esisteAccessoPost è solo-civico, quindi salta la verifica.
+          - name: vai-a-crea-accesso-metrico
+            type: goto
+            stepId: crea-accesso
+            criteria:
+              - condition: $inputs.metrico != null
           - name: vai-a-verifica-accesso
             type: goto
             stepId: verifica-accesso
@@ -131,6 +189,13 @@ workflows:
             denomparz: $inputs.denom_odonimo
         successCriteria:
           - condition: $statusCode == 200
+        onSuccess:
+          # Accesso metrico: salta la verifica civica (esisteAccessoPost è solo-civico).
+          - name: vai-a-crea-accesso-metrico
+            type: goto
+            stepId: crea-accesso
+            criteria:
+              - condition: $inputs.metrico != null
         outputs:
           progressivo_nazionale: $response.body.data[0].prognaz
 
@@ -168,12 +233,26 @@ workflows:
           payload:
             richiesta:
               codcom: $inputs.codcom
-              progr_nazionale: $steps.cerca-odonimo.outputs.progressivo_nazionale
+              # Il progressivo dell'odonimo viene dal ramo che ha girato (crea o cerca).
+              progr_nazionale:
+                x-coalesce:
+                  - $steps.crea-odonimo.outputs.progressivo_nazionale
+                  - $steps.cerca-odonimo.outputs.progressivo_nazionale
               accesso:
                 numero: $inputs.numero_civico
+                metrico: $inputs.metrico
                 operazione_civico: I
                 sezione_censimento: $inputs.sezione_censimento
                 data_valid_amm: $inputs.data_validita
+                esponente: $inputs.esponente
+                specificita: $inputs.specificita
+                isolato: $inputs.isolato
+                codice_civico_comunale: $inputs.codice_civico_comunale
+                coordinate:
+                  x: $inputs.coordinata_x
+                  y: $inputs.coordinata_y
+                  z: $inputs.coordinata_z
+                  metodo: $inputs.metodo
         successCriteria:
           - condition: $statusCode == 200
           - condition: $response.body.esito == "0"

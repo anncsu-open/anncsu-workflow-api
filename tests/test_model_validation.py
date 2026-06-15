@@ -289,3 +289,101 @@ def test_odonimo_flag_delibera_0_1_rejects_partial_details(provvedimento):
 def test_odonimo_nested_dates_must_be_ddmmyyyy(nested):
     with pytest.raises(ValidationError):
         _odonimo(**nested)
+
+
+# ============================================================================
+# Complete-address creation: full accesso/odonimo fields + metric (ADR 0016)
+# ============================================================================
+
+
+def _crea(**extra) -> CreaIndirizzoCompletoInput:
+    base = {
+        "codcom": "H501",
+        "denom_odonimo": "ROMA",
+        "dug": "VIA",
+        "numero_civico": "42",
+        "sezione_censimento": "580911010001",
+    }
+    # model_validate mirrors the JSON -> dict -> model path the route uses, so the
+    # nested objects (provvedimento/aut_prefettura) are coerced from dicts.
+    return CreaIndirizzoCompletoInput.model_validate({**base, **extra})
+
+
+def test_crea_requires_an_accesso_identifier():
+    with pytest.raises(ValidationError):
+        _crea(numero_civico=None)  # neither numero nor metrico
+
+
+def test_crea_rejects_both_numero_and_metrico():
+    with pytest.raises(ValidationError):
+        _crea(metrico="300")  # numero_civico is "42" from the base
+
+
+def test_crea_accepts_a_metric_accesso():
+    model = _crea(numero_civico=None, metrico="300")
+    assert model.metrico == "300"
+    assert model.numero_civico is None
+
+
+def test_crea_defaults_the_delibera_for_backward_compatibility():
+    model = _crea()  # no denom_delibera / provvedimento provided
+    assert model.denom_delibera == "ROMA"  # falls back to denom_odonimo
+    assert model.provvedimento is not None
+    assert model.provvedimento.flag_delibera == "2"
+
+
+def test_crea_accepts_the_full_accesso_and_odonimo_fields():
+    model = _crea(
+        esponente="A",
+        specificita="ROSSO",
+        isolato="12",
+        codice_civico_comunale="7569A",
+        coordinata_x="13.1022000",
+        coordinata_y="41.8847600",
+        coordinata_z="150",
+        metodo="3",
+        denom_localita="CENTRO",
+        denom_in_lingua_1="X",
+        denom_in_lingua_2="Y",
+        codice_comunale="C1",
+        denom_delibera="VIA ROMA",
+        provvedimento={"flag_delibera": "2"},
+        aut_prefettura={"data_pref": "01/01/2024", "protocollo_pref": "PREF1"},
+    )
+    assert model.esponente == "A"
+    assert model.coordinata_x == "13.1022000"
+    assert model.denom_localita == "CENTRO"
+    assert model.denom_delibera == "VIA ROMA"
+    assert model.aut_prefettura is not None
+    assert model.aut_prefettura.protocollo_pref == "PREF1"
+
+
+@pytest.mark.parametrize(
+    "coords",
+    [
+        {"coordinata_x": "13.1022000"},  # x without y
+        {"coordinata_y": "41.8847600"},  # y without x
+        {"coordinata_z": "150"},  # z without x/y
+        {"metodo": "3"},  # metodo without x/y
+    ],
+)
+def test_crea_rejects_partial_coordinate_sets(coords):
+    with pytest.raises(ValidationError):
+        _crea(**coords)
+
+
+@pytest.mark.parametrize(
+    ("field", "bad"),
+    [
+        ("coordinata_x", "5.0"),  # below 6.0 (Italy bounds)
+        ("coordinata_y", "50.0"),  # above 47.0
+    ],
+)
+def test_crea_rejects_out_of_bounds_coordinates(field, bad):
+    partner = (
+        {"coordinata_y": "41.8847600"}
+        if field == "coordinata_x"
+        else {"coordinata_x": "13.1022000"}
+    )
+    with pytest.raises(ValidationError):
+        _crea(**partner, **{field: bad})

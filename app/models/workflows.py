@@ -23,9 +23,11 @@ METODO_PATTERN = r"^[1-4]$"
 
 
 def _wgs84(low: float, high: float):
-    """Validator for a WGS84 coordinate string within the Italy bounds."""
+    """Validator for a WGS84 coordinate string within the Italy bounds (or None)."""
 
-    def validate(value: str) -> str:
+    def validate(value: str | None) -> str | None:
+        if value is None:
+            return value
         try:
             number = float(value)
         except ValueError as error:
@@ -95,7 +97,12 @@ class AccessoResult(BaseModel):
 
 
 class CreaIndirizzoCompletoInput(BaseModel):
-    """Input for the complete-address creation workflow."""
+    """Input for the complete-address creation workflow (ADR 0016).
+
+    Exposes the full accesso and odonimo creation fields. The accesso is identified
+    by exactly one of ``numero_civico`` (civic) or ``metrico`` (metric); everything
+    beyond the required core is optional and the executor prunes unset fields.
+    """
 
     codcom: str = Field(
         ...,
@@ -111,19 +118,9 @@ class CreaIndirizzoCompletoInput(BaseModel):
     )
     dug: str = Field(
         ...,
+        max_length=30,
         description="Generic urban denomination (DUG)",
         json_schema_extra={"example": "VIA"},
-    )
-    numero_civico: str = Field(
-        ...,
-        max_length=5,
-        description="Civico (street number)",
-        json_schema_extra={"example": "42"},
-    )
-    data_validita: str | None = Field(
-        None,
-        description="Administrative validity date (DD/MM/YYYY) for creations, not in the future",
-        json_schema_extra={"example": "08/10/2024"},
     )
     sezione_censimento: str = Field(
         ...,
@@ -135,8 +132,127 @@ class CreaIndirizzoCompletoInput(BaseModel):
         json_schema_extra={"example": "580911010001"},
     )
 
+    # Accesso identifier: exactly one of numero_civico (civic) or metrico (metric).
+    numero_civico: str | None = Field(
+        None,
+        max_length=5,
+        description="Civico (street number); mutually exclusive with metrico",
+        json_schema_extra={"example": "42"},
+    )
+    metrico: str | None = Field(
+        None,
+        max_length=6,
+        description="Metric identification; mutually exclusive with numero_civico",
+        json_schema_extra={"example": "300"},
+    )
+
+    # Accesso optional attributes.
+    esponente: str | None = Field(
+        None, max_length=15, description="Esponente", json_schema_extra={"example": "A"}
+    )
+    specificita: str | None = Field(
+        None, max_length=5, description="Specificità", json_schema_extra={"example": "ROSSO"}
+    )
+    isolato: str | None = Field(
+        None, max_length=4, description="Isolato code", json_schema_extra={"example": "12"}
+    )
+    codice_civico_comunale: str | None = Field(
+        None,
+        max_length=30,
+        description="Municipal code of the accesso",
+        json_schema_extra={"example": "7569A"},
+    )
+
+    # Accesso coordinates (optional, co-dependent: x with y; z/metodo only with x and y).
+    coordinata_x: str | None = Field(
+        None,
+        max_length=12,
+        description="Longitude WGS84 (6.0-18.0); requires coordinata_y",
+        json_schema_extra={"example": "13.1022000"},
+    )
+    coordinata_y: str | None = Field(
+        None,
+        max_length=12,
+        description="Latitude WGS84 (36.0-47.0); requires coordinata_x",
+        json_schema_extra={"example": "41.8847600"},
+    )
+    coordinata_z: str | None = Field(
+        None,
+        max_length=7,
+        description="Elevation in meters; only with coordinata_x and coordinata_y",
+        json_schema_extra={"example": "150"},
+    )
+    metodo: str | None = Field(
+        None,
+        pattern=METODO_PATTERN,
+        description="Survey method (1-4); only with coordinata_x and coordinata_y",
+        json_schema_extra={"example": "3"},
+    )
+
+    # Odonimo optional metadata (denom_delibera/provvedimento default below for create).
+    denom_localita: str | None = Field(
+        None,
+        max_length=151,
+        description="Locality denomination",
+        json_schema_extra={"example": "CENTRO"},
+    )
+    denom_in_lingua_1: str | None = Field(
+        None, max_length=150, description="Denomination in language 1"
+    )
+    denom_in_lingua_2: str | None = Field(
+        None, max_length=150, description="Denomination in language 2"
+    )
+    codice_comunale: str | None = Field(
+        None, max_length=30, description="Municipal code of the odonimo"
+    )
+    denom_delibera: str | None = Field(
+        None,
+        max_length=120,
+        description="Odonimo denomination from the delibera; defaults to denom_odonimo when omitted",
+        json_schema_extra={"example": "VIA ROMA"},
+    )
+    provvedimento: Provvedimento | None = Field(
+        None, description="Authorizing delibera; defaults to flag_delibera '2' when omitted"
+    )
+    aut_prefettura: AutPrefettura | None = Field(None, description="Prefecture authorization")
+
+    data_validita: str | None = Field(
+        None,
+        description="Administrative validity date (DD/MM/YYYY) for creations, not in the future",
+        json_schema_extra={"example": "08/10/2024"},
+    )
+
     # The odonimo branch forbids a future data_valid_amm; harmless for the accesso branch.
     _data_validita_not_future = field_validator("data_validita")(_ddmmyyyy_not_future)
+    _x_is_in_italy = field_validator("coordinata_x")(_wgs84(6.0, 18.0))
+    _y_is_in_italy = field_validator("coordinata_y")(_wgs84(36.0, 47.0))
+
+    @model_validator(mode="after")
+    def _exactly_one_accesso_identifier(self) -> CreaIndirizzoCompletoInput:
+        # On create an accesso needs an identifier: exactly one of numero/metrico.
+        if (self.numero_civico is None) == (self.metrico is None):
+            raise ValueError("exactly one of 'numero_civico' or 'metrico' must be provided")
+        return self
+
+    @model_validator(mode="after")
+    def _coordinates_are_consistent(self) -> CreaIndirizzoCompletoInput:
+        if (self.coordinata_x is None) != (self.coordinata_y is None):
+            raise ValueError("coordinata_x and coordinata_y must be provided together")
+        if (self.coordinata_z is not None or self.metodo is not None) and self.coordinata_x is None:
+            raise ValueError(
+                "coordinata_z and metodo are only allowed with coordinata_x and coordinata_y"
+            )
+        return self
+
+    @model_validator(mode="after")
+    def _apply_creation_defaults(self) -> CreaIndirizzoCompletoInput:
+        # Backward compat: the create historically sent the odonimo denomination as
+        # the delibera with flag_delibera "2"; preserve that when not provided.
+        if self.denom_delibera is None:
+            self.denom_delibera = self.denom_odonimo
+        if self.provvedimento is None:
+            self.provvedimento = Provvedimento(flag_delibera="2")
+        return self
 
 
 class CreaIndirizzoCompletoOutput(BaseModel):
@@ -348,6 +464,11 @@ class AutPrefettura(BaseModel):
         if (self.data_pref is None) != (self.protocollo_pref is None):
             raise ValueError("data_pref and protocollo_pref must be provided together")
         return self
+
+
+# CreaIndirizzoCompletoInput references Provvedimento/AutPrefettura (defined above,
+# after it in the file), so resolve those forward references now.
+CreaIndirizzoCompletoInput.model_rebuild()
 
 
 class AggiornaOdonimoDaProgressivoInput(BaseModel):

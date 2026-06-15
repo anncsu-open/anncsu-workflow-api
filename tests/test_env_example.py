@@ -42,8 +42,10 @@ def test_env_example_declares_the_required_assertion_fields():
     assert "PDND_KEY_PATH" in keys or "PDND_PRIVATE_KEY" in keys
 
 
-def test_env_example_declares_the_modi_block_for_writes():
+def test_env_example_declares_the_modi_audit_context():
+    # The ModI audit context (AUDIT_REST_02) is used by the write APIs. The
+    # dedicated ModI signing key (PDND_MODI_KID / *_KEY_PATH) is optional — prod
+    # only — so it is documented as a comment, not asserted here.
     keys = _declared_keys()
-    required = {"PDND_MODI_KID", "PDND_MODI_USER_ID", "PDND_MODI_USER_LOCATION", "PDND_MODI_LOA"}
-    assert required <= keys, f".env.example is missing ModI keys: {sorted(required - keys)}"
-    assert "PDND_MODI_KEY_PATH" in keys or "PDND_MODI_PRIVATE_KEY" in keys
+    required = {"PDND_MODI_USER_ID", "PDND_MODI_USER_LOCATION", "PDND_MODI_LOA"}
+    assert required <= keys, f".env.example is missing ModI audit keys: {sorted(required - keys)}"

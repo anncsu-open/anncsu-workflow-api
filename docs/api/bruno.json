@@ -1,0 +1,6 @@
+{
+  "version": "1",
+  "name": "ANNCSU Workflow API",
+  "type": "collection",
+  "ignore": ["node_modules", ".git"]
+}

@@ -55,9 +55,16 @@ fields are **removed**. PDND credentials are owned by the SDK's
 single source of truth and lets the SDK's validators reject a misconfigured
 deployment at startup.
 
+Because both settings models read the same `.env`, `Settings` is configured with
+`extra="ignore"`: the `PDND_*`/`PDND_MODI_*` keys belong to the SDK, and without
+this `Settings` would reject them as `extra_forbidden` and crash on import. (Found
+by a startup smoke test, not by the unit tests — CI has no `.env`.)
+
 The PDND token endpoint is derived from `use_validation_env` (UAT when validation,
 production otherwise) via a small `resolve_token_endpoint` helper, mirroring the
-SDK's own UAT/production split.
+SDK's own UAT/production split. Note that `PDND_AUDIENCE` is a **different** URL: it
+is the *client-assertion* audience (the SDK validates it against `^.*/client-assertion`,
+e.g. `https://auth.interop.pagopa.it/client-assertion`), not the token endpoint.
 
 ### 2. Build authentication in an application lifespan
 

@@ -10,7 +10,8 @@ from app.config import Settings
 
 
 def test_server_urls_use_production_urls_by_default():
-    settings = Settings()
+    # Explicit flag so the test is hermetic (independent of any local .env).
+    settings = Settings(use_validation_env=False)
     assert server_urls_from_settings(settings) == {
         "anncsu-consultazione": settings.anncsu_consultazione_url,
         "anncsu-odonimi": settings.anncsu_odonimi_url,

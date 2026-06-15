@@ -1,0 +1,33 @@
+meta {
+  name: Liveness
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/health
+  body: none
+  auth: none
+}
+
+assert {
+  res.status: eq 200
+  res.body.status: eq ok
+}
+
+tests {
+  test("liveness returns 200 ok", function() {
+    expect(res.status).to.equal(200);
+    expect(res.body.status).to.equal("ok");
+  });
+
+  test("response carries a correlation id", function() {
+    expect(res.headers["x-request-id"]).to.be.a("string");
+  });
+}
+
+docs {
+  Liveness probe (ADR 0015). Returns 200 {"status":"ok"} whenever the process is
+  up, with no external dependency. The X-Request-ID header is the per-request
+  correlation id (ADR 0014). Validated against a running instance.
+}

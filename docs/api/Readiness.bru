@@ -1,0 +1,49 @@
+meta {
+  name: Readiness
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{baseUrl}}/ready
+  body: none
+  auth: none
+}
+
+tests {
+  test("readiness returns a per-source auth status", function() {
+    expect([200, 503]).to.include(res.status);
+    expect(res.body).to.have.property("status");
+    expect(res.body.sources).to.be.an("array");
+    expect(res.body.sources.length).to.equal(4);
+  });
+
+  test("when ready, every source has a PDND voucher with a TTL", function() {
+    if (res.status === 200) {
+      expect(res.body.status).to.equal("ready");
+      res.body.sources.forEach(function (s) {
+        expect(s.ok).to.equal(true);
+        expect(s.token_ttl).to.be.a("number");
+      });
+    }
+  });
+
+  test("when not ready, at least one source reports a failure detail", function() {
+    if (res.status === 503) {
+      expect(res.body.status).to.equal("not-ready");
+      expect(res.body.sources.some(function (s) { return s.ok === false && s.detail; })).to.equal(true);
+    }
+  });
+}
+
+docs {
+  Readiness probe (ADR 0015). Checks every Arazzo source (consultazione, accessi,
+  odonimi, coordinate) can obtain a PDND voucher — cached, refreshed only near
+  expiry, run off the event loop under the per-source lock. 200 with a per-source
+  token_ttl when all four authenticate; 503 with a per-source detail otherwise.
+
+  Validated against PDND collaudo (UAT): all four sources returned ok with
+  token_ttl 600. A common 503 cause is a misconfigured client assertion — e.g.
+  PDND_AUDIENCE not matching USE_VALIDATION_ENV, or the signing key not matching
+  the public key registered for PDND_KID (PDND error 015-0008).
+}

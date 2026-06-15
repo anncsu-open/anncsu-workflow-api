@@ -59,14 +59,18 @@ ANNCSU_ACCESSI_URL=https://modipa.agenziaentrate.it/govway/rest/in/AgenziaEntrat
 ANNCSU_COORDINATE_URL=https://modipa.agenziaentrate.it/govway/rest/in/AgenziaEntrate/anncsuaccessi/v1
 
 # PDND authentication — the SDK's ClientAssertionSettings contract (ADR 0015).
-# Read by the anncsu-sdk directly. PDND_AUDIENCE is the client assertion audience
-# (must end with /client-assertion), NOT the token endpoint — the latter is derived
-# from USE_VALIDATION_ENV. Keep both in the same environment (UAT vs production).
+# PDND_AUDIENCE is the client assertion audience (no scheme, ends with
+# /client-assertion) and MUST match the environment selected by USE_VALIDATION_ENV
+# (the token endpoint is derived from it); a mismatch is rejected with PDND 015-0008.
+#   production:     auth.interop.pagopa.it/client-assertion
+#   validation/UAT: auth.uat.interop.pagopa.it/client-assertion
 PDND_KID=your_kid
 PDND_ISSUER=your_client_id
 PDND_SUBJECT=your_client_id
-PDND_AUDIENCE=https://auth.interop.pagopa.it/client-assertion
-PDND_KEY_PATH=./keys/private_key.pem        # or PDND_PRIVATE_KEY=<PEM contents>
+PDND_AUDIENCE=auth.interop.pagopa.it/client-assertion
+# Signing key — must match the public key registered for PDND_KID. Set exactly ONE
+# of PDND_KEY_PATH (a PEM file) or PDND_PRIVATE_KEY (inline PEM, as used in collaudo).
+PDND_KEY_PATH=./keys/private_key.pem
 
 # Purpose id per API — ALL must be present (may be empty for the APIs this
 # service does not use: interni and coordinate_bulk).
@@ -77,13 +81,14 @@ PDND_PURPOSE_ID_COORDINATE=your_coordinate_purpose_id
 PDND_PURPOSE_ID_COORDINATE_BULK=
 PDND_PURPOSE_ID_INTERNI=
 
-# ModI signing for the write APIs (Agid-JWT-Signature / audit). GovWay requires a
-# dedicated signing key (different from the voucher key) in production.
-PDND_MODI_KID=your_modi_kid
-PDND_MODI_KEY_PATH=./keys/modi_private_key.pem   # or PDND_MODI_PRIVATE_KEY=<PEM contents>
+# ModI audit context (AUDIT_REST_02) for the write APIs:
 PDND_MODI_USER_ID=your_user_id
 PDND_MODI_USER_LOCATION=your_location
 PDND_MODI_LOA=3
+# Dedicated ModI signing key — OPTIONAL (prod only; must differ from the voucher
+# key). Dev/collaudo can omit it (the voucher key is used). To enable, set:
+# PDND_MODI_KID=your_modi_kid
+# PDND_MODI_KEY_PATH=./keys/modi_private_key.pem
 
 # Environment
 USE_VALIDATION_ENV=false  # true → validation (UAT) URLs and UAT token endpoint

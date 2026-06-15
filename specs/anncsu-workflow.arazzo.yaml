@@ -753,6 +753,13 @@ workflows:
             type: end
             criteria:
               - condition: $inputs.numero_civico == null
+        # ANNCSU risponde 404 quando la ricerca odonimi non trova nulla: come per
+        # gli accessi, "zero risultati" termina con liste vuote, non è un errore.
+        onFailure:
+          - name: nessun-odonimo-trovato
+            type: end
+            criteria:
+              - condition: $statusCode == 404
         outputs:
           odonimi_trovati: $response.body.data
           progressivo_nazionale: $response.body.data[0].prognaz
@@ -768,6 +775,14 @@ workflows:
             accparz: $inputs.numero_civico
         successCriteria:
           - condition: $statusCode == 200
+        # ANNCSU risponde 404 quando la ricerca accessi non trova nulla: per una
+        # ricerca "zero risultati" non è un errore -> termina con accessi vuoti.
+        # Gli altri errori (400/5xx) non hanno azione e restano un fallimento.
+        onFailure:
+          - name: nessun-accesso-trovato
+            type: end
+            criteria:
+              - condition: $statusCode == 404
         outputs:
           accessi_trovati: $response.body.data
 

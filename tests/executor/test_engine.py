@@ -239,6 +239,39 @@ async def test_failed_step_without_handler_raises():
         await WorkflowExecutor(spec, transport).run("wf", {})
 
 
+async def test_failed_step_without_handler_logs_status_and_body():
+    # The upstream error body is the only clue why a step failed (e.g. a non-200
+    # from ANNCSU); ADR 0014 says do not lose it. The unmatched-failure path must
+    # log status + body at warning level so collaudo failures are diagnosable.
+    configure_logging(Settings(log_level="INFO", log_format="json"))
+    spec = load_spec(
+        {
+            "workflows": [
+                {
+                    "workflowId": "wf",
+                    "steps": [
+                        _step("s1", "src.op", success_criteria=["$statusCode == 200"]),
+                    ],
+                }
+            ]
+        }
+    )
+    transport = ScriptedTransport(
+        {"src.op": Response(400, {"esito": "1", "messaggio": "civico inesistente"})}
+    )
+
+    with capture_logs() as logs:
+        with pytest.raises(StepFailedError):
+            await WorkflowExecutor(spec, transport).run("wf", {})
+
+    failed = [e for e in logs if e.get("event") == "workflow.step_failed"]
+    assert failed, "expected a warning event when a step fails with no handler"
+    assert failed[0]["log_level"] == "warning"
+    assert failed[0]["step_id"] == "s1"
+    assert failed[0]["status_code"] == 400
+    assert failed[0]["response_body"]["messaggio"] == "civico inesistente"
+
+
 # --- integration against the real ANNCSU spec -------------------------------
 
 
@@ -258,6 +291,60 @@ async def test_real_spec_search_skips_accessi_when_no_civico():
 
     # numero_civico is absent -> the onSuccess `end` criteria fires after step 1.
     assert run.status == "ended"
+    assert [op for op, _ in transport.calls] == ["anncsu-consultazione.elencoodonimiprogPost"]
+
+
+async def test_real_spec_search_returns_empty_accessi_on_404():
+    # ANNCSU answers 404 when an accessi search finds nothing; for a read-only
+    # search that is "zero results", not a failure -> the workflow must complete
+    # with the odonimi found and no accessi (collaudo returns this problem+json).
+    spec = load_spec(ARAZZO_SPEC)
+    transport = ScriptedTransport(
+        {
+            "anncsu-consultazione.elencoodonimiprogPost": Response(
+                200, {"data": [{"prognaz": "919572", "duf": "ROMA"}]}
+            ),
+            "anncsu-consultazione.elencoaccessiprogPost": Response(
+                404,
+                {
+                    "title": "non trovati accessi per valori forniti alla funzione elencoaccessiprog",
+                    "detail": "non trovati accessi per progressivo nazionale odonimo '919572'",
+                },
+            ),
+        }
+    )
+
+    run = await WorkflowExecutor(spec, transport).run(
+        "ricerca-indirizzo-completo",
+        {"codcom": "H501", "denom_odonimo": "ROMA", "numero_civico": "1"},
+    )
+
+    assert run.status in ("completed", "ended")
+    assert run.outputs["odonimi"][0]["prognaz"] == "919572"
+    assert not run.outputs.get("accessi")  # None/empty -> the route maps it to []
+
+
+async def test_real_spec_search_returns_empty_on_odonimi_404():
+    # The same "zero results = 404" convention applies to the odonimi search: a
+    # query that matches nothing must return empty lists, not a 422.
+    spec = load_spec(ARAZZO_SPEC)
+    transport = ScriptedTransport(
+        {
+            "anncsu-consultazione.elencoodonimiprogPost": Response(
+                404, {"title": "non trovati odonimi per valori forniti"}
+            ),
+        }
+    )
+
+    run = await WorkflowExecutor(spec, transport).run(
+        "ricerca-indirizzo-completo",
+        {"codcom": "H501", "denom_odonimo": "ZZZNONESISTE", "numero_civico": "1"},
+    )
+
+    assert run.status in ("completed", "ended")
+    assert not run.outputs.get("odonimi")
+    assert not run.outputs.get("accessi")
+    # The accessi search is never attempted once odonimi are absent.
     assert [op for op, _ in transport.calls] == ["anncsu-consultazione.elencoodonimiprogPost"]
 
 

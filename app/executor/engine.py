@@ -85,6 +85,17 @@ class WorkflowExecutor:
 
             if action is None:
                 if not succeeded:
+                    # The upstream body is the only clue why a step failed; keep it
+                    # (redacted by the logging pipeline) so collaudo/PDND failures
+                    # are diagnosable instead of a silent 422 (ADR 0014).
+                    _log.warning(
+                        "workflow.step_failed",
+                        workflow_id=workflow_id,
+                        step_id=step.step_id,
+                        operation_id=step.operation_id,
+                        status_code=ctx.response.status_code if ctx.response else None,
+                        response_body=ctx.response.body if ctx.response else None,
+                    )
                     raise StepFailedError(
                         f"step {step.step_id!r} failed and no onFailure action matched"
                     )

@@ -33,9 +33,16 @@ ARAZZO_SPEC = SPECS_DIR / "anncsu-workflow.arazzo.yaml"
 class FakeAnncsu:
     """Records every request body and serves the create/update endpoints."""
 
-    def __init__(self, *, odonimo_exists: bool = False, accesso_exists: bool = False) -> None:
+    def __init__(
+        self,
+        *,
+        odonimo_exists: bool = False,
+        accesso_exists: bool = False,
+        accessi_found: bool = True,
+    ) -> None:
         self.odonimo_exists = odonimo_exists
         self.accesso_exists = accesso_exists
+        self.accessi_found = accessi_found
         self.log: list[tuple[str, dict]] = []
 
     def transport(self) -> httpx.MockTransport:
@@ -45,7 +52,12 @@ class FakeAnncsu:
         path = request.url.path.rsplit("/", 1)[-1]
         body = json.loads(request.read() or b"{}")
         self.log.append((path, body))
-        return httpx.Response(200, json=getattr(self, f"_{path}")(body))
+        result = getattr(self, f"_{path}")(body)
+        # A handler may return a ready Response to simulate a non-200 (e.g. ANNCSU's
+        # 404 "no results"); otherwise the dict is the 200 JSON body.
+        if isinstance(result, httpx.Response):
+            return result
+        return httpx.Response(200, json=result)
 
     def received(self, path: str) -> dict:
         return next(body for seen, body in self.log if seen == path)
@@ -71,7 +83,17 @@ class FakeAnncsu:
             ],
         }
 
-    def _elencoaccessiprog(self, body: dict) -> dict:
+    def _elencoaccessiprog(self, body: dict) -> dict | httpx.Response:
+        if not self.accessi_found:
+            # ANNCSU answers 404 (problem+json) when a search matches nothing; the
+            # real SDK raises this as a typed error the transport maps back.
+            return httpx.Response(
+                404,
+                json={
+                    "title": "non trovati accessi per valori forniti alla funzione elencoaccessiprog",
+                    "detail": "non trovati accessi per progressivo nazionale odonimo '919572'",
+                },
+            )
         # Real wire shape for accessi (anncsu-sdk#12): coordX/coordY + codacccomunale.
         return {
             "res": "OK",
@@ -222,3 +244,21 @@ def test_ricerca_maps_real_wire_field_names_through_the_sdk():
     accesso = body["accessi"][0]
     assert accesso["coordX"] == "12.49"
     assert "codacccomunale" in accesso  # extra real field
+
+
+def test_ricerca_returns_empty_accessi_when_the_sdk_raises_a_real_404():
+    # The real SDK raises a typed error on ANNCSU's 404 "no results"; the transport
+    # maps it back to a Response(404) and the search ends with empty accessi (200),
+    # not a 422. A scripted transport never exercises this SDK error path.
+    server = FakeAnncsu(accessi_found=False)
+    with _client(server) as client:
+        response = client.post(
+            "/v1/workflows/ricerca-indirizzo-completo",
+            json={"codcom": "H501", "denom_odonimo": "ROMA", "numero_civico": "1"},
+        )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["odonimi"][0]["duf"] == "ROMA"  # odonimi still returned
+    assert body["accessi"] == []  # 404 -> empty, the search did not hard-fail
+    assert "elencoaccessiprog" in [path for path, _ in server.log]

@@ -114,8 +114,8 @@ openssl rsa -in keys/modi_private_key.pem -pubout -out keys/modi_public_key.pem
 
 The service emits **structured logs** via [structlog](https://www.structlog.org/)
 (ADR 0014). `LOG_FORMAT=json` renders one JSON object per line for log
-aggregation; `LOG_FORMAT=console` renders a colourless, human-readable line handy
-under `--reload`. `LOG_LEVEL` sets the threshold — per-step (`workflow.step`) and
+aggregation; `LOG_FORMAT=console` renders a human-readable line handy under
+`--reload` (colorized when stdout is a terminal, plain when redirected or in CI). `LOG_LEVEL` sets the threshold — per-step (`workflow.step`) and
 per-dispatch (`transport.dispatch`) events are `DEBUG`; request boundaries
 (`request.start`/`request.end`) and handled failures are `INFO`/`WARNING`/`ERROR`.
 

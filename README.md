@@ -35,7 +35,13 @@ uv sync --no-dev
 
 ## Configuration
 
-Create a `.env` file in the project root:
+Copy [`.env.example`](.env.example) to `.env` and fill in the values:
+
+```bash
+cp .env.example .env
+```
+
+The full set of variables:
 
 ```env
 # Application

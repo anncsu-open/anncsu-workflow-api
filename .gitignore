@@ -19,6 +19,7 @@ htmlcov/
 # Secrets / local config
 .env
 .env.*
+!.env.example
 keys/
 *.pem
 

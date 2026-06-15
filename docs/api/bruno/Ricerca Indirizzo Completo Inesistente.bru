@@ -1,0 +1,46 @@
+meta {
+  name: Ricerca Indirizzo Completo Inesistente
+  type: http
+  seq: 5
+}
+
+post {
+  url: {{baseUrl}}/v1/workflows/ricerca-indirizzo-completo
+  body: json
+  auth: inherit
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "codcom": "H501",
+    "denom_odonimo": "DELLE CAVE DEL TRULLO",
+    "numero_civico": "999"
+  }
+}
+
+tests {
+  test("an existing odonimo with no matching civic returns 200, accessi empty", function() {
+    expect(res.status).to.equal(200);
+    expect(res.body.odonimi).to.be.an("array").that.is.not.empty;
+    expect(res.body.accessi).to.be.an("array").that.is.empty;
+  });
+}
+
+settings {
+  encodeUrl: false
+  timeout: 0
+}
+
+docs {
+  The odonimo exists but the civic does not. ANNCSU answers the accessi search
+  with 404 "non trovati accessi"; for a read-only search that is "zero results",
+  not an error. The `cerca-accessi` step maps a 404 to an `end` (onFailure), so
+  the workflow completes with 200 and an empty `accessi` list instead of a 422.
+  
+  Validated against PDND collaudo (UAT): "DELLE CAVE DEL TRULLO" civic 999 ->
+  odonimi=1, accessi=0.
+}

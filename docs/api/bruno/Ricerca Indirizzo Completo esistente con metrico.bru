@@ -1,0 +1,61 @@
+meta {
+  name: Ricerca Indirizzo Completo esistente con metrico
+  type: http
+  seq: 6
+}
+
+post {
+  url: {{baseUrl}}/v1/workflows/ricerca-indirizzo-completo
+  body: json
+  auth: inherit
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "codcom": "H501",
+    "denom_odonimo": "AURELIA",
+    "numero_civico": "131"
+  }
+}
+
+tests {
+  test("returns 200 with the odonimo and at least one access", function() {
+    expect(res.status).to.equal(200);
+    expect(res.body.odonimi).to.be.an("array").that.is.not.empty;
+    expect(res.body.accessi).to.be.an("array").that.is.not.empty;
+  });
+  
+  test("odonimo carries the real wire field names", function() {
+    var o = res.body.odonimi[0];
+    expect(o).to.have.property("prognaz");
+    expect(o).to.have.property("duf");
+    expect(o).to.have.property("dug");
+  });
+  
+  test("access carries the real wire field names", function() {
+    var a = res.body.accessi[0];
+    expect(a).to.have.property("prognazacc");
+    expect(a).to.have.property("civico");
+    expect(a).to.have.property("coordX");
+    expect(a).to.have.property("codacccomunale");
+  });
+}
+
+settings {
+  encodeUrl: false
+  timeout: 0
+}
+
+docs {
+  Happy path of the read-only search: an odonimo with a matching civic returns
+  200 with both lists populated. The real API field names differ from the OAS
+  (anncsu-sdk#12): odonimi expose `duf` (not `denomuff`) plus `cododocomunale`;
+  accessi expose `coordX`/`coordY` and `codacccomunale`.
+  
+  Validated against PDND collaudo (UAT): codcom H501, "DELLE CAVE DEL TRULLO"
+  civic 81 -> odonimi=1, accessi=1.
+}

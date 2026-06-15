@@ -1,0 +1,56 @@
+meta {
+  name: Crea Indirizzo Completo Civico
+  type: http
+  seq: 9
+}
+
+post {
+  url: {{baseUrl}}/v1/workflows/verifica-e-crea-indirizzo-completo
+  body: json
+  auth: inherit
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "codcom": "H501",
+    "denom_odonimo": "ROMA",
+    "dug": "VIA",
+    "numero_civico": "42",
+    "esponente": "A",
+    "sezione_censimento": "580911010001",
+    "coordinata_x": "13.1022000",
+    "coordinata_y": "41.8847600",
+    "coordinata_z": "150",
+    "metodo": "3"
+  }
+}
+
+tests {
+  test("creation returns 200 with the new progressivi", function() {
+    expect(res.status).to.equal(200);
+    expect(res.body).to.have.property("progressivo_nazionale_odonimo");
+    expect(res.body).to.have.property("progressivo_civico");
+  });
+}
+
+settings {
+  encodeUrl: false
+  timeout: 0
+}
+
+docs {
+  WRITE OPERATION — creates a civic accesso (and its odonimo if missing) on the
+  real ANNCSU. Run only against the collaudo (UAT) environment, never production.
+  
+  Civic fork (numero_civico set, metrico absent, ADR 0016): the workflow verifies
+  the odonimo, creates it if needed, checks the civic, then creates the accesso
+  with its coordinate block (x/y/z/metodo). `numero_civico` and `metrico` are
+  mutually exclusive. `sezione_censimento` is required for creation but is not
+  exposed by the read-only search.
+  
+  Not yet validated end-to-end against collaudo (no write executed).
+}

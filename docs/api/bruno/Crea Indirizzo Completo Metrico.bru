@@ -1,0 +1,49 @@
+meta {
+  name: Crea Indirizzo Completo Metrico
+  type: http
+  seq: 10
+}
+
+post {
+  url: {{baseUrl}}/v1/workflows/verifica-e-crea-indirizzo-completo
+  body: json
+  auth: inherit
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "codcom": "H501",
+    "denom_odonimo": "ROMA",
+    "dug": "VIA",
+    "metrico": "300",
+    "sezione_censimento": "580911010001"
+  }
+}
+
+tests {
+  test("metric creation returns 200 with the new progressivi", function() {
+    expect(res.status).to.equal(200);
+    expect(res.body).to.have.property("progressivo_nazionale_odonimo");
+  });
+}
+
+settings {
+  encodeUrl: false
+  timeout: 0
+}
+
+docs {
+  WRITE OPERATION — creates a metric accesso (and its odonimo if missing) on the
+  real ANNCSU. Run only against the collaudo (UAT) environment, never production.
+  
+  Metric fork (metrico set, numero_civico absent, ADR 0016): a metric accesso is
+  located by a metric value rather than a civic number, so the workflow skips the
+  civic existence check entirely (the Arazzo metric branch: `metrico != null`).
+  `numero_civico` and `metrico` are mutually exclusive.
+  
+  Not yet validated end-to-end against collaudo (no write executed).
+}

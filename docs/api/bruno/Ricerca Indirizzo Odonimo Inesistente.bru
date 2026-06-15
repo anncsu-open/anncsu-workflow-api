@@ -1,0 +1,45 @@
+meta {
+  name: Ricerca Indirizzo Odonimo Inesistente
+  type: http
+  seq: 8
+}
+
+post {
+  url: {{baseUrl}}/v1/workflows/ricerca-indirizzo-completo
+  body: json
+  auth: inherit
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "codcom": "H501",
+    "denom_odonimo": "ZZZVIANONESISTE QWERTY"
+  }
+}
+
+tests {
+  test("an unknown odonimo returns 200 with both lists empty", function() {
+    expect(res.status).to.equal(200);
+    expect(res.body.odonimi).to.be.an("array").that.is.empty;
+    expect(res.body.accessi).to.be.an("array").that.is.empty;
+  });
+}
+
+settings {
+  encodeUrl: false
+  timeout: 0
+}
+
+docs {
+  No odonimo matches the denomination. ANNCSU answers the odonimi search with
+  404 "non trovati odonimi"; the `cerca-odonimi` step maps a 404 to an `end`
+  (onFailure), so the workflow completes with 200 and empty lists rather than a
+  422. The accessi search is never reached.
+  
+  Validated against PDND collaudo (UAT): "ZZZVIANONESISTE QWERTY" ->
+  odonimi=0, accessi=0.
+}

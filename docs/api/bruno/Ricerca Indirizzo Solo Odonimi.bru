@@ -1,0 +1,44 @@
+meta {
+  name: Ricerca Indirizzo Solo Odonimi
+  type: http
+  seq: 7
+}
+
+post {
+  url: {{baseUrl}}/v1/workflows/ricerca-indirizzo-completo
+  body: json
+  auth: inherit
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "codcom": "H501",
+    "denom_odonimo": "DELLE CAVE DEL TRULLO"
+  }
+}
+
+tests {
+  test("without a civic, the search returns odonimi and skips accessi", function() {
+    expect(res.status).to.equal(200);
+    expect(res.body.odonimi).to.be.an("array").that.is.not.empty;
+    expect(res.body.accessi).to.be.an("array").that.is.empty;
+  });
+}
+
+settings {
+  encodeUrl: false
+  timeout: 0
+}
+
+docs {
+  `numero_civico` is optional. When it is absent, the `cerca-odonimi` step fires
+  its onSuccess `end` and the accessi search is never attempted, so the result
+  is the odonimi only with an empty `accessi` list.
+  
+  Validated against PDND collaudo (UAT): "DELLE CAVE DEL TRULLO" with no civic ->
+  odonimi=1, accessi=0.
+}

@@ -1,7 +1,7 @@
 meta {
   name: Liveness
   type: http
-  seq: 1
+  seq: 2
 }
 
 get {
@@ -20,7 +20,7 @@ tests {
     expect(res.status).to.equal(200);
     expect(res.body.status).to.equal("ok");
   });
-
+  
   test("response carries a correlation id", function() {
     expect(res.headers["x-request-id"]).to.be.a("string");
   });

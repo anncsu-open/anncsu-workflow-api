@@ -460,6 +460,63 @@ async def test_real_spec_ricerca_accessi_per_odonimo_unknown_prognaz_is_empty():
     assert [op for op, _ in transport.calls] == ["anncsu-consultazione.prognazareaPost"]
 
 
+async def test_real_spec_create_sends_full_name_to_esiste_odonimo():
+    # esisteOdonimo needs DUG + " " + DENOMUFF, not the bare denomination (ADR 0019).
+    spec = load_spec(ARAZZO_SPEC)
+    transport = ScriptedTransport(
+        {
+            "anncsu-consultazione.esisteOdonimoPost": Response(200, {"data": True}),
+            "anncsu-consultazione.elencoodonimiprogPost": Response(
+                200, {"data": [{"prognaz": "2000449"}]}
+            ),
+            "anncsu-consultazione.esisteAccessoPost": Response(200, {"data": False}),
+            "anncsu-accessi.gestioneAnncsuPdnd": Response(
+                200, {"esito": "0", "dati": [{"progr_civico": "1370588"}]}
+            ),
+        }
+    )
+
+    await WorkflowExecutor(spec, transport).run(
+        "verifica-e-crea-indirizzo-completo",
+        {"codcom": "H501", "denom_odonimo": "AURELIA", "dug": "VIA", "numero_civico": "42"},
+    )
+
+    esiste_payload = next(p for op, p in transport.calls if op.endswith("esisteOdonimoPost"))
+    assert esiste_payload["denom"] == "VIA AURELIA"
+
+
+async def test_real_spec_create_refuses_ambiguous_odonimo():
+    # A denomination shared across several DUG matches many odonimi; the create must
+    # NOT silently use data[0] -> it fails instead of writing to the wrong odonimo.
+    spec = load_spec(ARAZZO_SPEC)
+    transport = ScriptedTransport(
+        {
+            "anncsu-consultazione.esisteOdonimoPost": Response(200, {"data": True}),
+            "anncsu-consultazione.elencoodonimiprogPost": Response(
+                200,
+                {
+                    "data": [
+                        {"prognaz": "907719", "dug": "CIRCONVALLAZIONE", "duf": "AURELIA"},
+                        {"prognaz": "907720", "dug": "VIA", "duf": "AURELIA"},
+                    ]
+                },
+            ),
+            "anncsu-consultazione.esisteAccessoPost": Response(200, {"data": False}),
+            "anncsu-accessi.gestioneAnncsuPdnd": Response(
+                200, {"esito": "0", "dati": [{"progr_civico": "1370588"}]}
+            ),
+        }
+    )
+
+    with pytest.raises(StepFailedError, match="cerca-odonimo"):
+        await WorkflowExecutor(spec, transport).run(
+            "verifica-e-crea-indirizzo-completo",
+            {"codcom": "H501", "denom_odonimo": "AURELIA", "dug": "VIA", "numero_civico": "42"},
+        )
+    # The accesso write must never be attempted on an ambiguous match.
+    assert "anncsu-accessi.gestioneAnncsuPdnd" not in [op for op, _ in transport.calls]
+
+
 async def test_real_spec_create_address_exists_path_resolves_outputs():
     spec = load_spec(ARAZZO_SPEC)
     transport = ScriptedTransport(

@@ -17,7 +17,7 @@ headers {
 body:json {
   {
     "codcom": "H501",
-    "denom_odonimo": "ROMA",
+    "denom_odonimo": "DELLE CAVE DEL TRULLO",
     "dug": "VIA",
     "numero_civico": "99999",
     "sezione_censimento": "580911010001"
@@ -50,10 +50,11 @@ docs {
   effect on ANNCSU is a no-op. Run only against collaudo (UAT), never production,
   and ALWAYS run "Dry-run Accesso 2 Rimuovi" right after.
 
-  Like the SDK, this targets an EXISTING odonimo (VIA ROMA in H501) so no orphan
-  odonimo is created — only an accesso is added then removed. The civic 99999 is
-  chosen to be clearly non-existent, so the create takes the insert branch (it is
-  not an update of a real civic) and there is no collision.
+  Like the SDK, this targets an EXISTING, uniquely-named odonimo (VIA DELLE CAVE
+  DEL TRULLO in H501) so no orphan odonimo is created — only an accesso is added
+  then removed. The denomination must be unique in the municipality (ADR 0019) and
+  the civic 99999 is chosen to be clearly non-existent, so the create takes the
+  insert branch (not an update of a real civic) with no collision.
 
   The post-response script stores the returned progressivi
   (progressivo_nazionale_odonimo, progressivo_civico) in collection variables that

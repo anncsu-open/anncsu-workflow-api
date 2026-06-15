@@ -128,7 +128,13 @@ workflows:
           payload:
             req: esisteodonimo
             codcom: $inputs.codcom
-            denom: $inputs.denom_odonimo
+            # esisteOdonimo richiede il nome completo DUG + " " + DENOMUFF (es. "VIA
+            # AURELIA"); la sola denominazione restituisce sempre false (ADR 0019).
+            denom:
+              x-concat:
+                - $inputs.dug
+                - " "
+                - $inputs.denom_odonimo
         successCriteria:
           - condition: $statusCode == 200
         onSuccess:
@@ -189,6 +195,10 @@ workflows:
             denomparz: $inputs.denom_odonimo
         successCriteria:
           - condition: $statusCode == 200
+          # Rifiuta l'ambiguo (ADR 0019): una denominazione condivisa tra più DUG
+          # matcha più odonimi; senza un match unico non possiamo scegliere data[0]
+          # senza rischiare di creare l'accesso sull'odonimo sbagliato -> fallisce.
+          - condition: $response.body.data.length == 1
         onSuccess:
           # Accesso metrico: salta la verifica civica (esisteAccessoPost è solo-civico).
           - name: vai-a-crea-accesso-metrico

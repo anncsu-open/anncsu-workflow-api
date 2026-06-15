@@ -333,6 +333,13 @@ Creates a complete address, first verifying the existence of the odonimo and the
 The `sezione_censimento` (ISTAT `SEZ21_ID` format) is required: ANNCSU needs it
 to create the accesso and it cannot be derived from the consultation APIs.
 
+The existence check sends ANNCSU the full street name (`dug` + `denom_odonimo`,
+e.g. `VIA AURELIA`), which is what `esisteOdonimo` requires (ADR 0019). When the
+odonimo already exists, the denomination must be **unique within the municipality**:
+if it is shared across several `dug` (e.g. CIRCONVALLAZIONE / RAMPA / VIA "AURELIA")
+the workflow fails rather than guess which one to extend — targeting a specific
+odonimo by `prognaz` is a possible future addition.
+
 ### 2. Update an Accesso by National Progressives
 
 The single endpoint for every accesso change — attributes and/or coordinates —

@@ -83,6 +83,8 @@ def resolve_value(value: Any, ctx: ExecutionContext) -> Any:
     if isinstance(value, Mapping):
         if set(value) == {"x-coalesce"}:
             return _coalesce(value["x-coalesce"], ctx)
+        if set(value) == {"x-concat"}:
+            return _concat(value["x-concat"], ctx)
         return {key: resolve_value(item, ctx) for key, item in value.items()}
     if isinstance(value, (list, tuple)):
         return [resolve_value(item, ctx) for item in value]
@@ -98,6 +100,15 @@ def _coalesce(operands: Any, ctx: ExecutionContext) -> Any:
         if resolved is not None:
             return resolved
     return None
+
+
+def _concat(operands: Any, ctx: ExecutionContext) -> str:
+    """Join ``operands`` (each an expression or a literal) as strings, ``null`` -> ""."""
+    parts = []
+    for operand in operands:
+        resolved = resolve_value(operand, ctx)
+        parts.append("" if resolved is None else str(resolved))
+    return "".join(parts)
 
 
 def _resolve_root(root: str, ctx: ExecutionContext) -> Any:

@@ -16,6 +16,9 @@ class Settings(BaseSettings):
         env_file=".env",
         env_file_encoding="utf-8",
         case_sensitive=False,
+        # The SDK's ClientAssertionSettings reads the same .env (PDND_* keys); ignore
+        # them here instead of rejecting the whole file as extra inputs (ADR 0015).
+        extra="ignore",
     )
 
     # Application

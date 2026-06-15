@@ -59,13 +59,13 @@ ANNCSU_ACCESSI_URL=https://modipa.agenziaentrate.it/govway/rest/in/AgenziaEntrat
 ANNCSU_COORDINATE_URL=https://modipa.agenziaentrate.it/govway/rest/in/AgenziaEntrate/anncsuaccessi/v1
 
 # PDND authentication — the SDK's ClientAssertionSettings contract (ADR 0015).
-# These PDND_* variables are read by the anncsu-sdk directly; the token endpoint
-# is derived from USE_VALIDATION_ENV (UAT vs production), so PDND_AUDIENCE must
-# point at the matching environment.
+# Read by the anncsu-sdk directly. PDND_AUDIENCE is the client assertion audience
+# (must end with /client-assertion), NOT the token endpoint — the latter is derived
+# from USE_VALIDATION_ENV. Keep both in the same environment (UAT vs production).
 PDND_KID=your_kid
 PDND_ISSUER=your_client_id
 PDND_SUBJECT=your_client_id
-PDND_AUDIENCE=https://auth.interop.pagopa.it/token.oauth2
+PDND_AUDIENCE=https://auth.interop.pagopa.it/client-assertion
 PDND_KEY_PATH=./keys/private_key.pem        # or PDND_PRIVATE_KEY=<PEM contents>
 
 # Purpose id per API — ALL must be present (may be empty for the APIs this

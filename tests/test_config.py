@@ -51,3 +51,14 @@ def test_settings_drops_dead_pdnd_and_jwt_fields():
         "loa",
     ):
         assert not hasattr(s, dead), f"{dead} should be removed from app Settings"
+
+
+def test_settings_ignores_pdnd_keys_sharing_the_dotenv(tmp_path, monkeypatch):
+    # The SDK's ClientAssertionSettings reads the same .env (PDND_* keys); the app
+    # Settings must ignore them, not reject the whole file as extra inputs (ADR 0015).
+    (tmp_path / ".env").write_text(
+        "APP_NAME=Probe\nPDND_KID=x\nPDND_AUDIENCE=y\n", encoding="utf-8"
+    )
+    monkeypatch.chdir(tmp_path)
+    settings = Settings()
+    assert settings.app_name == "Probe"

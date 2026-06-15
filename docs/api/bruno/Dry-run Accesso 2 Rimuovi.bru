@@ -1,0 +1,54 @@
+meta {
+  name: Dry-run Accesso 2 Rimuovi
+  type: http
+  seq: 14
+}
+
+post {
+  url: {{baseUrl}}/v1/workflows/sopprimi-accesso
+  body: json
+  auth: inherit
+}
+
+headers {
+  Content-Type: application/json
+}
+
+script:pre-request {
+  // Suppress with today's date (DD/MM/YYYY), the format the workflow validates.
+  const d = new Date();
+  const dd = String(d.getDate()).padStart(2, "0");
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  bru.setVar("dryrun_data", `${dd}/${mm}/${d.getFullYear()}`);
+}
+
+body:json {
+  {
+    "codcom": "H501",
+    "prognaz": "{{dryrun_prognaz}}",
+    "prognazacc": "{{dryrun_prognazacc}}",
+    "data_soppressione": "{{dryrun_data}}"
+  }
+}
+
+settings {
+  encodeUrl: false
+  timeout: 0
+}
+
+tests {
+  test("suppression of the just-created accesso returns 200", function() {
+    expect(res.status).to.equal(200);
+    expect(res.body.success).to.equal(true);
+  });
+}
+
+docs {
+  WRITE OPERATION — step 2 of the self-cancelling "dry-run" pair: suppress the
+  accesso created by step 1 ("Dry-run Accesso 1 Crea"), so the pair nets to no
+  live new accesso. Run only against collaudo (UAT), and only right after step 1.
+
+  Reads the progressivi captured by step 1 from collection variables
+  (dryrun_prognaz, dryrun_prognazacc); running this request in isolation will send
+  empty identifiers and fail. ANNCSU suppression is dated and logical (operation S).
+}

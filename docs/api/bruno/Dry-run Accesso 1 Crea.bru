@@ -1,0 +1,64 @@
+meta {
+  name: Dry-run Accesso 1 Crea
+  type: http
+  seq: 13
+}
+
+post {
+  url: {{baseUrl}}/v1/workflows/verifica-e-crea-indirizzo-completo
+  body: json
+  auth: inherit
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "codcom": "H501",
+    "denom_odonimo": "ROMA",
+    "dug": "VIA",
+    "numero_civico": "99999",
+    "sezione_censimento": "580911010001"
+  }
+}
+
+script:post-response {
+  // Capture the new progressivi so step 2 suppresses exactly what we created.
+  bru.setVar("dryrun_prognaz", res.getBody().progressivo_nazionale_odonimo);
+  bru.setVar("dryrun_prognazacc", res.getBody().progressivo_civico);
+}
+
+settings {
+  encodeUrl: false
+  timeout: 0
+}
+
+tests {
+  test("creation returns 200 with the new progressivi", function() {
+    expect(res.status).to.equal(200);
+    expect(res.body.progressivo_nazionale_odonimo).to.be.a("string");
+    expect(res.body.progressivo_civico).to.be.a("string");
+  });
+}
+
+docs {
+  WRITE OPERATION — step 1 of a self-cancelling "dry-run" pair (mirrors the SDK's
+  `anncsu accesso insert --dry-run`, which inserts an accesso and then rolls it back
+  with an S operation): create an accesso, then suppress it (step 2) so the overall
+  effect on ANNCSU is a no-op. Run only against collaudo (UAT), never production,
+  and ALWAYS run "Dry-run Accesso 2 Rimuovi" right after.
+
+  Like the SDK, this targets an EXISTING odonimo (VIA ROMA in H501) so no orphan
+  odonimo is created — only an accesso is added then removed. The civic 99999 is
+  chosen to be clearly non-existent, so the create takes the insert branch (it is
+  not an update of a real civic) and there is no collision.
+
+  The post-response script stores the returned progressivi
+  (progressivo_nazionale_odonimo, progressivo_civico) in collection variables that
+  step 2 reads — run the two in sequence (or run the whole collection in order).
+
+  Note: ANNCSU suppression is a dated LOGICAL suppression, so step 2 leaves a
+  suppressed record rather than erasing all trace — there is no true delete.
+}

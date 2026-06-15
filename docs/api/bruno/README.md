@@ -33,3 +33,13 @@ operations; run only against collaudo (UAT), never production:
 - **Crea Indirizzo Completo Civico** — civic fork (`numero_civico`).
 - **Crea Indirizzo Completo Metrico** — metric fork (`metrico`); civic and metric
   are mutually exclusive (ADR 0016).
+
+Self-cancelling "dry-run" pair — WRITE operations on collaudo; run the two in
+sequence (or run the collection in order) so the overall effect is a no-op,
+mirroring how the SDK exercises a write without leaving a live record:
+
+- **Dry-run Accesso 1 Crea** — creates an accesso and stores the returned
+  progressivi in collection variables.
+- **Dry-run Accesso 2 Rimuovi** — suppresses exactly that accesso
+  (`POST /v1/workflows/sopprimi-accesso`). ANNCSU suppression is dated and logical,
+  so a suppressed record remains (there is no true delete).

@@ -108,7 +108,7 @@ async def test_real_spec_suppress_odonimo_suppresses_accessi_first():
     transport = ScriptedTransport(
         {
             "anncsu-consultazione.elencoodonimiprogPost": Response(
-                200, {"data": [{"prognaz": "2000449", "denomuff": "VIA ROMA"}]}
+                200, {"data": [{"prognaz": "2000449", "duf": "VIA ROMA"}]}
             ),
             "anncsu-consultazione.elencoaccessiprogPost": Response(
                 200, {"data": [{"prognazacc": "a1"}, {"prognazacc": "a2"}]}

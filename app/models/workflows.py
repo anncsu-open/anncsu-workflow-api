@@ -66,11 +66,20 @@ def _ddmmyyyy_not_future(value: str | None) -> str | None:
 
 
 class OdonimoResult(BaseModel):
-    """Odonimo search result."""
+    """Odonimo search result.
+
+    Fields are optional (a search result should not fail to map on an unusual
+    item). The real API returns the wire name ``duf`` — not the OAS ``denomuff`` —
+    and the extra ``cododocomunale`` (anncsu-sdk#12); the transport emits the wire
+    names (``model_dump(by_alias=True)``), so these mirror them.
+    """
 
     prognaz: str = Field(..., description="National progressive number")
-    dug: str = Field(..., description="Generic urban denomination (DUG)")
-    denomuff: str = Field(..., description="Official denomination")
+    dug: str | None = Field(None, description="Generic urban denomination (DUG)")
+    duf: str | None = Field(
+        None, description="Official denomination (denominazione urbanistica ufficiale)"
+    )
+    cododocomunale: str | None = Field(None, description="Municipal street code")
     denomloc: str | None = Field(None, description="Locality denomination")
     denomlingua1: str | None = Field(None, description="Denomination in language 1")
     denomlingua2: str | None = Field(None, description="Denomination in language 2")
@@ -89,6 +98,7 @@ class AccessoResult(BaseModel):
     coordY: str | None = Field(None, description="Y coordinate")  # noqa: N815
     quota: str | None = Field(None, description="Elevation")
     metodo: str | None = Field(None, description="Survey method")
+    codacccomunale: str | None = Field(None, description="Municipal access code")
 
 
 # ============================================================================

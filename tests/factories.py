@@ -291,7 +291,7 @@ class OdonimoResultFactory(ModelFactory[OdonimoResult]):
         return dug()
 
     @classmethod
-    def denomuff(cls) -> str:
+    def duf(cls) -> str:
         return denominazione_odonimo()
 
     @classmethod

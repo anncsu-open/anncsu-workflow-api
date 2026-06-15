@@ -609,7 +609,7 @@ workflows:
           - condition: $response.body.data.length > 0
         outputs:
           progressivo_nazionale: $response.body.data[0].prognaz
-          denom_completa: $response.body.data[0].denomuff
+          denom_completa: $response.body.data[0].duf
 
       - stepId: elenca-accessi
         description: Elenca tutti gli accessi dell'odonimo (consumati dall'executor)

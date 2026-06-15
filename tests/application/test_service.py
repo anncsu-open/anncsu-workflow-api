@@ -22,7 +22,7 @@ async def test_run_executes_the_workflow_and_returns_the_run():
     transport = ScriptedTransport(
         {
             "anncsu-consultazione.elencoodonimiprogPost": Response(
-                200, {"data": [{"prognaz": "2000449", "dug": "VIA", "denomuff": "ROMA"}]}
+                200, {"data": [{"prognaz": "2000449", "dug": "VIA", "duf": "ROMA"}]}
             ),
             "anncsu-consultazione.elencoaccessiprogPost": Response(
                 200, {"data": [{"prognazacc": "1370588", "civico": "42"}]}

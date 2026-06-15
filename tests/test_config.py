@@ -34,8 +34,10 @@ def test_settings_keeps_application_fields():
     assert isinstance(s.use_validation_env, bool)
 
 
-def test_settings_verify_ssl_defaults_to_true():
-    # Collaudo serves a self-signed certificate; VERIFY_SSL=false disables checks (ADR 0017).
+def test_settings_verify_ssl_defaults_to_true(tmp_path, monkeypatch):
+    # Hermetic (no local .env): collaudo serves a self-signed cert and sets
+    # VERIFY_SSL=false, but the default is True (ADR 0017).
+    monkeypatch.chdir(tmp_path)
     assert Settings().verify_ssl is True
 
 

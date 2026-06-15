@@ -232,7 +232,7 @@ class TestOdonimoResult:
         for model in models:
             assert model.prognaz is not None
             assert model.dug is not None
-            assert model.denomuff is not None
+            assert model.duf is not None
 
     def test_optional_language_fields(self):
         """Test that the language fields are optional."""
@@ -371,9 +371,9 @@ class TestRealWorldScenarios:
 
         # Simulate multiple results
         odonimi = [
-            OdonimoResultFactory.build(dug="VIA", denomuff="ROMA"),
-            OdonimoResultFactory.build(dug="PIAZZA", denomuff="ROMA"),
-            OdonimoResultFactory.build(dug="CORSO", denomuff="ROMANO"),
+            OdonimoResultFactory.build(dug="VIA", duf="ROMA"),
+            OdonimoResultFactory.build(dug="PIAZZA", duf="ROMA"),
+            OdonimoResultFactory.build(dug="CORSO", duf="ROMANO"),
         ]
 
         search_output = RicercaIndirizzoOutputFactory.build(
@@ -384,7 +384,7 @@ class TestRealWorldScenarios:
         )
 
         assert len(search_output.odonimi) == 3
-        assert all("ROM" in o.denomuff for o in search_output.odonimi)
+        assert all("ROM" in (o.duf or "") for o in search_output.odonimi)
 
     def test_coordinate_update_with_gps(self):
         """Realistic GPS coordinates pass the WGS84 validators on the accesso update."""

@@ -230,7 +230,7 @@ def test_crea_indirizzo_metric_with_existing_odonimo_forks_from_cerca():
 def test_ricerca_route_maps_search_results():
     responses = {
         "anncsu-consultazione.elencoodonimiprogPost": Response(
-            200, {"data": [{"prognaz": "2000449", "dug": "VIA", "denomuff": "ROMA"}]}
+            200, {"data": [{"prognaz": "2000449", "dug": "VIA", "duf": "ROMA"}]}
         ),
         "anncsu-consultazione.elencoaccessiprogPost": Response(
             200, {"data": [{"prognazacc": "1370588", "civico": "42"}]}
@@ -246,7 +246,7 @@ def test_ricerca_route_maps_search_results():
     body = response.json()
     assert body["success"] is True
     assert body["odonimi"][0]["prognaz"] == "2000449"
-    assert body["odonimi"][0]["denomuff"] == "ROMA"
+    assert body["odonimi"][0]["duf"] == "ROMA"
     assert body["accessi"][0]["prognazacc"] == "1370588"
     assert body["accessi"][0]["civico"] == "42"
 
@@ -490,7 +490,7 @@ def test_aggiorna_accesso_route_rejects_the_numero_metrico_mutex():
 def test_sopprimi_odonimo_route_reports_suppressed_accessi():
     responses = {
         "anncsu-consultazione.elencoodonimiprogPost": Response(
-            200, {"data": [{"prognaz": "2000449", "denomuff": "VIA ROMA"}]}
+            200, {"data": [{"prognaz": "2000449", "duf": "VIA ROMA"}]}
         ),
         "anncsu-consultazione.elencoaccessiprogPost": Response(
             200, {"data": [{"prognazacc": "a1"}, {"prognazacc": "a2"}]}

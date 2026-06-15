@@ -1,7 +1,9 @@
 {
   "OdonimoResult.prognaz": "Progressivo nazionale",
   "OdonimoResult.dug": "Denominazione Urbanistica Generica",
-  "OdonimoResult.denomuff": "Denominazione ufficiale",
+  "OdonimoResult.duf": "Denominazione urbanistica ufficiale",
+  "OdonimoResult.cododocomunale": "Codifica comunale dell'odonimo",
+  "AccessoResult.codacccomunale": "Codifica comunale dell'accesso",
   "OdonimoResult.denomloc": "Denominazione località",
   "OdonimoResult.denomlingua1": "Denominazione in lingua 1",
   "OdonimoResult.denomlingua2": "Denominazione in lingua 2",

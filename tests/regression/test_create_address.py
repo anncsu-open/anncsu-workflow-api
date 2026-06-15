@@ -54,7 +54,42 @@ class FakeAnncsu:
         return {"res": "OK", "data": self.odonimo_exists}
 
     def _elencoodonimiprog(self, body: dict) -> dict:
-        return {"res": "OK", "data": [{"prognaz": "2000449", "dug": "VIA", "denomuff": "ROMA"}]}
+        # The REAL wire shape (anncsu-sdk#12): the API returns `duf` (not the OAS
+        # `denomuff`) plus the extra `cododocomunale`.
+        return {
+            "res": "OK",
+            "data": [
+                {
+                    "prognaz": "2000449",
+                    "cododocomunale": "5786",
+                    "dug": "VIA",
+                    "duf": "ROMA",
+                    "denomloc": "",
+                    "denomlingua1": "",
+                    "denomlingua2": "",
+                }
+            ],
+        }
+
+    def _elencoaccessiprog(self, body: dict) -> dict:
+        # Real wire shape for accessi (anncsu-sdk#12): coordX/coordY + codacccomunale.
+        return {
+            "res": "OK",
+            "data": [
+                {
+                    "prognazacc": "1370588",
+                    "codacccomunale": "",
+                    "civico": "42",
+                    "esp": "",
+                    "specif": "",
+                    "metrico": "",
+                    "coordX": "12.49",
+                    "coordY": "41.90",
+                    "quota": "0",
+                    "metodo": "3",
+                }
+            ],
+        }
 
     def _esisteaccesso(self, body: dict) -> dict:
         return {"res": "OK", "data": self.accesso_exists}
@@ -165,3 +200,25 @@ def test_accesso_update_sends_coordinates_to_the_wire():
     accesso = server.received("accessi")["richiesta"]["accesso"]
     assert accesso["coordinate"]["x"] == "13.1022000"
     assert accesso["coordinate"]["y"] == "41.8847600"
+
+
+def test_ricerca_maps_real_wire_field_names_through_the_sdk():
+    # The full real chain: the API returns the wire names (`duf`, `coordX`, the
+    # extra `cododocomunale`/`codacccomunale`); the SDK deserializes via its aliases
+    # and the transport re-emits them, so the output models must match those names
+    # (anncsu-sdk#12). A scripted transport would bypass this — hence the real SDK.
+    server = FakeAnncsu()
+    with _client(server) as client:
+        response = client.post(
+            "/v1/workflows/ricerca-indirizzo-completo",
+            json={"codcom": "H501", "denom_odonimo": "ROMA", "numero_civico": "42"},
+        )
+
+    assert response.status_code == 200
+    body = response.json()
+    odonimo = body["odonimi"][0]
+    assert odonimo["duf"] == "ROMA"  # real wire field (NOT the OAS `denomuff`)
+    assert odonimo["cododocomunale"] == "5786"  # extra real field
+    accesso = body["accessi"][0]
+    assert accesso["coordX"] == "12.49"
+    assert "codacccomunale" in accesso  # extra real field

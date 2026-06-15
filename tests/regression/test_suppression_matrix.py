@@ -46,7 +46,7 @@ class FakeAnncsuServer:
 
     def __init__(self, *, accessi: list[str], mode: str) -> None:
         self.mode = mode
-        self.odonimo = {"prognaz": "2000449", "dug": "VIA", "denomuff": "ROMA"}
+        self.odonimo = {"prognaz": "2000449", "dug": "VIA", "duf": "ROMA"}
         self.accessi = {
             p: {"prognazacc": p, "civico": str(n)} for n, p in enumerate(accessi, start=1)
         }

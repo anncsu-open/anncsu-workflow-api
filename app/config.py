@@ -48,7 +48,7 @@ class Settings(BaseSettings):
 
     # Validation environment URLs
     anncsu_consultazione_val_url: str = (
-        "https://modipa-val.agenziaentrate.gov.it/govway/rest/in/"
+        "https://modipa-val.agenziaentrate.it/govway/rest/in/"
         "AgenziaEntrate-PDND/anncsu-consultazione/v1"
     )
     anncsu_odonimi_val_url: str = (

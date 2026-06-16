@@ -44,6 +44,12 @@ class Settings(BaseSettings):
     # so VERIFY_SSL=false disables it there (ADR 0017). Keep True in production.
     verify_ssl: bool = True
 
+    # Explicit per-HTTP-operation timeout (seconds) for the ANNCSU/PDND e-service
+    # calls, instead of httpx's implicit 5s default; the inner bound below the
+    # transport's per-dispatch wait_for backstop (ADR 0017). Tune if PDND is slow.
+    # Not PDND_-prefixed: that env namespace belongs to the SDK's assertion settings.
+    http_timeout: float = 10.0
+
     # Environment
     use_validation_env: bool = False  # selects the PDND token endpoint (UAT vs prod)
 

@@ -88,7 +88,10 @@ def build_workflow_service(
         manager_factory=manager_factory,
     )
     builders = build_client_builders(
-        auth_managers, assertion_settings, verify_ssl=settings.verify_ssl
+        auth_managers,
+        assertion_settings,
+        verify_ssl=settings.verify_ssl,
+        http_timeout=settings.http_timeout,
     )
     client_manager = AnncsuClientManager(builders=builders)
     transport = AnncsuSdkTransport(client_manager)

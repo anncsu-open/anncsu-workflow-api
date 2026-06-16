@@ -9,6 +9,7 @@ the ModI hook only on the write clients — without real credentials or network.
 import base64
 import json
 
+import httpx
 from anncsu.common.config import ClientAssertionSettings
 from anncsu.pa import AnncsuConsultazione
 
@@ -114,6 +115,7 @@ def test_build_client_builders_discover_url_wire_security_and_writer_modi():
         managers,
         _assertion_settings(),
         verify_ssl=True,
+        http_timeout=10.0,
         sdk_classes=sdk_classes,
         modi_registrar=fake_modi,
         audience_resolver=lambda voucher: f"https://disc.test/{voucher}",
@@ -135,12 +137,40 @@ def test_build_client_builders_discover_url_wire_security_and_writer_modi():
     assert all(a == "https://disc.test/voucher-1" for a in modi_audiences)
 
 
+def test_build_client_builders_set_an_explicit_http_timeout():
+    # The SDK HTTP client must use an explicit, configurable timeout — not httpx's
+    # implicit 5s default — so PDND e-service calls are bounded predictably.
+    managers = {source: _FakeManager() for source in SOURCES}
+    recorded: dict[str, dict] = {}
+
+    def sdk_factory(source: str):
+        def make(**kwargs):
+            recorded[source] = kwargs
+            return object()
+
+        return make
+
+    builders = build_client_builders(
+        managers,
+        _assertion_settings(),
+        verify_ssl=True,
+        http_timeout=12.0,
+        sdk_classes={source: sdk_factory(source) for source in SOURCES},
+        modi_registrar=lambda *args: None,
+        audience_resolver=lambda voucher: f"https://disc.test/{voucher}",
+    )
+    builders[READER]()
+
+    assert recorded[READER]["client"].timeout == httpx.Timeout(12.0)
+
+
 def test_build_client_builders_are_lazy():
     managers = {source: _FakeManager() for source in SOURCES}
     builders = build_client_builders(
         managers,
         _assertion_settings(),
         verify_ssl=True,
+        http_timeout=10.0,
         sdk_classes=dict.fromkeys(SOURCES, lambda **kwargs: object()),
         modi_registrar=lambda *args, **kwargs: None,
         audience_resolver=lambda voucher: "https://disc.test/x",
@@ -176,6 +206,7 @@ def test_builder_sets_the_discovered_url_on_the_real_sdk_client():
         _VoucherManager("https://anncsu.test/consultazione/v1"),
         _assertion_settings(),
         verify_ssl=False,
+        http_timeout=10.0,
         sdk_class=AnncsuConsultazione,
     )
 

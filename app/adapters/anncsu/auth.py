@@ -156,6 +156,7 @@ def make_client_builder(  # noqa: PLR0913 - a wiring factory with injectable sea
     assertion_settings: ClientAssertionSettings,
     *,
     verify_ssl: bool,
+    http_timeout: float,
     sdk_class: Any,
     audience_resolver: Callable[[str], str | None] = extract_voucher_audience,
     modi_registrar: Callable[..., None] = register_modi_hook_if_configured,
@@ -167,6 +168,10 @@ def make_client_builder(  # noqa: PLR0913 - a wiring factory with injectable sea
     and the per-request security provider (writers also get the ModI hook). It is a
     synchronous, blocking call (voucher fetch) and must run off the event loop —
     the transport invokes it inside ``asyncio.to_thread`` under the per-source lock.
+
+    ``http_timeout`` is set explicitly on the HTTP client (instead of httpx's
+    implicit 5s default) so PDND e-service calls are bounded predictably; it is the
+    inner bound, below the transport's per-dispatch ``wait_for`` backstop.
     """
 
     def build() -> Any:
@@ -178,7 +183,7 @@ def make_client_builder(  # noqa: PLR0913 - a wiring factory with injectable sea
         kwargs: dict[str, Any] = {
             "server_url": url,
             "security": provider,
-            "client": httpx.Client(verify=verify_ssl),
+            "client": httpx.Client(verify=verify_ssl, timeout=http_timeout),
         }
         if spec.is_writer:
             hooks = SDKHooks()
@@ -196,6 +201,7 @@ def build_client_builders(  # noqa: PLR0913 - a wiring factory with injectable s
     assertion_settings: ClientAssertionSettings,
     *,
     verify_ssl: bool,
+    http_timeout: float,
     sdk_classes: Mapping[str, Any] = SDK_CLASSES,
     modi_registrar: Callable[..., None] = register_modi_hook_if_configured,
     audience_resolver: Callable[[str], str | None] = extract_voucher_audience,
@@ -208,6 +214,7 @@ def build_client_builders(  # noqa: PLR0913 - a wiring factory with injectable s
             auth_managers[source],
             assertion_settings,
             verify_ssl=verify_ssl,
+            http_timeout=http_timeout,
             sdk_class=sdk_classes[source],
             audience_resolver=audience_resolver,
             modi_registrar=modi_registrar,

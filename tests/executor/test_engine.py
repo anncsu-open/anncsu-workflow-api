@@ -294,6 +294,83 @@ async def test_real_spec_search_skips_accessi_when_no_civico():
     assert [op for op, _ in transport.calls] == ["anncsu-consultazione.elencoodonimiprogPost"]
 
 
+async def test_real_spec_search_by_progressivo_nazionale_resolves_via_prognazarea():
+    # progressivo_nazionale (ADR 0021): resolve the odonimo directly via prognazarea,
+    # skip the denomination search, then list its accessi by the given progressive.
+    spec = load_spec(ARAZZO_SPEC)
+    transport = ScriptedTransport(
+        {
+            "anncsu-consultazione.prognazareaPost": Response(
+                200, {"data": [{"prognaz": "919572", "dug": "VIA", "denomuff": "ROMA"}]}
+            ),
+            "anncsu-consultazione.elencoaccessiprogPost": Response(
+                200, {"data": [{"prognazacc": "1", "civico": "42"}]}
+            ),
+        }
+    )
+
+    run = await WorkflowExecutor(spec, transport).run(
+        "ricerca-indirizzo-completo",
+        {"codcom": "H501", "progressivo_nazionale": "919572", "numero_civico": "42"},
+    )
+
+    ops = [op for op, _ in transport.calls]
+    assert ops == [
+        "anncsu-consultazione.prognazareaPost",
+        "anncsu-consultazione.elencoaccessiprogPost",
+    ]  # the denomination search is skipped
+    accessi_call = next(p for op, p in transport.calls if op.endswith("elencoaccessiprogPost"))
+    assert accessi_call["prognaz"] == "919572"  # uses the input progressive
+    assert [o["prognaz"] for o in run.outputs["odonimi"]] == ["919572"]
+    assert [a["prognazacc"] for a in run.outputs["accessi"]] == ["1"]
+
+
+async def test_real_spec_search_by_progressivo_nazionale_without_civico_skips_accessi():
+    # progressivo_nazionale and no numero_civico: resolve the odonimo and stop, with
+    # empty accessi (no elencoaccessiprog), mirroring the denomination no-civico path.
+    spec = load_spec(ARAZZO_SPEC)
+    transport = ScriptedTransport(
+        {
+            "anncsu-consultazione.prognazareaPost": Response(
+                200, {"data": [{"prognaz": "919572", "denomuff": "ROMA"}]}
+            ),
+        }
+    )
+
+    run = await WorkflowExecutor(spec, transport).run(
+        "ricerca-indirizzo-completo", {"codcom": "H501", "progressivo_nazionale": "919572"}
+    )
+
+    assert run.status == "ended"
+    assert [op for op, _ in transport.calls] == ["anncsu-consultazione.prognazareaPost"]
+    assert [o["prognaz"] for o in run.outputs["odonimi"]] == ["919572"]
+    assert not run.outputs.get("accessi")  # None/empty -> the route maps it to []
+
+
+async def test_real_spec_search_by_denominazione_skips_prognazarea():
+    # Regression: in denomination mode the prognazarea step is skipped (x-when false).
+    spec = load_spec(ARAZZO_SPEC)
+    transport = ScriptedTransport(
+        {
+            "anncsu-consultazione.elencoodonimiprogPost": Response(
+                200, {"data": [{"prognaz": "919572", "duf": "ROMA"}]}
+            ),
+            "anncsu-consultazione.elencoaccessiprogPost": Response(
+                200, {"data": [{"prognazacc": "1"}]}
+            ),
+        }
+    )
+
+    await WorkflowExecutor(spec, transport).run(
+        "ricerca-indirizzo-completo",
+        {"codcom": "H501", "denom_odonimo": "ROMA", "numero_civico": "42"},
+    )
+
+    ops = [op for op, _ in transport.calls]
+    assert "anncsu-consultazione.prognazareaPost" not in ops
+    assert ops[0] == "anncsu-consultazione.elencoodonimiprogPost"
+
+
 async def test_real_spec_search_returns_empty_accessi_on_404():
     # ANNCSU answers 404 when an accessi search finds nothing; for a read-only
     # search that is "zero results", not a failure -> the workflow must complete

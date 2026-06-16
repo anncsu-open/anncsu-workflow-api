@@ -457,6 +457,10 @@ _RICERCA_EXAMPLES: dict[str, Any] = {
         "summary": "Search by odonimo only (all its accessi)",
         "value": {"codcom": "H501", "denom_odonimo": "ROMA"},
     },
+    "by_progressivo_nazionale": {
+        "summary": "Search by the odonimo's national progressive (skips the name search)",
+        "value": {"codcom": "H501", "progressivo_nazionale": "919572", "numero_civico": "42"},
+    },
     "by_odonimo_and_civico": {
         "summary": "Search a specific civico",
         "value": {

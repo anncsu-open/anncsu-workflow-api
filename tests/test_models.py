@@ -9,6 +9,7 @@ from app.models.workflows import (
     CreaIndirizzoCompletoInput,
     CreaIndirizzoCompletoOutput,
     OdonimoResult,
+    RicercaIndirizzoInput,
     SopprimiOdonimoInput,
 )
 from tests.factories import (
@@ -216,6 +217,21 @@ class TestRicercaIndirizzoInput:
         assert model.codcom is not None
         assert model.denom_odonimo is not None
         assert model.numero_civico is None
+
+    def test_accepts_progressivo_nazionale_instead_of_denominazione(self):
+        # ADR 0021: search the odonimo directly by its national progressive.
+        model = RicercaIndirizzoInput(codcom="H501", progressivo_nazionale="919572")
+        assert model.denom_odonimo is None
+        assert model.progressivo_nazionale == "919572"
+
+    def test_requires_exactly_one_of_denominazione_or_progressivo(self):
+        # Both are mutually exclusive; neither is also invalid (ADR 0021).
+        with pytest.raises(ValidationError):
+            RicercaIndirizzoInput(
+                codcom="H501", denom_odonimo="ROMA", progressivo_nazionale="919572"
+            )
+        with pytest.raises(ValidationError):
+            RicercaIndirizzoInput(codcom="H501")
 
 
 # ============================================================================

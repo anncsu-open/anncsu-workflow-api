@@ -766,6 +766,45 @@ def test_invalid_input_returns_a_422_problem():
     assert problem["errors"]  # validation detail as an RFC 7807 extension member
 
 
+def test_ricerca_indirizzo_by_progressivo_nazionale_resolves_via_prognazarea():
+    # ADR 0021: progressivo mode resolves the odonimo via prognazarea, skips the
+    # denomination search, then lists its accessi.
+    transport = ScriptedTransport(
+        {
+            "anncsu-consultazione.prognazareaPost": Response(
+                200, {"data": [{"prognaz": "919572", "denomuff": "ROMA"}]}
+            ),
+            "anncsu-consultazione.elencoaccessiprogPost": Response(
+                200, {"data": [{"prognazacc": "1", "civico": "42"}]}
+            ),
+        }
+    )
+    executor = WorkflowExecutor(load_spec(ARAZZO_SPEC), transport)
+    with _client_with(WorkflowApplicationService(executor)) as client:
+        response = client.post(
+            "/anncsu/v1/workflows/ricerca-indirizzo-completo",
+            json={"codcom": "H501", "progressivo_nazionale": "919572", "numero_civico": "42"},
+        )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["odonimi"][0]["prognaz"] == "919572"
+    assert body["accessi"][0]["prognazacc"] == "1"
+    assert "anncsu-consultazione.elencoodonimiprogPost" not in [op for op, _ in transport.calls]
+
+
+def test_ricerca_indirizzo_rejects_both_denominazione_and_progressivo():
+    # Mutually exclusive selectors (ADR 0021): providing both is a 422.
+    with _client_scripted({}) as client:
+        response = client.post(
+            "/anncsu/v1/workflows/ricerca-indirizzo-completo",
+            json={"codcom": "H501", "denom_odonimo": "ROMA", "progressivo_nazionale": "919572"},
+        )
+
+    assert response.status_code == 422
+    assert response.json()["errors"]
+
+
 def test_sopprimi_accesso_route_suppresses_one_accesso():
     """Standalone single-accesso suppression (still also used by the odonimo foreach)."""
     transport = ScriptedTransport(
@@ -948,6 +987,7 @@ def test_all_workflows_declare_named_request_examples():
         "aggiorna-odonimo-da-progressivo": {"locality_only", "with_delibera"},
         "ricerca-indirizzo-completo": {
             "by_odonimo",
+            "by_progressivo_nazionale",
             "by_odonimo_and_civico",
             "by_civico_and_esponente",
             "by_civico_esponente_specificita",

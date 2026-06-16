@@ -26,6 +26,9 @@ against PDND collaudo:
 - **Ricerca Indirizzo Solo Odonimi** — no civic; the accessi step is skipped.
 - **Ricerca Indirizzo Odonimo Inesistente** — unknown odonimo; ANNCSU 404 maps to
   both lists empty (200, not 422).
+- **Ricerca Indirizzo per Progressivo** — locate the odonimo by its national
+  progressive instead of the denomination (`prognazarea`); `progressivo_nazionale`
+  and `denom_odonimo` are mutually exclusive (ADR 0021).
 
 By an existing odonimo's progressive (`prognaz`), validated against PDND collaudo
 (ADR 0018/0020):

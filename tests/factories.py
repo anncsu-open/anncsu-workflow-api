@@ -264,6 +264,10 @@ class RicercaIndirizzoInputFactory(ModelFactory[RicercaIndirizzoInput]):
 
     __model__ = RicercaIndirizzoInput
 
+    # Search by denomination; pin the progressive to None so the exactly-one-of
+    # selector (ADR 0021) holds (denom_odonimo is always set by this factory).
+    progressivo_nazionale = None
+
     @classmethod
     def codcom(cls) -> str:
         return codice_belfiore()

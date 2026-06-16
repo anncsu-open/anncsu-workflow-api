@@ -247,19 +247,29 @@ Ricerca completa di un indirizzo (sola lettura)
 
 ```mermaid
 graph TD
+  risolvi_per_prognaz["risolvi-per-prognaz"]
   cerca_odonimi["cerca-odonimi"]
   cerca_accessi["cerca-accessi"]
+  risolvi_per_prognaz --> cerca_odonimi
   cerca_odonimi --> cerca_accessi
+  risolvi_per_prognaz -. goto .-> cerca_accessi
 ```
 
-### 1. cerca-odonimi
+### 1. risolvi-per-prognaz
+
+Risolve l'odonimo per progressivo nazionale (modalità progressivo)
+
+- Operation: `anncsu-consultazione.prognazareaPost`
+- Outputs: odonimi_trovati
+
+### 2. cerca-odonimi
 
 Cerca odonimi che corrispondono
 
 - Operation: `anncsu-consultazione.elencoodonimiprogPost`
 - Outputs: odonimi_trovati, progressivo_nazionale
 
-### 2. cerca-accessi
+### 3. cerca-accessi
 
 Cerca gli accessi del primo odonimo trovato
 

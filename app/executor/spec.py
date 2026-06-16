@@ -37,6 +37,9 @@ class Step:
     on_success: tuple[Action, ...]
     on_failure: tuple[Action, ...]
     outputs: Mapping[str, str]
+    # `x-when`: when set and false at runtime, the step is skipped without
+    # dispatching and execution falls through to the next step (ADR 0021).
+    condition: str | None = None
 
 
 @dataclass(frozen=True)
@@ -102,6 +105,7 @@ def _parse_step(raw: Mapping[str, Any]) -> Step:
         on_success=tuple(_parse_action(a) for a in raw.get("onSuccess", [])),
         on_failure=tuple(_parse_action(a) for a in raw.get("onFailure", [])),
         outputs=dict(raw.get("outputs", {})),
+        condition=raw.get("x-when"),
     )
 
 

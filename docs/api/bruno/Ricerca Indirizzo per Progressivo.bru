@@ -1,0 +1,49 @@
+meta {
+  name: Ricerca Indirizzo per Progressivo
+  type: http
+  seq: 19
+}
+
+post {
+  url: {{baseUrl}}/anncsu/v1/workflows/ricerca-indirizzo-completo
+  body: json
+  auth: inherit
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "codcom": "H501",
+    "progressivo_nazionale": "911867",
+    "numero_civico": "81"
+  }
+}
+
+tests {
+  test("returns 200 resolving the odonimo by its progressive", function() {
+    expect(res.status).to.equal(200);
+    expect(res.body.odonimi).to.be.an("array").that.is.not.empty;
+    expect(res.body.odonimi[0].prognaz).to.equal("911867");
+    expect(res.body.accessi).to.be.an("array").that.is.not.empty;
+  });
+}
+
+settings {
+  encodeUrl: false
+  timeout: 0
+}
+
+docs {
+  Address search in progressive mode (ADR 0021): the odonimo is located directly by
+  its national progressive (`progressivo_nazionale`) instead of by denomination, so
+  the workflow resolves it with `prognazarea` and skips the name search. The two
+  selectors are mutually exclusive — send `denom_odonimo` OR `progressivo_nazionale`,
+  never both.
+
+  Validated against PDND collaudo (UAT): codcom H501, prognaz 911867 (VIA DELLE CAVE
+  DEL TRULLO) civic 81 -> the same odonimo and accessi as "Ricerca Indirizzo Completo
+  esistente", reached by progressive instead of name.
+}

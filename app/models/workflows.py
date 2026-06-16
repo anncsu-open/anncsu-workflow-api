@@ -769,7 +769,12 @@ class SopprimiOdonimoOutput(BaseModel):
 
 
 class RicercaIndirizzoInput(BaseModel):
-    """Input for the address search workflow."""
+    """Input for the address search workflow.
+
+    The odonimo is located by denomination (``denom_odonimo``) or directly by its
+    national progressive (``progressivo_nazionale``): exactly one must be provided
+    (ADR 0021).
+    """
 
     codcom: str = Field(
         ...,
@@ -777,10 +782,16 @@ class RicercaIndirizzoInput(BaseModel):
         description="Belfiore municipality code (codcom)",
         json_schema_extra={"example": "H501"},
     )
-    denom_odonimo: str = Field(
-        ...,
-        description="Odonimo denomination (partial allowed)",
+    denom_odonimo: str | None = Field(
+        None,
+        description="Odonimo denomination (partial allowed); mutually exclusive with progressivo_nazionale",
         json_schema_extra={"example": "ROMA"},
+    )
+    progressivo_nazionale: str | None = Field(
+        None,
+        max_length=10,
+        description="National progressive of the odonimo; mutually exclusive with denom_odonimo",
+        json_schema_extra={"example": "919572"},
     )
     numero_civico: str | None = Field(
         None,
@@ -802,6 +813,16 @@ class RicercaIndirizzoInput(BaseModel):
         description="Specificità, appended to the esponente in the search filter (-)",
         json_schema_extra={"example": "ROSSO"},
     )
+
+    @model_validator(mode="after")
+    def _exactly_one_odonimo_selector(self) -> RicercaIndirizzoInput:
+        # The odonimo is found either by denomination or by progressive, never both
+        # and never neither (ADR 0021).
+        if (self.denom_odonimo is None) == (self.progressivo_nazionale is None):
+            raise ValueError(
+                "exactly one of 'denom_odonimo' or 'progressivo_nazionale' must be provided"
+            )
+        return self
 
 
 class RicercaIndirizzoOutput(BaseModel):

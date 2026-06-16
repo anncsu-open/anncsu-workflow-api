@@ -69,10 +69,15 @@ class TestConsultazioneAPI:
         assert "properties" in model_schema
         assert "codcom" in model_schema["properties"]
         assert "denom_odonimo" in model_schema["properties"]
+        assert "progressivo_nazionale" in model_schema["properties"]
 
-        # Verify required fields
-        assert "codcom" in model_schema.get("required", [])
-        assert "denom_odonimo" in model_schema.get("required", [])
+        # codcom is required; the odonimo selector is exactly-one-of denom_odonimo /
+        # progressivo_nazionale, enforced by a model validator rather than by
+        # `required` (ADR 0021), so neither selector appears in `required`.
+        required = model_schema.get("required", [])
+        assert "codcom" in required
+        assert "denom_odonimo" not in required
+        assert "progressivo_nazionale" not in required
 
     def test_odonimo_result_matches_consultazione_response(self, consultazione_validator):
         """Test that OdonimoResult corresponds to the elencoodonimiprog response."""

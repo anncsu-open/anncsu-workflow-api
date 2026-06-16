@@ -79,6 +79,11 @@ class WorkflowExecutor:
                 return self._finish(workflow, ctx, "completed")
 
             step = workflow.steps[position]
+            if step.condition is not None and not evaluate_condition(step.condition, ctx):
+                # `x-when` is false: skip the step without dispatching (no foreach, no
+                # outputs) and fall through to the next one (ADR 0021).
+                position += 1
+                continue
             await self._run_foreach(workflow, step, ctx)
             await self._execute_step(step, ctx)
             succeeded = self._succeeded(step, ctx)

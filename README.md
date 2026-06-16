@@ -427,9 +427,12 @@ internally, also available standalone.
 
 ### 6. Search Complete Address
 
-Searches for addresses by odonimo and, optionally, numero civico. When the
-denomination matches more than one odonimo the search returns all candidates with
-an empty `accessi` list (it never silently picks the first match); re-query the
+Searches for addresses by odonimo and, optionally, numero civico. The odonimo is
+located either by denomination (`denom_odonimo`) or directly by its national
+progressive (`progressivo_nazionale`) — the two are mutually exclusive (exactly one,
+ADR 0021). In progressive mode the denomination search is skipped (`prognazarea`).
+When a denomination matches more than one odonimo the search returns all candidates
+with an empty `accessi` list (it never silently picks the first match); re-query the
 chosen one with workflow 7 (ADR 0018).
 
 **Endpoint**: `POST /anncsu/v1/workflows/ricerca-indirizzo-completo`
@@ -438,6 +441,16 @@ chosen one with workflow 7 (ADR 0018).
 {
   "codcom": "H501",
   "denom_odonimo": "ROM",
+  "numero_civico": "42"
+}
+```
+
+By the odonimo's national progressive instead of the denomination:
+
+```json
+{
+  "codcom": "H501",
+  "progressivo_nazionale": "919572",
   "numero_civico": "42"
 }
 ```

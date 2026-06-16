@@ -1013,9 +1013,12 @@ workflows:
   - workflowId: ricerca-indirizzo-completo
     summary: Ricerca completa di un indirizzo (sola lettura)
     description: |
-      Cerca gli odonimi corrispondenti e, se è indicato il numero civico, anche
-      gli accessi. Lo step accessi è saltato (azione end con criteria) quando
-      `numero_civico` non è valorizzato.
+      Risolve l'odonimo e, se è indicato il numero civico, anche gli accessi.
+      L'odonimo si individua per denominazione (`denom_odonimo`) OPPURE direttamente
+      per progressivo nazionale (`progressivo_nazionale`): i due sono mutuamente
+      esclusivi (ADR 0021). In modalità progressivo lo step per denominazione è
+      saltato (x-when) e si usa `prognazarea`. Lo step accessi è saltato (azione end
+      con criteria) quando `numero_civico` non è valorizzato.
     inputs:
       type: object
       properties:
@@ -1024,11 +1027,45 @@ workflows:
           description: Codice Belfiore del comune
         denom_odonimo:
           type: string
-          description: Denominazione dell'odonimo
+          description: Denominazione dell'odonimo (mutuamente esclusiva con progressivo_nazionale)
+        progressivo_nazionale:
+          type: string
+          description: Progressivo nazionale dell'odonimo (mutuamente esclusivo con denom_odonimo)
         numero_civico:
           type: string
           description: Numero civico (opzionale)
     steps:
+      # Modalità progressivo (ADR 0021): risolve l'odonimo direttamente per
+      # progressivo nazionale. Saltato (x-when) quando si cerca per denominazione.
+      - stepId: risolvi-per-prognaz
+        description: Risolve l'odonimo per progressivo nazionale (modalità progressivo)
+        x-when: $inputs.progressivo_nazionale != null
+        operationId: anncsu-consultazione.prognazareaPost
+        requestBody:
+          contentType: application/json
+          payload:
+            req: prognazarea
+            prognaz: $inputs.progressivo_nazionale
+        successCriteria:
+          - condition: $statusCode == 200
+          - condition: $response.body.data.length > 0
+        onSuccess:
+          - name: salta-accessi-se-no-civico
+            type: end
+            criteria:
+              - condition: $inputs.numero_civico == null
+          - name: vai-a-cerca-accessi
+            type: goto
+            stepId: cerca-accessi
+        # Progressivo sconosciuto -> 404: termina con liste vuote, non è un errore.
+        onFailure:
+          - name: odonimo-non-trovato
+            type: end
+            criteria:
+              - condition: $statusCode == 404
+        outputs:
+          odonimi_trovati: $response.body.data
+
       - stepId: cerca-odonimi
         description: Cerca odonimi che corrispondono
         operationId: anncsu-consultazione.elencoodonimiprogPost
@@ -1071,7 +1108,12 @@ workflows:
           contentType: application/json
           payload:
             req: elencoaccessiprog
-            prognaz: $steps.cerca-odonimi.outputs.progressivo_nazionale
+            # Il progressivo dal risolutore che ha girato: l'input in modalità
+            # progressivo, altrimenti quello trovato per denominazione (ADR 0021).
+            prognaz:
+              x-coalesce:
+                - $inputs.progressivo_nazionale
+                - $steps.cerca-odonimi.outputs.progressivo_nazionale
             # accparz = civico [/esponente] [-specificità], formato AdE (ADR 0020):
             # esponente con "/", specificità con "-"; le parti assenti (e i loro
             # separatori) sono saltate dall'x-join annidato (es. "95", "95/A",
@@ -1098,8 +1140,14 @@ workflows:
           accessi_trovati: $response.body.data
 
     outputs:
-      odonimi: $steps.cerca-odonimi.outputs.odonimi_trovati
       accessi: $steps.cerca-accessi.outputs.accessi_trovati
+
+    x-executor:
+      coalesce:
+        # odonimi dal risolutore che ha effettivamente girato (prognaz o denominazione).
+        odonimi:
+          - $steps.risolvi-per-prognaz.outputs.odonimi_trovati
+          - $steps.cerca-odonimi.outputs.odonimi_trovati
 
   - workflowId: ricerca-accessi-per-odonimo
     summary: Ricerca degli accessi di un odonimo per progressivo nazionale (sola lettura)

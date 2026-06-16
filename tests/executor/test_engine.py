@@ -348,6 +348,83 @@ async def test_real_spec_search_returns_empty_on_odonimi_404():
     assert [op for op, _ in transport.calls] == ["anncsu-consultazione.elencoodonimiprogPost"]
 
 
+async def test_real_spec_search_combines_civico_and_esponente_in_accparz():
+    # accparz carries civic + optional esponente as one partial filter value
+    # (anncsu-sdk); build it via x-concat so civic "42" with esponente "A" searches
+    # accparz "42A".
+    spec = load_spec(ARAZZO_SPEC)
+    transport = ScriptedTransport(
+        {
+            "anncsu-consultazione.elencoodonimiprogPost": Response(
+                200, {"data": [{"prognaz": "2000449", "duf": "ROMA"}]}
+            ),
+            "anncsu-consultazione.elencoaccessiprogPost": Response(
+                200, {"data": [{"prognazacc": "1"}]}
+            ),
+        }
+    )
+
+    await WorkflowExecutor(spec, transport).run(
+        "ricerca-indirizzo-completo",
+        {"codcom": "H501", "denom_odonimo": "ROMA", "numero_civico": "42", "esponente": "A"},
+    )
+
+    accparz = next(p for op, p in transport.calls if op.endswith("elencoaccessiprogPost"))[
+        "accparz"
+    ]
+    assert accparz == "42A"
+
+
+async def test_real_spec_search_accparz_is_civico_only_without_esponente():
+    # No esponente -> accparz is just the civic (x-concat treats the null as "").
+    spec = load_spec(ARAZZO_SPEC)
+    transport = ScriptedTransport(
+        {
+            "anncsu-consultazione.elencoodonimiprogPost": Response(
+                200, {"data": [{"prognaz": "2000449", "duf": "ROMA"}]}
+            ),
+            "anncsu-consultazione.elencoaccessiprogPost": Response(
+                200, {"data": [{"prognazacc": "1"}]}
+            ),
+        }
+    )
+
+    await WorkflowExecutor(spec, transport).run(
+        "ricerca-indirizzo-completo",
+        {"codcom": "H501", "denom_odonimo": "ROMA", "numero_civico": "42"},
+    )
+
+    accparz = next(p for op, p in transport.calls if op.endswith("elencoaccessiprogPost"))[
+        "accparz"
+    ]
+    assert accparz == "42"
+
+
+async def test_real_spec_ricerca_accessi_per_odonimo_combines_civico_and_esponente():
+    # The by-prognaz search also folds the optional esponente into accparz.
+    spec = load_spec(ARAZZO_SPEC)
+    transport = ScriptedTransport(
+        {
+            "anncsu-consultazione.prognazareaPost": Response(
+                200, {"data": [{"prognaz": "907720", "duf": "AURELIA"}]}
+            ),
+            "anncsu-consultazione.elencoaccessiprogPost": Response(
+                200, {"data": [{"prognazacc": "1"}]}
+            ),
+        }
+    )
+
+    await WorkflowExecutor(spec, transport).run(
+        "ricerca-accessi-per-odonimo",
+        {"codcom": "H501", "prognaz": "907720", "numero_civico": "42", "esponente": "A"},
+    )
+
+    accparz = next(p for op, p in transport.calls if op.endswith("elencoaccessiprogPost"))[
+        "accparz"
+    ]
+    assert accparz == "42A"
+
+
 async def test_real_spec_search_disambiguates_multiple_odonimi():
     # The SDK never silently picks the first match; when the denomination matches
     # more than one odonimo, return all candidates with empty accessi so the caller

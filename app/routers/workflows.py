@@ -343,6 +343,15 @@ _RICERCA_EXAMPLES: dict[str, Any] = {
         "summary": "Search a specific civico",
         "value": {"codcom": "H501", "denom_odonimo": "ROMA", "numero_civico": "42"},
     },
+    "by_civico_and_esponente": {
+        "summary": "Search a civico with an esponente (folded into accparz)",
+        "value": {
+            "codcom": "H501",
+            "denom_odonimo": "ROMA",
+            "numero_civico": "42",
+            "esponente": "A",
+        },
+    },
 }
 
 

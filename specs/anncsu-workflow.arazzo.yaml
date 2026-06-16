@@ -790,7 +790,12 @@ workflows:
           payload:
             req: elencoaccessiprog
             prognaz: $steps.cerca-odonimi.outputs.progressivo_nazionale
-            accparz: $inputs.numero_civico
+            # accparz = civico + esponente opzionale, un unico filtro parziale
+            # (anncsu-sdk); esponente assente -> resta solo il civico (x-concat).
+            accparz:
+              x-concat:
+                - $inputs.numero_civico
+                - $inputs.esponente
         successCriteria:
           - condition: $statusCode == 200
         # ANNCSU risponde 404 quando la ricerca accessi non trova nulla: per una
@@ -859,8 +864,12 @@ workflows:
             prognaz: $inputs.prognaz
             # accparz è richiesto dall'API (senza, l'operazione fallisce, non è un
             # 404): per questo numero_civico è obbligatorio nell'input model, niente
-            # default magico (ADR 0018). Accetta un valore civico o metrico.
-            accparz: $inputs.numero_civico
+            # default magico (ADR 0018). Accetta civico (+ esponente opzionale) o
+            # metrico; civico ed esponente confluiscono in un unico accparz.
+            accparz:
+              x-concat:
+                - $inputs.numero_civico
+                - $inputs.esponente
         successCriteria:
           - condition: $statusCode == 200
         # Nessun accesso per i valori forniti -> 404: accessi vuoti, non un errore.

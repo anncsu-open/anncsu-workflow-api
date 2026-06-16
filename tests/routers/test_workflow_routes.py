@@ -251,6 +251,38 @@ def test_ricerca_route_maps_search_results():
     assert body["accessi"][0]["civico"] == "42"
 
 
+def test_ricerca_route_folds_esponente_into_accparz():
+    # The route accepts an optional esponente; it reaches the wire combined with the
+    # civic in a single accparz value (e.g. civic 42 + esponente A -> "42A").
+    transport = ScriptedTransport(
+        {
+            "anncsu-consultazione.elencoodonimiprogPost": Response(
+                200, {"data": [{"prognaz": "2000449", "duf": "ROMA"}]}
+            ),
+            "anncsu-consultazione.elencoaccessiprogPost": Response(
+                200, {"data": [{"prognazacc": "1370588", "civico": "42", "esp": "A"}]}
+            ),
+        }
+    )
+    executor = WorkflowExecutor(load_spec(ARAZZO_SPEC), transport)
+    with _client_with(WorkflowApplicationService(executor)) as client:
+        response = client.post(
+            "/v1/workflows/ricerca-indirizzo-completo",
+            json={
+                "codcom": "H501",
+                "denom_odonimo": "ROMA",
+                "numero_civico": "42",
+                "esponente": "A",
+            },
+        )
+
+    assert response.status_code == 200
+    accparz = next(p for op, p in transport.calls if op.endswith("elencoaccessiprogPost"))[
+        "accparz"
+    ]
+    assert accparz == "42A"
+
+
 def test_ricerca_accessi_per_odonimo_route_maps_results():
     # By-prognaz search (ADR 0018): resolve the odonimo, then list its accessi.
     responses = {
@@ -793,7 +825,11 @@ def test_all_workflows_declare_named_request_examples():
         "verifica-e-crea-indirizzo-completo": {"minimal", "with_validity_date"},
         "aggiorna-accesso-da-progressivo": {"coordinates_only", "attribute_only", "mixed"},
         "aggiorna-odonimo-da-progressivo": {"locality_only", "with_delibera"},
-        "ricerca-indirizzo-completo": {"by_odonimo", "by_odonimo_and_civico"},
+        "ricerca-indirizzo-completo": {
+            "by_odonimo",
+            "by_odonimo_and_civico",
+            "by_civico_and_esponente",
+        },
         "ricerca-accessi-per-odonimo": {"by_civico", "by_metrico"},
         "sopprimi-odonimo-completo": {"default"},
         "sopprimi-accesso": {"default"},

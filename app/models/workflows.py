@@ -620,6 +620,14 @@ class RicercaIndirizzoInput(BaseModel):
         description="Civico (street number, optional)",
         json_schema_extra={"example": "42"},
     )
+    # Folded into ANNCSU's accparz together with numero_civico (civic + esponente as
+    # one partial filter); ignored when numero_civico is absent.
+    esponente: str | None = Field(
+        None,
+        max_length=15,
+        description="Esponente, combined with numero_civico in the search filter",
+        json_schema_extra={"example": "A"},
+    )
 
 
 class RicercaIndirizzoOutput(BaseModel):
@@ -654,6 +662,13 @@ class RicercaAccessiPerOdonimoInput(BaseModel):
         min_length=1,
         description="Civic or metric value (accparz), partial allowed (required)",
         json_schema_extra={"example": "1"},
+    )
+    # Optional esponente, folded into accparz together with numero_civico.
+    esponente: str | None = Field(
+        None,
+        max_length=15,
+        description="Esponente, combined with numero_civico in the search filter",
+        json_schema_extra={"example": "A"},
     )
 
 

@@ -15,6 +15,13 @@ set -euo pipefail
 SRC="${1:?usage: scripts/refresh-api-examples.sh <bruno-exported-docs.html>}"
 DEST="docs/api/examples/collection.html"
 
+# Validate before the redirect: '> "$DEST"' truncates the file even if sed then
+# fails, so a missing SRC must abort *before* we touch the published page.
+[ -f "$SRC" ] || {
+    echo "error: source export '$SRC' not found" >&2
+    exit 1
+}
+
 sed -e 's#https://cdn.opencollection.com/docs.css#assets/opencollection.css#g' \
     -e 's#https://cdn.opencollection.com/docs.js#assets/opencollection.js#g' \
     "$SRC" >"$DEST"

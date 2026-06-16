@@ -152,3 +152,24 @@ def test_step_failure_is_logged_as_warning():
 
     assert response.status_code == 422
     assert any(e.get("log_level") == "warning" for e in logs)
+
+
+def test_step_failure_exports_the_upstream_reason():
+    # The Problem must carry the real upstream reason, not just "step X failed":
+    # the failing step's status + body are surfaced (detail + an `upstream` member).
+    exc = StepFailedError(
+        "step 'aggiorna-accesso' failed and no onFailure action matched",
+        status_code=200,
+        body={"esito": "23", "messaggio": "accesso inesistente"},
+    )
+    with _override_service(exc) as app:
+        response = TestClient(app).post(
+            "/v1/workflows/ricerca-indirizzo-completo",
+            json={"codcom": "H501", "denom_odonimo": "ROMA"},
+        )
+
+    assert response.status_code == 422
+    body = response.json()
+    assert "accesso inesistente" in body["detail"]  # human-readable reason
+    assert body["upstream"]["status"] == 200  # machine-readable upstream
+    assert body["upstream"]["body"]["messaggio"] == "accesso inesistente"

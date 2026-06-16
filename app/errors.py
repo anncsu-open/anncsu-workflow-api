@@ -38,10 +38,19 @@ class Problem(BaseModel):
     errors: list[Any] | None = Field(
         None, description="Validation errors (extension member), when applicable"
     )
+    upstream: dict[str, Any] | None = Field(
+        None,
+        description="The failing upstream ANNCSU response (status + body), when a step failed",
+    )
 
 
 def _problem(
-    status: int, title: str, detail: str, *, errors: list[Any] | None = None
+    status: int,
+    title: str,
+    detail: str,
+    *,
+    errors: list[Any] | None = None,
+    upstream: dict[str, Any] | None = None,
 ) -> JSONResponse:
     problem = Problem(
         title=title,
@@ -49,12 +58,30 @@ def _problem(
         detail=detail,
         request_id=current_request_id(),
         errors=errors,
+        upstream=upstream,
     )
     return JSONResponse(
         status_code=status,
         media_type=PROBLEM_CONTENT_TYPE,
         content=problem.model_dump(exclude_none=True),
     )
+
+
+def _summarize_upstream(body: Any) -> str | None:
+    """Pull a human-readable reason from an ANNCSU error body, if there is one.
+
+    ANNCSU surfaces the reason under different keys: ``messaggio`` (gestione ops),
+    ``detail``/``title`` (problem+json on 4xx). Returns ``None`` when the body has
+    no obvious message (the raw body is still attached as the ``upstream`` member).
+    """
+    if isinstance(body, dict):
+        for key in ("detail", "messaggio", "message", "title"):
+            value = body.get(key)
+            if value:
+                return str(value)
+    elif isinstance(body, str) and body.strip():
+        return body
+    return None
 
 
 def register_exception_handlers(app: FastAPI) -> None:
@@ -77,8 +104,22 @@ def register_exception_handlers(app: FastAPI) -> None:
 
     @app.exception_handler(StepFailedError)
     async def step_failed(request: Request, exc: StepFailedError) -> JSONResponse:
-        _log.warning("workflow.step_failed", path=request.url.path, detail=str(exc))
-        return _problem(422, "Workflow step failed", str(exc))
+        _log.warning(
+            "workflow.step_failed",
+            path=request.url.path,
+            detail=str(exc),
+            upstream_status=exc.status_code,
+        )
+        # Export the real upstream reason, not just "step X failed": enrich the
+        # detail with the ANNCSU message and attach the raw upstream response.
+        detail = str(exc)
+        reason = _summarize_upstream(exc.body)
+        if reason:
+            detail = f"{detail}: {reason}"
+        upstream = (
+            {"status": exc.status_code, "body": exc.body} if exc.status_code is not None else None
+        )
+        return _problem(422, "Workflow step failed", detail, upstream=upstream)
 
     @app.exception_handler(TransportError)
     async def transport_failed(request: Request, exc: TransportError) -> JSONResponse:

@@ -35,7 +35,16 @@ class WorkflowError(Exception):
 
 
 class StepFailedError(WorkflowError):
-    """A step failed its ``successCriteria`` and no ``onFailure`` action matched."""
+    """A step failed its ``successCriteria`` and no ``onFailure`` action matched.
+
+    Carries the failing step's upstream ``status_code`` and ``body`` so the error
+    handler can export the real reason to the caller, not just a generic message.
+    """
+
+    def __init__(self, message: str, *, status_code: int | None = None, body: Any = None) -> None:
+        super().__init__(message)
+        self.status_code = status_code
+        self.body = body
 
 
 class UnknownStepError(WorkflowError):
@@ -97,7 +106,9 @@ class WorkflowExecutor:
                         response_body=ctx.response.body if ctx.response else None,
                     )
                     raise StepFailedError(
-                        f"step {step.step_id!r} failed and no onFailure action matched"
+                        f"step {step.step_id!r} failed and no onFailure action matched",
+                        status_code=ctx.response.status_code if ctx.response else None,
+                        body=ctx.response.body if ctx.response else None,
                     )
                 position += 1
                 continue

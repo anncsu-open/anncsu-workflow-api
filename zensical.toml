@@ -48,6 +48,7 @@ nav = [
   { "Home" = "index.md" },
   { "Arazzo workflows" = "workflows.md" },
   { "API reference" = "api/index.md" },
+  { "API examples" = "api/examples/index.md" },
 ]
 
 # With the "extra_css" option you can add your own CSS styling to customize

@@ -32,12 +32,22 @@ from app.ports.transport import Response, TransportError
 
 _log = get_logger("app.transport")
 
+# A dispatch holds the per-source lock for its whole duration, so it MUST be
+# time-bounded: a stuck PDND call (token refresh, voucher fetch, or the operation
+# itself) would otherwise hold the lock forever and block every later call to that
+# source. The bound is generous (the cold first call chains a voucher fetch + the
+# operation, each with the SDK's own 5s HTTP timeout) but finite.
+DISPATCH_TIMEOUT_SECONDS = 30.0
+
 
 class AnncsuSdkTransport:
     """Executes Arazzo operations through the typed anncsu-sdk clients."""
 
-    def __init__(self, manager: AnncsuClientManager) -> None:
+    def __init__(
+        self, manager: AnncsuClientManager, *, timeout: float = DISPATCH_TIMEOUT_SECONDS
+    ) -> None:
         self._manager = manager
+        self._timeout = timeout
 
     async def dispatch(
         self,
@@ -56,7 +66,15 @@ class AnncsuSdkTransport:
                 # Resolve the client inside the thread: building it lazily fetches a
                 # voucher to discover the server URL (ADR 0017), a blocking call that
                 # must not run on the event loop, and is serialized by the lock.
-                model = await asyncio.to_thread(self._invoke, operation, kwargs)
+                # Bounded by a timeout so a hung call cannot hold the lock forever
+                # (the worker thread may outlive the await, but the lock is released).
+                model = await asyncio.wait_for(
+                    asyncio.to_thread(self._invoke, operation, kwargs), self._timeout
+                )
+            except TimeoutError as error:
+                raise TransportError(
+                    f"call for {operation_id!r} timed out after {self._timeout}s"
+                ) from error
             except AnncsuBaseError as error:
                 response = _response_from_error(error)
                 _log.debug(

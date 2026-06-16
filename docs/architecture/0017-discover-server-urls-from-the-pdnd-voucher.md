@@ -71,6 +71,14 @@ Add `verify_ssl: bool = True`. The SDK clients are built with
   transport resolves the client inside `asyncio.to_thread`, so the blocking call
   never runs on the event loop, and two concurrent dispatches to the same source
   build the client once (the second waits on the lock and reuses the cache).
+- **The dispatch is time-bounded so the lock cannot be held forever.** Because the
+  whole dispatch (voucher fetch + the SDK call) holds the per-source lock, a stuck
+  upstream call would otherwise block every later request to that source — observed
+  on collaudo, where one hung consultazione call left the source unresponsive while
+  `/health` still answered. `AnncsuSdkTransport` wraps the call in
+  `asyncio.wait_for(..., DISPATCH_TIMEOUT_SECONDS)`: on timeout it raises
+  `TransportError` and releases the lock (the worker thread may outlive the await,
+  but the source stays usable). The SDK's own 5s HTTP timeout is the inner bound.
 - **Failures surface as 502/503, not a startup crash.** A source whose voucher or
   audience cannot be obtained fails that dispatch (502) and is reported not-ready
   by `/ready` (503); startup itself does no PDND I/O.

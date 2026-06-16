@@ -218,6 +218,34 @@ async def test_dispatches_to_the_same_api_are_serialized():
     assert not overlapped
 
 
+async def test_a_hanging_dispatch_is_bounded_and_releases_the_lock():
+    """Resilience: a hung SDK call must not hold the per-source lock forever.
+
+    The dispatch is time-bounded; a call that does not return in time raises
+    TransportError and releases the per-source lock, so the source stays usable for
+    the next dispatch (otherwise one stuck PDND call blocks the whole source).
+    """
+    release = threading.Event()
+    seen = {"n": 0}
+
+    def method(**kwargs):
+        seen["n"] += 1
+        if seen["n"] == 1:
+            release.wait(timeout=2)  # first call hangs past the dispatch timeout
+        return pa_models.EsisteOdonimoPostResponse(data=False)
+
+    transport = AnncsuSdkTransport(AnncsuClientManager(clients=_consultazione(method)), timeout=0.1)
+
+    with pytest.raises(TransportError):
+        await transport.dispatch(operation_id=ESISTE_ODONIMO, payload={}, content_type=None)
+
+    # The lock was released despite the first call still running in its thread:
+    # a second dispatch on the same source proceeds instead of blocking.
+    response = await transport.dispatch(operation_id=ESISTE_ODONIMO, payload={}, content_type=None)
+    assert response.status_code == 200
+    release.set()
+
+
 async def test_dispatches_to_different_apis_can_overlap():
     """The lock is per-API, not global: two sources may be in flight at once."""
     barrier = threading.Barrier(2, timeout=2)

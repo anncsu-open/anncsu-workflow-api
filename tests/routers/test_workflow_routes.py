@@ -1,4 +1,4 @@
-"""Tests for the workflow execution routes: ``POST /v1/workflows/<workflowId>``.
+"""Tests for the workflow execution routes: ``POST /anncsu/v1/workflows/<workflowId>``.
 
 One typed route per public Arazzo workflow (the reusable ``sopprimi-accesso``
 sub-workflow stays internal). The route layer validates input with the Phase A
@@ -67,7 +67,7 @@ def test_crea_indirizzo_route_returns_coalesced_progressivi():
     executor = WorkflowExecutor(load_spec(ARAZZO_SPEC), transport)
     with _client_with(WorkflowApplicationService(executor)) as client:
         response = client.post(
-            "/v1/workflows/verifica-e-crea-indirizzo-completo",
+            "/anncsu/v1/workflows/verifica-e-crea-indirizzo-completo",
             json={
                 "codcom": "H501",
                 "denom_odonimo": "ROMA",
@@ -95,8 +95,13 @@ def test_crea_indirizzo_requires_the_sezione_censimento():
     the contract requires it up front instead."""
     with _client_scripted({}) as client:
         response = client.post(
-            "/v1/workflows/verifica-e-crea-indirizzo-completo",
-            json={"codcom": "H501", "denom_odonimo": "ROMA", "dug": "VIA", "numero_civico": "42"},
+            "/anncsu/v1/workflows/verifica-e-crea-indirizzo-completo",
+            json={
+                "codcom": "H501",
+                "denom_odonimo": "ROMA",
+                "dug": "VIA",
+                "numero_civico": "42",
+            },
         )
 
     assert response.status_code == 422
@@ -127,7 +132,7 @@ def test_crea_indirizzo_civic_sends_full_accesso_and_odonimo_fields():
     executor = WorkflowExecutor(load_spec(ARAZZO_SPEC), transport)
     with _client_with(WorkflowApplicationService(executor)) as client:
         response = client.post(
-            "/v1/workflows/verifica-e-crea-indirizzo-completo",
+            "/anncsu/v1/workflows/verifica-e-crea-indirizzo-completo",
             json={
                 "codcom": "H501",
                 "denom_odonimo": "ROMA",
@@ -169,7 +174,7 @@ def test_crea_indirizzo_metric_skips_the_civic_existence_check():
     executor = WorkflowExecutor(load_spec(ARAZZO_SPEC), transport)
     with _client_with(WorkflowApplicationService(executor)) as client:
         response = client.post(
-            "/v1/workflows/verifica-e-crea-indirizzo-completo",
+            "/anncsu/v1/workflows/verifica-e-crea-indirizzo-completo",
             json={
                 "codcom": "H501",
                 "denom_odonimo": "ROMA",
@@ -207,7 +212,7 @@ def test_crea_indirizzo_metric_with_existing_odonimo_forks_from_cerca():
     executor = WorkflowExecutor(load_spec(ARAZZO_SPEC), transport)
     with _client_with(WorkflowApplicationService(executor)) as client:
         response = client.post(
-            "/v1/workflows/verifica-e-crea-indirizzo-completo",
+            "/anncsu/v1/workflows/verifica-e-crea-indirizzo-completo",
             json={
                 "codcom": "H501",
                 "denom_odonimo": "ROMA",
@@ -238,8 +243,12 @@ def test_ricerca_route_maps_search_results():
     }
     with _client_scripted(responses) as client:
         response = client.post(
-            "/v1/workflows/ricerca-indirizzo-completo",
-            json={"codcom": "H501", "denom_odonimo": "ROMA", "numero_civico": "42"},
+            "/anncsu/v1/workflows/ricerca-indirizzo-completo",
+            json={
+                "codcom": "H501",
+                "denom_odonimo": "ROMA",
+                "numero_civico": "42",
+            },
         )
 
     assert response.status_code == 200
@@ -261,14 +270,15 @@ def test_ricerca_route_folds_esponente_into_accparz():
                 200, {"data": [{"prognaz": "2000449", "duf": "ROMA"}]}
             ),
             "anncsu-consultazione.elencoaccessiprogPost": Response(
-                200, {"data": [{"prognazacc": "1370588", "civico": "42", "esp": "A"}]}
+                200,
+                {"data": [{"prognazacc": "1370588", "civico": "42", "esp": "A"}]},
             ),
         }
     )
     executor = WorkflowExecutor(load_spec(ARAZZO_SPEC), transport)
     with _client_with(WorkflowApplicationService(executor)) as client:
         response = client.post(
-            "/v1/workflows/ricerca-indirizzo-completo",
+            "/anncsu/v1/workflows/ricerca-indirizzo-completo",
             json={
                 "codcom": "H501",
                 "denom_odonimo": "ROMA",
@@ -282,6 +292,35 @@ def test_ricerca_route_folds_esponente_into_accparz():
         "accparz"
     ]
     assert accparz == "42/A"
+
+
+def test_verifica_e_crea_odonimo_route_creates_when_absent():
+    # Odonimo-only create (ADR 0019/0020): esisteOdonimo (full name) says no -> create.
+    transport = ScriptedTransport(
+        {
+            "anncsu-consultazione.esisteOdonimoPost": Response(200, {"data": False}),
+            "anncsu-odonimi.gestioneAnncsuOdonimiPdnd": Response(
+                200, {"esito": "0", "dati": [{"progr_nazionale": "2000449"}]}
+            ),
+        }
+    )
+    executor = WorkflowExecutor(load_spec(ARAZZO_SPEC), transport)
+    with _client_with(WorkflowApplicationService(executor)) as client:
+        response = client.post(
+            "/anncsu/v1/workflows/verifica-e-crea-odonimo-completo",
+            json={
+                "codcom": "H501",
+                "denom_odonimo": "ROMA NUOVA",
+                "dug": "VIA",
+            },
+        )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["progressivo_nazionale_odonimo"] == "2000449"
+    assert body["progressivo_civico"] is None  # odonimo-only: no accesso
+    esiste = next(p for op, p in transport.calls if op.endswith("esisteOdonimoPost"))
+    assert esiste["denom"] == "VIA ROMA NUOVA"
 
 
 def test_crea_accesso_per_odonimo_route_creates_when_absent():
@@ -303,7 +342,7 @@ def test_crea_accesso_per_odonimo_route_creates_when_absent():
     executor = WorkflowExecutor(load_spec(ARAZZO_SPEC), transport)
     with _client_with(WorkflowApplicationService(executor)) as client:
         response = client.post(
-            "/v1/workflows/crea-accesso-per-odonimo",
+            "/anncsu/v1/workflows/crea-accesso-per-odonimo",
             json={
                 "codcom": "H501",
                 "prognaz": "907720",
@@ -327,8 +366,12 @@ def test_crea_accesso_per_odonimo_route_requires_civico_xor_metrico():
     # Exactly one of numero_civico / metrico (ADR 0016/0020): neither -> 422.
     with _client_scripted({}) as client:
         response = client.post(
-            "/v1/workflows/crea-accesso-per-odonimo",
-            json={"codcom": "H501", "prognaz": "907720", "sezione_censimento": "580911010001"},
+            "/anncsu/v1/workflows/crea-accesso-per-odonimo",
+            json={
+                "codcom": "H501",
+                "prognaz": "907720",
+                "sezione_censimento": "580911010001",
+            },
         )
 
     assert response.status_code == 422
@@ -339,15 +382,17 @@ def test_ricerca_accessi_per_odonimo_route_maps_results():
     # By-prognaz search (ADR 0018): resolve the odonimo, then list its accessi.
     responses = {
         "anncsu-consultazione.prognazareaPost": Response(
-            200, {"data": [{"prognaz": "907720", "dug": "VIA", "duf": "AURELIA"}]}
+            200,
+            {"data": [{"prognaz": "907720", "dug": "VIA", "duf": "AURELIA"}]},
         ),
         "anncsu-consultazione.elencoaccessiprogPost": Response(
-            200, {"data": [{"prognazacc": "5400478", "civico": "1", "coordX": "12.4"}]}
+            200,
+            {"data": [{"prognazacc": "5400478", "civico": "1", "coordX": "12.4"}]},
         ),
     }
     with _client_scripted(responses) as client:
         response = client.post(
-            "/v1/workflows/ricerca-accessi-per-odonimo",
+            "/anncsu/v1/workflows/ricerca-accessi-per-odonimo",
             json={"codcom": "H501", "prognaz": "907720", "numero_civico": "1"},
         )
 
@@ -365,7 +410,7 @@ def test_ricerca_accessi_per_odonimo_requires_numero_civico():
     # to a magic value (ADR 0018, option B): no civic/metric -> 422 at validation.
     with _client_scripted({}) as client:
         response = client.post(
-            "/v1/workflows/ricerca-accessi-per-odonimo",
+            "/anncsu/v1/workflows/ricerca-accessi-per-odonimo",
             json={"codcom": "H501", "prognaz": "907720"},
         )
 
@@ -378,7 +423,7 @@ def test_denomination_based_coordinate_workflow_is_removed():
     """ADR 0011: the non-deterministic by-denomination coordinate write is gone."""
     with _client_scripted({}) as client:
         response = client.post(
-            "/v1/workflows/aggiorna-coordinate-accesso",
+            "/anncsu/v1/workflows/aggiorna-coordinate-accesso",
             json={
                 "codcom": "H501",
                 "denom_odonimo": "ROMA",
@@ -423,14 +468,14 @@ def _accesso_update_transport(read=None) -> ScriptedTransport:
 def _run_accesso_update(transport, payload):
     executor = WorkflowExecutor(load_spec(ARAZZO_SPEC), transport)
     with _client_with(WorkflowApplicationService(executor)) as client:
-        return client.post("/v1/workflows/aggiorna-accesso-da-progressivo", json=payload)
+        return client.post("/anncsu/v1/workflows/aggiorna-accesso-da-progressivo", json=payload)
 
 
 def test_coordinate_only_by_progressive_workflow_is_removed():
     """ADR 0012: coordinate updates are unified into aggiorna-accesso-da-progressivo."""
     with _client_scripted({}) as client:
         response = client.post(
-            "/v1/workflows/aggiorna-coordinate-da-progressivo-accesso",
+            "/anncsu/v1/workflows/aggiorna-coordinate-da-progressivo-accesso",
             json={"codcom": "H501", "prognazacc": "1370588"},
         )
     assert response.status_code == 404
@@ -455,7 +500,10 @@ def test_aggiorna_accesso_reads_then_writes():
         "anncsu-consultazione.prognazaccPost",
         "anncsu-accessi.gestioneAnncsuPdnd",
     ]
-    assert transport.calls[0][1] == {"req": "prognazacc", "prognazacc": "1370588"}
+    assert transport.calls[0][1] == {
+        "req": "prognazacc",
+        "prognazacc": "1370588",
+    }
 
 
 def test_coordinate_only_update_preserves_attributes_from_the_read():
@@ -576,7 +624,7 @@ def test_aggiorna_accesso_requires_the_sezione_censimento():
     server-side otherwise): the contract rejects its absence up front."""
     with _client_scripted({}) as client:
         response = client.post(
-            "/v1/workflows/aggiorna-accesso-da-progressivo",
+            "/anncsu/v1/workflows/aggiorna-accesso-da-progressivo",
             json={
                 "codcom": "H501",
                 "prognaz": "2000449",
@@ -595,7 +643,7 @@ def test_aggiorna_accesso_requires_the_sezione_censimento():
 def test_aggiorna_accesso_route_rejects_the_numero_metrico_mutex():
     with _client_scripted({}) as client:
         response = client.post(
-            "/v1/workflows/aggiorna-accesso-da-progressivo",
+            "/anncsu/v1/workflows/aggiorna-accesso-da-progressivo",
             json={
                 "codcom": "H501",
                 "prognaz": "2000449",
@@ -619,11 +667,15 @@ def test_sopprimi_odonimo_route_reports_suppressed_accessi():
             200, {"data": [{"prognazacc": "a1"}, {"prognazacc": "a2"}]}
         ),
         "anncsu-accessi.gestioneAnncsuPdnd": Response(200, {"esito": "0"}),
-        "anncsu-odonimi.gestioneAnncsuOdonimiPdnd": Response(200, {"esito": "0"}),
+        # Real odonimo S response: 200 with idRichiesta + dati, no `esito` (contract).
+        "anncsu-odonimi.gestioneAnncsuOdonimiPdnd": Response(
+            200,
+            {"idRichiesta": "317922", "dati": [{"progr_nazionale": "2000449"}]},
+        ),
     }
     with _client_scripted(responses) as client:
         response = client.post(
-            "/v1/workflows/sopprimi-odonimo-completo",
+            "/anncsu/v1/workflows/sopprimi-odonimo-completo",
             json={
                 "codcom": "H501",
                 "denom_odonimo": "ROMA",
@@ -646,8 +698,13 @@ def test_step_failure_maps_to_a_422_problem():
     }
     with _client_scripted(responses) as client:
         response = client.post(
-            "/v1/workflows/verifica-e-crea-indirizzo-completo",
-            json={"codcom": "H501", "denom_odonimo": "ROMA", "dug": "VIA", "numero_civico": "42"},
+            "/anncsu/v1/workflows/verifica-e-crea-indirizzo-completo",
+            json={
+                "codcom": "H501",
+                "denom_odonimo": "ROMA",
+                "dug": "VIA",
+                "numero_civico": "42",
+            },
         )
 
     assert response.status_code == 422
@@ -661,7 +718,7 @@ def test_step_failure_maps_to_a_422_problem():
 def test_transport_error_maps_to_a_502_problem():
     with _client_with(_RaisingService(TransportError("token endpoint unreachable"))) as client:
         response = client.post(
-            "/v1/workflows/ricerca-indirizzo-completo",
+            "/anncsu/v1/workflows/ricerca-indirizzo-completo",
             json={"codcom": "H501", "denom_odonimo": "ROMA"},
         )
 
@@ -675,7 +732,7 @@ def test_transport_error_maps_to_a_502_problem():
 def test_workflow_error_maps_to_a_500_problem():
     with _client_with(_RaisingService(WorkflowError("goto loop detected"))) as client:
         response = client.post(
-            "/v1/workflows/ricerca-indirizzo-completo",
+            "/anncsu/v1/workflows/ricerca-indirizzo-completo",
             json={"codcom": "H501", "denom_odonimo": "ROMA"},
         )
 
@@ -688,7 +745,7 @@ def test_step_failed_is_a_workflow_error_but_keeps_its_own_status():
     """StepFailedError subclasses WorkflowError; the more specific handler must win."""
     with _client_with(_RaisingService(StepFailedError("step failed"))) as client:
         response = client.post(
-            "/v1/workflows/ricerca-indirizzo-completo",
+            "/anncsu/v1/workflows/ricerca-indirizzo-completo",
             json={"codcom": "H501", "denom_odonimo": "ROMA"},
         )
 
@@ -698,7 +755,7 @@ def test_step_failed_is_a_workflow_error_but_keeps_its_own_status():
 def test_invalid_input_returns_a_422_problem():
     with _client_scripted({}) as client:
         response = client.post(
-            "/v1/workflows/ricerca-indirizzo-completo",
+            "/anncsu/v1/workflows/ricerca-indirizzo-completo",
             json={"denom_odonimo": "ROMA"},  # missing required codcom
         )
 
@@ -717,7 +774,7 @@ def test_sopprimi_accesso_route_suppresses_one_accesso():
     executor = WorkflowExecutor(load_spec(ARAZZO_SPEC), transport)
     with _client_with(WorkflowApplicationService(executor)) as client:
         response = client.post(
-            "/v1/workflows/sopprimi-accesso",
+            "/anncsu/v1/workflows/sopprimi-accesso",
             json={
                 "codcom": "H501",
                 "prognaz": "2000449",
@@ -740,8 +797,12 @@ def test_sopprimi_accesso_route_suppresses_one_accesso():
 def test_sopprimi_accesso_requires_the_suppression_date():
     with _client_scripted({}) as client:
         response = client.post(
-            "/v1/workflows/sopprimi-accesso",
-            json={"codcom": "H501", "prognaz": "2000449", "prognazacc": "1370588"},
+            "/anncsu/v1/workflows/sopprimi-accesso",
+            json={
+                "codcom": "H501",
+                "prognaz": "2000449",
+                "prognazacc": "1370588",
+            },
         )
     assert response.status_code == 422
     assert response.headers["content-type"] == "application/problem+json"
@@ -776,7 +837,7 @@ def _odonimo_update_transport(read=None) -> ScriptedTransport:
 def _run_odonimo_update(transport, payload):
     executor = WorkflowExecutor(load_spec(ARAZZO_SPEC), transport)
     with _client_with(WorkflowApplicationService(executor)) as client:
-        return client.post("/v1/workflows/aggiorna-odonimo-da-progressivo", json=payload)
+        return client.post("/anncsu/v1/workflows/aggiorna-odonimo-da-progressivo", json=payload)
 
 
 _ODONIMO_BASE = {
@@ -817,7 +878,7 @@ def test_odonimo_update_preserves_fetched_fields_and_overrides_input():
 def test_odonimo_update_requires_denom_delibera():
     with _client_scripted({}) as client:
         response = client.post(
-            "/v1/workflows/aggiorna-odonimo-da-progressivo",
+            "/anncsu/v1/workflows/aggiorna-odonimo-da-progressivo",
             json={"codcom": "H501", "prognaz": "2000449"},
         )
     assert response.status_code == 422
@@ -835,7 +896,7 @@ def test_update_of_a_missing_odonimo_maps_to_422():
 
 def test_workflow_routes_are_published_in_the_v1_openapi():
     with _client_scripted({}) as client:
-        document = client.get("/v1/openapi.json").json()
+        document = client.get("/anncsu/v1/openapi.json").json()
 
     for workflow_id in (
         "verifica-e-crea-indirizzo-completo",
@@ -846,14 +907,15 @@ def test_workflow_routes_are_published_in_the_v1_openapi():
         "ricerca-indirizzo-completo",
         "ricerca-accessi-per-odonimo",
         "crea-accesso-per-odonimo",
+        "verifica-e-crea-odonimo-completo",
     ):
-        assert f"/v1/workflows/{workflow_id}" in document["paths"]
+        assert f"/anncsu/v1/workflows/{workflow_id}" in document["paths"]
 
 
 def test_workflow_routes_declare_their_problem_responses():
     """The published contract documents the RFC 7807 failures (ADR 0008)."""
     with _client_scripted({}) as client:
-        document = client.get("/v1/openapi.json").json()
+        document = client.get("/anncsu/v1/openapi.json").json()
 
     for workflow_id in (
         "verifica-e-crea-indirizzo-completo",
@@ -864,8 +926,9 @@ def test_workflow_routes_declare_their_problem_responses():
         "ricerca-indirizzo-completo",
         "ricerca-accessi-per-odonimo",
         "crea-accesso-per-odonimo",
+        "verifica-e-crea-odonimo-completo",
     ):
-        responses = document["paths"][f"/v1/workflows/{workflow_id}"]["post"]["responses"]
+        responses = document["paths"][f"/anncsu/v1/workflows/{workflow_id}"]["post"]["responses"]
         for status in ("422", "500", "502"):
             assert "application/problem+json" in responses[status]["content"], (
                 f"{workflow_id} does not declare a problem+json {status} response"
@@ -877,7 +940,11 @@ def test_all_workflows_declare_named_request_examples():
     fields cover the with/without variations (not just one minimal example)."""
     expected = {
         "verifica-e-crea-indirizzo-completo": {"minimal", "with_validity_date"},
-        "aggiorna-accesso-da-progressivo": {"coordinates_only", "attribute_only", "mixed"},
+        "aggiorna-accesso-da-progressivo": {
+            "coordinates_only",
+            "attribute_only",
+            "mixed",
+        },
         "aggiorna-odonimo-da-progressivo": {"locality_only", "with_delibera"},
         "ricerca-indirizzo-completo": {
             "by_odonimo",
@@ -887,14 +954,15 @@ def test_all_workflows_declare_named_request_examples():
         },
         "ricerca-accessi-per-odonimo": {"by_civico", "by_metrico"},
         "crea-accesso-per-odonimo": {"civic", "civic_with_esponente", "metric"},
+        "verifica-e-crea-odonimo-completo": {"minimal", "with_delibera"},
         "sopprimi-odonimo-completo": {"default"},
         "sopprimi-accesso": {"default"},
     }
     with _client_scripted({}) as client:
-        document = client.get("/v1/openapi.json").json()
+        document = client.get("/anncsu/v1/openapi.json").json()
 
     for workflow_id, names in expected.items():
-        content = document["paths"][f"/v1/workflows/{workflow_id}"]["post"]["requestBody"][
+        content = document["paths"][f"/anncsu/v1/workflows/{workflow_id}"]["post"]["requestBody"][
             "content"
         ]["application/json"]
         examples = set(content.get("examples", {}))
@@ -904,7 +972,7 @@ def test_all_workflows_declare_named_request_examples():
 def test_the_visualizer_page_is_not_part_of_the_contract():
     """/workflows/ui is an HTML page for humans, not API surface."""
     with _client_scripted({}) as client:
-        document = client.get("/v1/openapi.json").json()
+        document = client.get("/anncsu/v1/openapi.json").json()
 
     assert "/workflows/ui" not in document["paths"]
     assert "/health" in document["paths"]  # health stays documented

@@ -306,6 +306,127 @@ workflows:
           - $steps.cerca-accesso.outputs.progressivo_civico
           - $steps.crea-accesso.outputs.progressivo_civico
 
+  - workflowId: verifica-e-crea-odonimo-completo
+    summary: Verifica e crea il solo odonimo (per denominazione)
+    description: |
+      Crea il solo odonimo, previa verifica della sua non esistenza. esisteOdonimo
+      è interrogato col nome completo DUG + " " + DENOMUFF (ADR 0019): se non esiste
+      lo crea (tipo_operazione I); se esiste ne ritorna il progressivo nazionale
+      (cerca-odonimo, rifiutando le denominazioni ambigue, ADR 0019). Non crea
+      accessi: per aggiungerne uno usare crea-accesso-per-odonimo.
+    inputs:
+      type: object
+      properties:
+        codcom:
+          type: string
+          description: Codice Belfiore del comune
+        denom_odonimo:
+          type: string
+          description: Denominazione dell'odonimo
+        dug:
+          type: string
+          description: DUG (denominazione urbanistica generica)
+        denom_localita:
+          type: string
+        denom_in_lingua_1:
+          type: string
+        denom_in_lingua_2:
+          type: string
+        codice_comunale:
+          type: string
+        denom_delibera:
+          type: string
+        provvedimento:
+          type: object
+        aut_prefettura:
+          type: object
+        data_validita:
+          type: string
+          description: Data di validità amministrativa (DD/MM/YYYY)
+    steps:
+      # 1) Verifica esistenza odonimo (nome completo). Esiste -> goto cerca-odonimo,
+      #    altrimenti fall-through verso crea-odonimo.
+      - stepId: verifica-odonimo
+        description: Verifica se l'odonimo esiste in ANNCSU
+        operationId: anncsu-consultazione.esisteOdonimoPost
+        requestBody:
+          contentType: application/json
+          payload:
+            req: esisteodonimo
+            codcom: $inputs.codcom
+            denom:
+              x-concat:
+                - $inputs.dug
+                - " "
+                - $inputs.denom_odonimo
+        successCriteria:
+          - condition: $statusCode == 200
+        onSuccess:
+          - name: odonimo-esiste
+            type: goto
+            stepId: cerca-odonimo
+            criteria:
+              - condition: $response.body.data == true
+        outputs:
+          odonimo_esistente: $response.body.data
+
+      # 2) Ramo "crea": l'odonimo non esiste -> crealo e termina.
+      - stepId: crea-odonimo
+        description: Crea l'odonimo
+        operationId: anncsu-odonimi.gestioneAnncsuOdonimiPdnd
+        requestBody:
+          contentType: application/json
+          payload:
+            richiesta:
+              codcom: $inputs.codcom
+              tipo_operazione: I
+              dug: $inputs.dug
+              denom_localita: $inputs.denom_localita
+              denom_in_lingua_1: $inputs.denom_in_lingua_1
+              denom_in_lingua_2: $inputs.denom_in_lingua_2
+              codice_comunale: $inputs.codice_comunale
+              denom_delibera: $inputs.denom_delibera
+              provvedimento: $inputs.provvedimento
+              aut_prefettura: $inputs.aut_prefettura
+              data_valid_amm: $inputs.data_validita
+        successCriteria:
+          - condition: $statusCode == 200
+          - condition: $response.body.esito == "0"
+        onSuccess:
+          - name: fine
+            type: end
+        outputs:
+          progressivo_nazionale: $response.body.dati[0].progr_nazionale
+
+      # 3) Ramo "cerca": l'odonimo esiste -> ritorna il suo progressivo (rifiuta
+      #    l'ambiguo, ADR 0019) e termina.
+      - stepId: cerca-odonimo
+        description: Recupera il progressivo nazionale dell'odonimo esistente
+        operationId: anncsu-consultazione.elencoodonimiprogPost
+        requestBody:
+          contentType: application/json
+          payload:
+            req: elencoodonimiprog
+            codcom: $inputs.codcom
+            denomparz: $inputs.denom_odonimo
+        successCriteria:
+          - condition: $statusCode == 200
+          - condition: $response.body.data.length == 1
+        onSuccess:
+          - name: fine
+            type: end
+        outputs:
+          progressivo_nazionale: $response.body.data[0].prognaz
+
+    outputs:
+      progressivo_nazionale_odonimo: $steps.crea-odonimo.outputs.progressivo_nazionale
+
+    x-executor:
+      coalesce:
+        progressivo_nazionale_odonimo:
+          - $steps.cerca-odonimo.outputs.progressivo_nazionale
+          - $steps.crea-odonimo.outputs.progressivo_nazionale
+
   - workflowId: crea-accesso-per-odonimo
     summary: Crea un accesso su un odonimo esistente (per progressivo nazionale)
     description: |
@@ -776,6 +897,15 @@ workflows:
             accparz: ""
         successCriteria:
           - condition: $statusCode == 200
+        # ANNCSU risponde 404 quando l'odonimo non ha accessi: come per le ricerche
+        # (ADR 0014) è "zero risultati", non un errore. Lista vuota -> il foreach non
+        # itera nulla e si procede direttamente a sopprimere l'odonimo.
+        onFailure:
+          - name: nessun-accesso-residuo
+            type: goto
+            stepId: sopprimi-odonimo
+            criteria:
+              - condition: $statusCode == 404
         outputs:
           lista_accessi: $response.body.data
 
@@ -793,13 +923,21 @@ workflows:
               progr_nazionale: $steps.cerca-odonimo.outputs.progressivo_nazionale
               data_valid_amm: $inputs.data_soppressione
         successCriteria:
+          # CONTRATTO (osservato su collaudo): l'operazione S sull'odonimo riporta il
+          # successo come HTTP 200 (RispostaOperazione: idRichiesta + dati, con
+          # data_fine_valid_amm valorizzata) e — a differenza dell'operazione I — NON
+          # restituisce `esito`. Gli errori sono 4xx (RispostaErrore), quindi il 200 è
+          # di per sé il segnale di successo. Vedi tests/executor/test_foreach.py.
           - condition: $statusCode == 200
-          - condition: $response.body.esito == "0"
         onFailure:
+          # Accessi residui: nel flusso normale non accade (gli accessi sono soppressi
+          # prima dal foreach). La forma esatta dell'errore residuo NON è ancora stata
+          # osservata su collaudo: la OpenAPI documenta RispostaErrore.codice == "23",
+          # ma non è confermata live. Da pinnare con un fallimento controllato.
           - name: accessi-residui
             type: end
             criteria:
-              - condition: $response.body.esito == "23"
+              - condition: $response.body.codice == "23"
         outputs:
           risultato_soppressione: $response.body
 

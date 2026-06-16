@@ -555,6 +555,76 @@ async def test_real_spec_crea_accesso_per_odonimo_refuses_ambiguous():
     assert "anncsu-accessi.gestioneAnncsuPdnd" not in [op for op, _ in transport.calls]
 
 
+# --- verifica-e-crea-odonimo-completo (odonimo-only create) ----------------
+
+
+async def test_real_spec_verifica_e_crea_odonimo_creates_when_absent():
+    # Verify-then-create the odonimo alone: esisteOdonimo (full name) says no -> create.
+    spec = load_spec(ARAZZO_SPEC)
+    transport = ScriptedTransport(
+        {
+            "anncsu-consultazione.esisteOdonimoPost": Response(200, {"data": False}),
+            "anncsu-odonimi.gestioneAnncsuOdonimiPdnd": Response(
+                200, {"esito": "0", "dati": [{"progr_nazionale": "2000449"}]}
+            ),
+        }
+    )
+
+    run = await WorkflowExecutor(spec, transport).run(
+        "verifica-e-crea-odonimo-completo",
+        {"codcom": "H501", "denom_odonimo": "ROMA NUOVA", "dug": "VIA"},
+    )
+
+    assert run.outputs["progressivo_nazionale_odonimo"] == "2000449"
+    esiste = next(p for op, p in transport.calls if op.endswith("esisteOdonimoPost"))
+    assert esiste["denom"] == "VIA ROMA NUOVA"  # full name (ADR 0019)
+    assert "anncsu-consultazione.elencoodonimiprogPost" not in [op for op, _ in transport.calls]
+
+
+async def test_real_spec_verifica_e_crea_odonimo_returns_existing_without_creating():
+    # esisteOdonimo says yes -> resolve the existing prognaz, do not create.
+    spec = load_spec(ARAZZO_SPEC)
+    transport = ScriptedTransport(
+        {
+            "anncsu-consultazione.esisteOdonimoPost": Response(200, {"data": True}),
+            "anncsu-consultazione.elencoodonimiprogPost": Response(
+                200, {"data": [{"prognaz": "907720"}]}
+            ),
+        }
+    )
+
+    run = await WorkflowExecutor(spec, transport).run(
+        "verifica-e-crea-odonimo-completo",
+        {"codcom": "H501", "denom_odonimo": "AURELIA", "dug": "VIA"},
+    )
+
+    assert run.outputs["progressivo_nazionale_odonimo"] == "907720"
+    assert "anncsu-odonimi.gestioneAnncsuOdonimiPdnd" not in [op for op, _ in transport.calls]
+
+
+async def test_real_spec_verifica_e_crea_odonimo_refuses_ambiguous():
+    # The existing odonimo resolves ambiguously (>1 match) -> fail, never create.
+    spec = load_spec(ARAZZO_SPEC)
+    transport = ScriptedTransport(
+        {
+            "anncsu-consultazione.esisteOdonimoPost": Response(200, {"data": True}),
+            "anncsu-consultazione.elencoodonimiprogPost": Response(
+                200, {"data": [{"prognaz": "1"}, {"prognaz": "2"}]}
+            ),
+            "anncsu-odonimi.gestioneAnncsuOdonimiPdnd": Response(
+                200, {"esito": "0", "dati": [{"progr_nazionale": "X"}]}
+            ),
+        }
+    )
+
+    with pytest.raises(StepFailedError, match="cerca-odonimo"):
+        await WorkflowExecutor(spec, transport).run(
+            "verifica-e-crea-odonimo-completo",
+            {"codcom": "H501", "denom_odonimo": "AURELIA", "dug": "VIA"},
+        )
+    assert "anncsu-odonimi.gestioneAnncsuOdonimiPdnd" not in [op for op, _ in transport.calls]
+
+
 async def test_real_spec_search_disambiguates_multiple_odonimi():
     # The SDK never silently picks the first match; when the denomination matches
     # more than one odonimo, return all candidates with empty accessi so the caller

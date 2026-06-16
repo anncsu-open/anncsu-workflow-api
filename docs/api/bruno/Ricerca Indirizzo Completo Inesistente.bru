@@ -5,7 +5,7 @@ meta {
 }
 
 post {
-  url: {{baseUrl}}/v1/workflows/ricerca-indirizzo-completo
+  url: {{baseUrl}}/anncsu/v1/workflows/ricerca-indirizzo-completo
   body: json
   auth: inherit
 }
@@ -40,7 +40,7 @@ docs {
   with 404 "non trovati accessi"; for a read-only search that is "zero results",
   not an error. The `cerca-accessi` step maps a 404 to an `end` (onFailure), so
   the workflow completes with 200 and an empty `accessi` list instead of a 422.
-  
+
   Validated against PDND collaudo (UAT): "DELLE CAVE DEL TRULLO" civic 999 ->
   odonimi=1, accessi=0.
 }

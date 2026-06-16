@@ -77,7 +77,10 @@ class FakeAnncsuServer:
     def _odonimi(self, body: dict) -> dict:
         if body["richiesta"].get("tipo_operazione") == "S":
             if self.accessi and self.mode == "reject":
-                return {"esito": "23", "messaggio": "Errore 320: accessi presenti"}
+                return {
+                    "esito": "23",
+                    "messaggio": "Errore 320: accessi presenti",
+                }
             self.accessi.clear()  # cascade (or nothing left to cascade)
             self.odonimo_suppressed = True
         return {"esito": "0", "messaggio": "Operazione eseguita"}
@@ -112,8 +115,12 @@ def _client(server: FakeAnncsuServer):
 
 def _suppress(client: TestClient):
     return client.post(
-        "/v1/workflows/sopprimi-odonimo-completo",
-        json={"codcom": "H501", "denom_odonimo": "ROMA", "data_soppressione": "08/10/2024"},
+        "/anncsu/v1/workflows/sopprimi-odonimo-completo",
+        json={
+            "codcom": "H501",
+            "denom_odonimo": "ROMA",
+            "data_soppressione": "08/10/2024",
+        },
     )
 
 
@@ -209,13 +216,16 @@ def test_generic_accesso_update_reads_then_writes_through_the_real_sdk():
             assert accesso["specificita"] == "ROSSO"  # preserved
             assert accesso["sezione_censimento"] == "580911010001"  # input only
             assert accesso["coordinate"]["x"] == "13.10"  # preserved from the read
-            return {"esito": "0", "dati": [{"progr_civico": "1370588", "numero": "42"}]}
+            return {
+                "esito": "0",
+                "dati": [{"progr_civico": "1370588", "numero": "42"}],
+            }
 
     server = UpdateServer(accessi=[], mode="reject")
 
     with _client(server) as client:
         response = client.post(
-            "/v1/workflows/aggiorna-accesso-da-progressivo",
+            "/anncsu/v1/workflows/aggiorna-accesso-da-progressivo",
             json={
                 "codcom": "H501",
                 "prognaz": "2000449",
@@ -271,7 +281,7 @@ def test_generic_odonimo_update_reads_then_writes_through_the_real_sdk():
 
     with _client(server) as client:
         response = client.post(
-            "/v1/workflows/aggiorna-odonimo-da-progressivo",
+            "/anncsu/v1/workflows/aggiorna-odonimo-da-progressivo",
             json={
                 "codcom": "H501",
                 "prognaz": "2000449",
@@ -312,7 +322,7 @@ def test_create_branch_path_through_the_real_sdk():
 
     with _client(server) as client:
         response = client.post(
-            "/v1/workflows/verifica-e-crea-indirizzo-completo",
+            "/anncsu/v1/workflows/verifica-e-crea-indirizzo-completo",
             json={
                 "codcom": "H501",
                 "denom_odonimo": "ROMA",

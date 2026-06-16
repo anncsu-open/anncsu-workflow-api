@@ -118,7 +118,14 @@ class FakeAnncsu:
         # `denomuff` aliased to the real wire `duf` (anncsu-sdk#12).
         return {
             "res": "OK",
-            "data": [{"prognaz": "907720", "dug": "VIA", "duf": "AURELIA", "cododocomunale": "1"}],
+            "data": [
+                {
+                    "prognaz": "907720",
+                    "dug": "VIA",
+                    "duf": "AURELIA",
+                    "cododocomunale": "1",
+                }
+            ],
         }
 
     def _esisteaccesso(self, body: dict) -> dict:
@@ -163,7 +170,7 @@ def test_create_civic_sends_full_accesso_fields_to_the_wire():
     server = FakeAnncsu(odonimo_exists=False, accesso_exists=False)
     with _client(server) as client:
         response = client.post(
-            "/v1/workflows/verifica-e-crea-indirizzo-completo",
+            "/anncsu/v1/workflows/verifica-e-crea-indirizzo-completo",
             json={
                 "codcom": "H501",
                 "denom_odonimo": "ROMA",
@@ -195,7 +202,7 @@ def test_create_metric_skips_the_civic_existence_check_on_the_wire():
     server = FakeAnncsu(odonimo_exists=False)
     with _client(server) as client:
         response = client.post(
-            "/v1/workflows/verifica-e-crea-indirizzo-completo",
+            "/anncsu/v1/workflows/verifica-e-crea-indirizzo-completo",
             json={
                 "codcom": "H501",
                 "denom_odonimo": "ROMA",
@@ -214,7 +221,7 @@ def test_accesso_update_sends_coordinates_to_the_wire():
     server = FakeAnncsu()
     with _client(server) as client:
         response = client.post(
-            "/v1/workflows/aggiorna-accesso-da-progressivo",
+            "/anncsu/v1/workflows/aggiorna-accesso-da-progressivo",
             json={
                 "codcom": "H501",
                 "prognaz": "2000449",
@@ -240,8 +247,12 @@ def test_ricerca_maps_real_wire_field_names_through_the_sdk():
     server = FakeAnncsu()
     with _client(server) as client:
         response = client.post(
-            "/v1/workflows/ricerca-indirizzo-completo",
-            json={"codcom": "H501", "denom_odonimo": "ROMA", "numero_civico": "42"},
+            "/anncsu/v1/workflows/ricerca-indirizzo-completo",
+            json={
+                "codcom": "H501",
+                "denom_odonimo": "ROMA",
+                "numero_civico": "42",
+            },
         )
 
     assert response.status_code == 200
@@ -261,8 +272,12 @@ def test_ricerca_returns_empty_accessi_when_the_sdk_raises_a_real_404():
     server = FakeAnncsu(accessi_found=False)
     with _client(server) as client:
         response = client.post(
-            "/v1/workflows/ricerca-indirizzo-completo",
-            json={"codcom": "H501", "denom_odonimo": "ROMA", "numero_civico": "1"},
+            "/anncsu/v1/workflows/ricerca-indirizzo-completo",
+            json={
+                "codcom": "H501",
+                "denom_odonimo": "ROMA",
+                "numero_civico": "1",
+            },
         )
 
     assert response.status_code == 200
@@ -279,7 +294,7 @@ def test_ricerca_accessi_per_odonimo_maps_real_wire_fields_through_the_sdk():
     server = FakeAnncsu()
     with _client(server) as client:
         response = client.post(
-            "/v1/workflows/ricerca-accessi-per-odonimo",
+            "/anncsu/v1/workflows/ricerca-accessi-per-odonimo",
             json={"codcom": "H501", "prognaz": "907720", "numero_civico": "1"},
         )
 

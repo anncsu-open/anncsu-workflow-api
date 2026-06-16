@@ -35,7 +35,7 @@ def _field_keys() -> set[str]:
 
 def _openapi_free_text() -> set[str]:
     """Every operation summary/description and example summary in the /v1 contract."""
-    doc = TestClient(app).get("/v1/openapi.json").json()
+    doc = TestClient(app).get("/anncsu/v1/openapi.json").json()
     text: set[str] = set()
     for path_item in doc["paths"].values():
         for operation in path_item.values():

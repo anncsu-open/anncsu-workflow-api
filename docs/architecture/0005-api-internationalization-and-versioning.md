@@ -45,7 +45,7 @@ Swagger UI / ReDoc. Two gaps surfaced:
 
 - **Path-based versioning.** The API surface is mounted under `/v1`. Domain endpoints
   (the workflow-execution routes introduced with the executor facade) live under
-  `/v1/...`. Operational/tooling endpoints that are not part of the contract — the health
+  `/anncsu/v1/...`. Operational/tooling endpoints that are not part of the contract — the health
   check and the Arazzo visualizer — stay unversioned.
 - A future breaking change introduces `/v2` served alongside `/v1`; `info.version` in the
   OpenAPI document continues to track the document's semantic version.

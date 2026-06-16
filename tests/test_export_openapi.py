@@ -14,9 +14,9 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 SCRIPT = REPO_ROOT / "scripts" / "export_openapi.py"
 
 WORKFLOW_PATHS = (
-    "/v1/workflows/verifica-e-crea-indirizzo-completo",
-    "/v1/workflows/sopprimi-odonimo-completo",
-    "/v1/workflows/ricerca-indirizzo-completo",
+    "/anncsu/v1/workflows/verifica-e-crea-indirizzo-completo",
+    "/anncsu/v1/workflows/sopprimi-odonimo-completo",
+    "/anncsu/v1/workflows/ricerca-indirizzo-completo",
 )
 
 

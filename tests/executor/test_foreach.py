@@ -103,6 +103,49 @@ async def test_foreach_is_fail_fast_and_skips_the_step():
     assert "src.final" not in [op for op, _ in transport.calls]
 
 
+# Live contract (collaudo): the odonimo S (suppression) operation returns HTTP 200
+# with a RispostaOperazione carrying idRichiesta + dati (the suppressed odonimo, with
+# data_fine_valid_amm set) and NO `esito` field — unlike the I (create) operation,
+# which does return esito == "0". Success must hinge on HTTP 200, not on esito.
+_SUPPRESS_ODONIMO_OK = Response(
+    200,
+    {
+        "idRichiesta": "317922",
+        "dati": [
+            {
+                "codcom": "H501",
+                "progr_nazionale": "1342715",
+                "dug": "VIA",
+                "data_fine_valid_amm": "16/06/2026",
+            }
+        ],
+    },
+)
+
+
+async def test_real_spec_suppress_odonimo_accepts_the_real_s_response_without_esito():
+    # CONTRACT (collaudo-observed): the odonimo S operation reports success as HTTP 200
+    # + idRichiesta + dati, with no `esito`; the workflow must not require esito == "0".
+    spec = load_spec(ARAZZO_SPEC)
+    transport = ScriptedTransport(
+        {
+            "anncsu-consultazione.elencoodonimiprogPost": Response(
+                200, {"data": [{"prognaz": "1342715", "duf": "VIA ROMA"}]}
+            ),
+            "anncsu-consultazione.elencoaccessiprogPost": Response(200, {"data": []}),
+            "anncsu-odonimi.gestioneAnncsuOdonimiPdnd": _SUPPRESS_ODONIMO_OK,
+        }
+    )
+
+    run = await WorkflowExecutor(spec, transport).run(
+        "sopprimi-odonimo-completo",
+        {"codcom": "H501", "denom_odonimo": "ROMA", "data_soppressione": "16/06/2026"},
+    )
+
+    assert run.status == "completed"
+    assert run.outputs["esito"]["idRichiesta"] == "317922"
+
+
 async def test_real_spec_suppress_odonimo_suppresses_accessi_first():
     spec = load_spec(ARAZZO_SPEC)
     transport = ScriptedTransport(
@@ -114,7 +157,7 @@ async def test_real_spec_suppress_odonimo_suppresses_accessi_first():
                 200, {"data": [{"prognazacc": "a1"}, {"prognazacc": "a2"}]}
             ),
             "anncsu-accessi.gestioneAnncsuPdnd": Response(200, {"esito": "0"}),
-            "anncsu-odonimi.gestioneAnncsuOdonimiPdnd": Response(200, {"esito": "0"}),
+            "anncsu-odonimi.gestioneAnncsuOdonimiPdnd": _SUPPRESS_ODONIMO_OK,
         }
     )
 
@@ -136,3 +179,36 @@ async def test_real_spec_suppress_odonimo_suppresses_accessi_first():
     suppress_calls = [p for op, p in transport.calls if op == "anncsu-accessi.gestioneAnncsuPdnd"]
     assert suppress_calls[0]["richiesta"]["accesso"]["progr_civico"] == "a1"
     assert suppress_calls[1]["richiesta"]["accesso"]["progr_civico"] == "a2"
+
+
+async def test_real_spec_suppress_odonimo_with_no_accessi_still_suppresses():
+    # ANNCSU answers 404 when the odonimo has zero accessi (the same "zero results =
+    # 404" convention as the searches, ADR 0014); the suppression must treat that as
+    # an empty list and proceed straight to suppressing the odonimo, not fail the
+    # elenca-accessi step. Regression: surfaced by the odonimo create/suppress dry-run.
+    spec = load_spec(ARAZZO_SPEC)
+    transport = ScriptedTransport(
+        {
+            "anncsu-consultazione.elencoodonimiprogPost": Response(
+                200, {"data": [{"prognaz": "1342715", "duf": "VIA ROMA"}]}
+            ),
+            "anncsu-consultazione.elencoaccessiprogPost": Response(
+                404, {"title": "non trovati accessi per valori forniti"}
+            ),
+            "anncsu-odonimi.gestioneAnncsuOdonimiPdnd": _SUPPRESS_ODONIMO_OK,
+        }
+    )
+
+    run = await WorkflowExecutor(spec, transport).run(
+        "sopprimi-odonimo-completo",
+        {"codcom": "H501", "denom_odonimo": "ROMA", "data_soppressione": "08/10/2024"},
+    )
+
+    assert run.status == "completed"
+    ops = [op for op, _ in transport.calls]
+    assert ops == [
+        "anncsu-consultazione.elencoodonimiprogPost",
+        "anncsu-consultazione.elencoaccessiprogPost",
+        "anncsu-odonimi.gestioneAnncsuOdonimiPdnd",  # straight to the odonimo, no accessi
+    ]
+    assert "anncsu-accessi.gestioneAnncsuPdnd" not in ops  # nothing to suppress

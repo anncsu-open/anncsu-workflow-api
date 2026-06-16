@@ -16,7 +16,7 @@ Probes:
 - **Liveness** — `GET /health` (process up; no external dependency)
 - **Readiness** — `GET /ready` (PDND voucher across all four sources)
 
-Read-only search (`POST /v1/workflows/ricerca-indirizzo-completo`), validated
+Read-only search (`POST /anncsu/v1/workflows/ricerca-indirizzo-completo`), validated
 against PDND collaudo:
 
 - **Ricerca Indirizzo Completo esistente** — odonimo with a matching civic; both
@@ -31,16 +31,16 @@ By an existing odonimo's progressive (`prognaz`), validated against PDND collaud
 (ADR 0018/0020):
 
 - **Ricerca Accessi per Odonimo** — list a specific odonimo's accessi
-  (`POST /v1/workflows/ricerca-accessi-per-odonimo`).
+  (`POST /anncsu/v1/workflows/ricerca-accessi-per-odonimo`).
 - **Ricerca Accessi per Odonimo con Esponente** — filter by civic + esponente; the
   two fold into `accparz` with the AdE format `civico/esponente` (a specificità
   appends `-…`).
 - **Crea Accesso per Odonimo Esistente** —
-  `POST /v1/workflows/crea-accesso-per-odonimo`: add an accesso to an existing
+  `POST /anncsu/v1/workflows/crea-accesso-per-odonimo`: add an accesso to an existing
   odonimo (prognaz required). The example hits the already-exists branch (returns
   the existing `prognazacc`, no write); the create branch is a WRITE.
 
-Creation (`POST /v1/workflows/verifica-e-crea-indirizzo-completo`) — WRITE
+Creation (`POST /anncsu/v1/workflows/verifica-e-crea-indirizzo-completo`) — WRITE
 operations; run only against collaudo (UAT), never production:
 
 - **Crea Indirizzo Completo Civico** — civic fork (`numero_civico`).
@@ -54,5 +54,12 @@ mirroring how the SDK exercises a write without leaving a live record:
 - **Dry-run Accesso 1 Crea** — creates an accesso and stores the returned
   progressivi in collection variables.
 - **Dry-run Accesso 2 Rimuovi** — suppresses exactly that accesso
-  (`POST /v1/workflows/sopprimi-accesso`). ANNCSU suppression is dated and logical,
+  (`POST /anncsu/v1/workflows/sopprimi-accesso`). ANNCSU suppression is dated and logical,
   so a suppressed record remains (there is no true delete).
+- **Dry-run Odonimo 1 Crea** — creates an odonimo with a unique,
+  timestamp-suffixed denomination (so the verify step always takes the create
+  branch, ADR 0019) via `POST /anncsu/v1/workflows/verifica-e-crea-odonimo-completo`; no
+  accesso is created.
+- **Dry-run Odonimo 2 Rimuovi** — suppresses exactly that odonimo by denomination
+  (`POST /anncsu/v1/workflows/sopprimi-odonimo-completo`); the fresh odonimo has no accessi,
+  so only the odonimo is suppressed.

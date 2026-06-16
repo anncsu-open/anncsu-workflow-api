@@ -375,6 +375,76 @@ class CreaAccessoPerOdonimoInput(BaseModel):
         return self
 
 
+class VerificaECreaOdonimoInput(BaseModel):
+    """Input for the verify-and-create-odonimo workflow (odonimo only, ADR 0019/0020).
+
+    Verifies the odonimo does not exist (esisteOdonimo, full name) and creates it if
+    absent; if present, returns its national progressive. No accesso is created — use
+    crea-accesso-per-odonimo to add one.
+    """
+
+    codcom: str = Field(
+        ...,
+        pattern=CODCOM_PATTERN,
+        description="Belfiore municipality code (codcom)",
+        json_schema_extra={"example": "H501"},
+    )
+    denom_odonimo: str = Field(
+        ...,
+        max_length=120,
+        description="Odonimo denomination",
+        json_schema_extra={"example": "ROMA"},
+    )
+    dug: str = Field(
+        ...,
+        max_length=30,
+        description="Generic urban denomination (DUG)",
+        json_schema_extra={"example": "VIA"},
+    )
+
+    # Odonimo optional metadata (denom_delibera/provvedimento default below for create).
+    denom_localita: str | None = Field(
+        None,
+        max_length=151,
+        description="Locality denomination",
+        json_schema_extra={"example": "CENTRO"},
+    )
+    denom_in_lingua_1: str | None = Field(
+        None, max_length=150, description="Denomination in language 1"
+    )
+    denom_in_lingua_2: str | None = Field(
+        None, max_length=150, description="Denomination in language 2"
+    )
+    codice_comunale: str | None = Field(
+        None, max_length=30, description="Municipal code of the odonimo"
+    )
+    denom_delibera: str | None = Field(
+        None,
+        max_length=120,
+        description="Odonimo denomination from the delibera; defaults to denom_odonimo when omitted",
+        json_schema_extra={"example": "VIA ROMA"},
+    )
+    provvedimento: Provvedimento | None = Field(
+        None, description="Authorizing delibera; defaults to flag_delibera '2' when omitted"
+    )
+    aut_prefettura: AutPrefettura | None = Field(None, description="Prefecture authorization")
+    data_validita: str | None = Field(
+        None,
+        description="Administrative validity date (DD/MM/YYYY) for the creation, not in the future",
+        json_schema_extra={"example": "08/10/2024"},
+    )
+
+    _data_validita_not_future = field_validator("data_validita")(_ddmmyyyy_not_future)
+
+    @model_validator(mode="after")
+    def _apply_creation_defaults(self) -> VerificaECreaOdonimoInput:
+        if self.denom_delibera is None:
+            self.denom_delibera = self.denom_odonimo
+        if self.provvedimento is None:
+            self.provvedimento = Provvedimento(flag_delibera="2")
+        return self
+
+
 # ============================================================================
 # Workflow: Generic accesso update by national progressives (ADR 0010)
 # ============================================================================

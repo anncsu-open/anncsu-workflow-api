@@ -5,7 +5,7 @@ meta {
 }
 
 post {
-  url: {{baseUrl}}/v1/workflows/ricerca-indirizzo-completo
+  url: {{baseUrl}}/anncsu/v1/workflows/ricerca-indirizzo-completo
   body: json
   auth: inherit
 }
@@ -28,14 +28,14 @@ tests {
     expect(res.body.odonimi).to.be.an("array").that.is.not.empty;
     expect(res.body.accessi).to.be.an("array").that.is.not.empty;
   });
-  
+
   test("odonimo carries the real wire field names", function() {
     var o = res.body.odonimi[0];
     expect(o).to.have.property("prognaz");
     expect(o).to.have.property("duf");
     expect(o).to.have.property("dug");
   });
-  
+
   test("access carries the real wire field names", function() {
     var a = res.body.accessi[0];
     expect(a).to.have.property("prognazacc");
@@ -55,7 +55,7 @@ docs {
   200 with both lists populated. The real API field names differ from the OAS
   (anncsu-sdk#12): odonimi expose `duf` (not `denomuff`) plus `cododocomunale`;
   accessi expose `coordX`/`coordY` and `codacccomunale`.
-  
+
   Validated against PDND collaudo (UAT): codcom H501, "DELLE CAVE DEL TRULLO"
   civic 81 -> odonimi=1, accessi=1.
 }

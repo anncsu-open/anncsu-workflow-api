@@ -5,7 +5,7 @@ meta {
 }
 
 post {
-  url: {{baseUrl}}/v1/workflows/ricerca-indirizzo-completo
+  url: {{baseUrl}}/anncsu/v1/workflows/ricerca-indirizzo-completo
   body: json
   auth: inherit
 }
@@ -39,7 +39,7 @@ docs {
   404 "non trovati odonimi"; the `cerca-odonimi` step maps a 404 to an `end`
   (onFailure), so the workflow completes with 200 and empty lists rather than a
   422. The accessi search is never reached.
-  
+
   Validated against PDND collaudo (UAT): "ZZZVIANONESISTE QWERTY" ->
   odonimi=0, accessi=0.
 }

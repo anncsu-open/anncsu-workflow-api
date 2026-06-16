@@ -53,7 +53,7 @@ Add a dedicated single-step workflow to the canonical Arazzo spec:
   the existing workflow.
 
 The facade exposes it as its own typed route,
-`POST /v1/workflows/aggiorna-coordinate-da-progressivo-accesso`, following the
+`POST /anncsu/v1/workflows/aggiorna-coordinate-da-progressivo-accesso`, following the
 one-route-per-workflow pattern. The by-denomination workflow remains available
 for callers that start from a denomination.
 

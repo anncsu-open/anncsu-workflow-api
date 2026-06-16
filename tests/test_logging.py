@@ -14,7 +14,12 @@ from structlog.testing import capture_logs
 
 from app.config import Settings
 from app.executor.engine import StepFailedError
-from app.logging import bind_request_id, configure_logging, get_logger, redact_sensitive
+from app.logging import (
+    bind_request_id,
+    configure_logging,
+    get_logger,
+    redact_sensitive,
+)
 from app.main import app
 from app.ports.transport import TransportError
 from app.routers.workflows import get_workflow_service
@@ -131,7 +136,7 @@ def test_transport_error_is_logged_and_carries_request_id():
     with _override_service(TransportError("pdnd unreachable")) as app:
         with capture_logs() as logs:
             response = TestClient(app).post(
-                "/v1/workflows/ricerca-indirizzo-completo",
+                "/anncsu/v1/workflows/ricerca-indirizzo-completo",
                 json={"codcom": "H501", "denom_odonimo": "ROMA"},
                 headers={"X-Request-ID": "req-502"},
             )
@@ -146,7 +151,7 @@ def test_step_failure_is_logged_as_warning():
     with _override_service(StepFailedError("step x failed")) as app:
         with capture_logs() as logs:
             response = TestClient(app).post(
-                "/v1/workflows/ricerca-indirizzo-completo",
+                "/anncsu/v1/workflows/ricerca-indirizzo-completo",
                 json={"codcom": "H501", "denom_odonimo": "ROMA"},
             )
 
@@ -164,7 +169,7 @@ def test_step_failure_exports_the_upstream_reason():
     )
     with _override_service(exc) as app:
         response = TestClient(app).post(
-            "/v1/workflows/ricerca-indirizzo-completo",
+            "/anncsu/v1/workflows/ricerca-indirizzo-completo",
             json={"codcom": "H501", "denom_odonimo": "ROMA"},
         )
 

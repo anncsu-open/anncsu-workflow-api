@@ -1,4 +1,4 @@
-"""Workflow execution routes: one typed ``POST /v1/workflows/<workflowId>`` per
+"""Workflow execution routes: one typed ``POST /anncsu/v1/workflows/<workflowId>`` per
 public Arazzo workflow.
 
 The published FastAPI contract (typed I/O models, localized via ADR 0005) is the
@@ -41,6 +41,7 @@ from app.models.workflows import (
     SopprimiAccessoOutput,
     SopprimiOdonimoInput,
     SopprimiOdonimoOutput,
+    VerificaECreaOdonimoInput,
 )
 
 SPECS_DIR = Path(__file__).resolve().parent.parent.parent / "specs"
@@ -65,7 +66,11 @@ PROBLEM_RESPONSES: dict[int | str, dict[str, Any]] = {
     502: _problem_response("The upstream ANNCSU call failed before an HTTP outcome"),
 }
 
-router = APIRouter(prefix="/v1/workflows", tags=["workflows"], responses=PROBLEM_RESPONSES)
+router = APIRouter(
+    prefix="/anncsu/v1/workflows",
+    tags=["workflows"],
+    responses=PROBLEM_RESPONSES,
+)
 
 
 def build_workflow_service(
@@ -168,7 +173,11 @@ _CREA_INDIRIZZO_EXAMPLES: dict[str, Any] = {
             "sezione_censimento": "580911010001",
             "denom_localita": "CENTRO",
             "denom_delibera": "VIA ROMA",
-            "provvedimento": {"flag_delibera": "1", "data": "01/01/2024", "protocollo": "PROT/123"},
+            "provvedimento": {
+                "flag_delibera": "1",
+                "data": "01/01/2024",
+                "protocollo": "PROT/123",
+            },
         },
     },
 }
@@ -180,7 +189,10 @@ _CREA_INDIRIZZO_EXAMPLES: dict[str, Any] = {
     summary="Verify and create a complete address",
 )
 async def verifica_e_crea_indirizzo_completo(
-    payload: Annotated[CreaIndirizzoCompletoInput, Body(openapi_examples=_CREA_INDIRIZZO_EXAMPLES)],
+    payload: Annotated[
+        CreaIndirizzoCompletoInput,
+        Body(openapi_examples=_CREA_INDIRIZZO_EXAMPLES),
+    ],
     service: ServiceDep,
 ) -> CreaIndirizzoCompletoOutput:
     """Upsert odonimo and accesso, returning the coalesced progressivi."""
@@ -190,6 +202,48 @@ async def verifica_e_crea_indirizzo_completo(
         # x-executor.coalesce resolves the progressivo from whichever branch ran.
         progressivo_nazionale_odonimo=run.outputs.get("progressivo_nazionale"),
         progressivo_civico=run.outputs.get("progressivo_civico"),
+        message=COMPLETED_MESSAGE,
+    )
+
+
+_CREA_ODONIMO_EXAMPLES: dict[str, Any] = {
+    "minimal": {
+        "summary": "Create an odonimo (required fields only)",
+        "value": {"codcom": "H501", "denom_odonimo": "ROMA", "dug": "VIA"},
+    },
+    "with_delibera": {
+        "summary": "With an explicit delibera and validity date",
+        "value": {
+            "codcom": "H501",
+            "denom_odonimo": "ROMA",
+            "dug": "VIA",
+            "denom_delibera": "VIA ROMA",
+            "provvedimento": {
+                "flag_delibera": "1",
+                "data": "01/01/2024",
+                "protocollo": "PROT/123",
+            },
+            "data_validita": "08/10/2024",
+        },
+    },
+}
+
+
+@router.post(
+    "/verifica-e-crea-odonimo-completo",
+    response_model=CreaIndirizzoCompletoOutput,
+    summary="Verify and create an odonimo (only)",
+)
+async def verifica_e_crea_odonimo_completo(
+    payload: Annotated[VerificaECreaOdonimoInput, Body(openapi_examples=_CREA_ODONIMO_EXAMPLES)],
+    service: ServiceDep,
+) -> CreaIndirizzoCompletoOutput:
+    """Verify-then-create the odonimo alone; returns its progressivo (ADR 0019/0020)."""
+    run = await service.run("verifica-e-crea-odonimo-completo", payload.model_dump())
+    return CreaIndirizzoCompletoOutput(
+        success=True,
+        progressivo_nazionale_odonimo=run.outputs.get("progressivo_nazionale_odonimo"),
+        progressivo_civico=None,
         message=COMPLETED_MESSAGE,
     )
 
@@ -232,7 +286,10 @@ _CREA_ACCESSO_EXAMPLES: dict[str, Any] = {
     summary="Add an accesso to an existing odonimo (by progressive)",
 )
 async def crea_accesso_per_odonimo(
-    payload: Annotated[CreaAccessoPerOdonimoInput, Body(openapi_examples=_CREA_ACCESSO_EXAMPLES)],
+    payload: Annotated[
+        CreaAccessoPerOdonimoInput,
+        Body(openapi_examples=_CREA_ACCESSO_EXAMPLES),
+    ],
     service: ServiceDep,
 ) -> CreaIndirizzoCompletoOutput:
     """Create an accesso on a known odonimo (mandatory prognaz; ADR 0020)."""
@@ -300,7 +357,8 @@ _ACCESSO_UPDATE_EXAMPLES: dict[str, Any] = {
 )
 async def aggiorna_accesso_da_progressivo(
     payload: Annotated[
-        AggiornaAccessoDaProgressivoInput, Body(openapi_examples=_ACCESSO_UPDATE_EXAMPLES)
+        AggiornaAccessoDaProgressivoInput,
+        Body(openapi_examples=_ACCESSO_UPDATE_EXAMPLES),
     ],
     service: ServiceDep,
 ) -> AggiornaAccessoOutput:
@@ -332,7 +390,11 @@ _ODONIMO_UPDATE_EXAMPLES: dict[str, Any] = {
             "prognaz": "2000449",
             "denom_delibera": "VIA ROMA",
             "dug": "VIA",
-            "provvedimento": {"flag_delibera": "1", "data": "01/01/2024", "protocollo": "PROT/123"},
+            "provvedimento": {
+                "flag_delibera": "1",
+                "data": "01/01/2024",
+                "protocollo": "PROT/123",
+            },
         },
     },
 }
@@ -351,7 +413,8 @@ _ODONIMO_UPDATE_EXAMPLES: dict[str, Any] = {
 )
 async def aggiorna_odonimo_da_progressivo(
     payload: Annotated[
-        AggiornaOdonimoDaProgressivoInput, Body(openapi_examples=_ODONIMO_UPDATE_EXAMPLES)
+        AggiornaOdonimoDaProgressivoInput,
+        Body(openapi_examples=_ODONIMO_UPDATE_EXAMPLES),
     ],
     service: ServiceDep,
 ) -> AggiornaOdonimoOutput:
@@ -396,7 +459,11 @@ _RICERCA_EXAMPLES: dict[str, Any] = {
     },
     "by_odonimo_and_civico": {
         "summary": "Search a specific civico",
-        "value": {"codcom": "H501", "denom_odonimo": "ROMA", "numero_civico": "42"},
+        "value": {
+            "codcom": "H501",
+            "denom_odonimo": "ROMA",
+            "numero_civico": "42",
+        },
     },
     "by_civico_and_esponente": {
         "summary": "Search a civico with an esponente (accparz civico/esponente)",
@@ -484,7 +551,11 @@ _RICERCA_ACCESSI_EXAMPLES: dict[str, Any] = {
     },
     "by_metrico": {
         "summary": "Filter by a metric value (accparz accepts civic or metric)",
-        "value": {"codcom": "H501", "prognaz": "907720", "numero_civico": "300"},
+        "value": {
+            "codcom": "H501",
+            "prognaz": "907720",
+            "numero_civico": "300",
+        },
     },
 }
 
@@ -496,7 +567,8 @@ _RICERCA_ACCESSI_EXAMPLES: dict[str, Any] = {
 )
 async def ricerca_accessi_per_odonimo(
     payload: Annotated[
-        RicercaAccessiPerOdonimoInput, Body(openapi_examples=_RICERCA_ACCESSI_EXAMPLES)
+        RicercaAccessiPerOdonimoInput,
+        Body(openapi_examples=_RICERCA_ACCESSI_EXAMPLES),
     ],
     service: ServiceDep,
 ) -> RicercaIndirizzoOutput:

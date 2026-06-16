@@ -6,7 +6,7 @@ Endpoints:
   - GET /health                health check
   - GET /workflows/ui          interactive workflow UI (arazzo-ui)
   - GET /workflows/spec/...     Arazzo spec + source OpenAPI files (StaticFiles)
-  - POST /v1/workflows/...     workflow execution (one route per Arazzo workflow)
+  - POST /anncsu/v1/workflows/...     workflow execution (one route per Arazzo workflow)
 """
 
 from collections.abc import AsyncIterator
@@ -64,7 +64,7 @@ app = FastAPI(
 app.add_middleware(RequestContextMiddleware)
 
 # Versioned, language-aware OpenAPI + Swagger/ReDoc under /v1.
-setup_localized_docs(app, prefix="/v1")
+setup_localized_docs(app, prefix="/anncsu/v1")
 
 
 @app.get("/", include_in_schema=False)
@@ -77,9 +77,9 @@ async def root_index() -> dict[str, str]:
     return {
         "name": settings.app_name,
         "version": settings.app_version,
-        "docs": "/v1/docs",
-        "redoc": "/v1/redoc",
-        "openapi": "/v1/openapi.json",
+        "docs": "/anncsu/v1/docs",
+        "redoc": "/anncsu/v1/redoc",
+        "openapi": "/anncsu/v1/openapi.json",
         "workflows_ui": "/workflows/ui",
         "health": "/health",
         "ready": "/ready",

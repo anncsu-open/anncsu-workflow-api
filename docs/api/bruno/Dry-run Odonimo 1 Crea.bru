@@ -1,0 +1,71 @@
+meta {
+  name: Dry-run Odonimo 1 Crea
+  type: http
+  seq: 17
+}
+
+post {
+  url: {{baseUrl}}/anncsu/v1/workflows/verifica-e-crea-odonimo-completo
+  body: json
+  auth: inherit
+}
+
+headers {
+  Content-Type: application/json
+}
+
+script:pre-request {
+  // Unique denomination so the verify step always takes the create branch (ADR 0019),
+  // keeping the dry-run re-runnable without colliding with a prior run's odonimo.
+  const d = new Date();
+  const p = (n) => String(n).padStart(2, "0");
+  const stamp = `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}`;
+  bru.setVar("dryrun_odonimo_denom", `DRY RUN ${stamp}`);
+}
+
+body:json {
+  {
+    "codcom": "H501",
+    "denom_odonimo": "{{dryrun_odonimo_denom}}",
+    "dug": "VIA"
+  }
+}
+
+script:post-response {
+  // Stash the new progressivo for inspection; step 2 suppresses by denomination.
+  bru.setVar("dryrun_odonimo_prognaz", res.getBody().progressivo_nazionale_odonimo);
+}
+
+settings {
+  encodeUrl: false
+  timeout: 0
+}
+
+tests {
+  test("odonimo creation returns 200 with the new progressivo", function() {
+    expect(res.status).to.equal(200);
+    expect(res.body.progressivo_nazionale_odonimo).to.be.a("string");
+    expect(res.body.progressivo_civico).to.equal(null);
+  });
+}
+
+docs {
+  WRITE OPERATION — step 1 of a self-cancelling "dry-run" pair (mirrors the SDK's
+  `anncsu odonimo` create-then-suppress): create an odonimo, then suppress it
+  (step 2) so the overall effect on ANNCSU is a no-op. Run only against collaudo
+  (UAT), never production, and ALWAYS run "Dry-run Odonimo 2 Rimuovi" right after.
+
+  The pre-request script generates a unique denomination ("DRY RUN <timestamp>") so
+  `esisteOdonimo` (queried with the full name DUG + DENOMUFF, ADR 0019) always
+  reports it as absent and the workflow takes the create branch — never an update of
+  a real odonimo, and re-runnable without colliding with a prior run. No accesso is
+  created (progressivo_civico is null): this is the odonimo-only counterpart of the
+  accesso dry-run.
+
+  The post-response script stores the returned progressivo and the generated
+  denomination in collection variables that step 2 reads — run the two in sequence
+  (or run the whole collection in order).
+
+  Note: ANNCSU suppression is a dated LOGICAL suppression, so step 2 leaves a
+  suppressed record rather than erasing all trace — there is no true delete.
+}

@@ -296,17 +296,17 @@ The service will be available at `http://localhost:8000`
 
 Interactive documentation (the API contract is published under `/v1`, see
 `docs/architecture/0005-api-internationalization-and-versioning.md`):
-- **Swagger UI**: http://localhost:8000/v1/docs
-- **ReDoc**: http://localhost:8000/v1/redoc
-- **OpenAPI**: http://localhost:8000/v1/openapi.json
+- **Swagger UI**: http://localhost:8000/anncsu/v1/docs
+- **ReDoc**: http://localhost:8000/anncsu/v1/redoc
+- **OpenAPI**: http://localhost:8000/anncsu/v1/openapi.json
 
 The OpenAPI document is served in English by default; request another language with the
 `lang` query parameter or the `Accept-Language` header, e.g.
-`http://localhost:8000/v1/openapi.json?lang=it`.
+`http://localhost:8000/anncsu/v1/openapi.json?lang=it`.
 
 ## Available Workflows
 
-Each public Arazzo workflow is exposed as a typed route under `/v1/workflows/<workflowId>`.
+Each public Arazzo workflow is exposed as a typed route under `/anncsu/v1/workflows/<workflowId>`.
 The call is synchronous: the response carries the workflow outcome in-band. Failures are
 reported as RFC 7807 Problem Details (`application/problem+json`): a step failing its
 success criteria maps to `422`, an upstream transport failure to `502` (see
@@ -317,7 +317,7 @@ success criteria maps to `422`, an upstream transport failure to `502` (see
 
 Creates a complete address, first verifying the existence of the odonimo and the accesso.
 
-**Endpoint**: `POST /v1/workflows/verifica-e-crea-indirizzo-completo`
+**Endpoint**: `POST /anncsu/v1/workflows/verifica-e-crea-indirizzo-completo`
 
 ```json
 {
@@ -356,7 +356,7 @@ Coordinates, when sent, are validated up front (decimal WGS84 within the Italy
 bounds x 6.0–18.0 / y 36.0–47.0, co-dependent — x and y together — survey
 `metodo` 1–4); `numero` and `metrico` are mutually exclusive.
 
-**Endpoint**: `POST /v1/workflows/aggiorna-accesso-da-progressivo`
+**Endpoint**: `POST /anncsu/v1/workflows/aggiorna-accesso-da-progressivo`
 
 ```json
 {
@@ -380,7 +380,7 @@ and is not exposed by the consultation API, so it cannot be recovered by the rea
 optional `provvedimento` (delibera flag `0`–`4`; `0`/`1` require `data` + `protocollo`)
 and `aut_prefettura` (`data_pref` and `protocollo_pref` co-required) are validated up front.
 
-**Endpoint**: `POST /v1/workflows/aggiorna-odonimo-da-progressivo`
+**Endpoint**: `POST /anncsu/v1/workflows/aggiorna-odonimo-da-progressivo`
 
 ```json
 {
@@ -397,7 +397,7 @@ Suppresses an existing odonimo. Every accesso of the odonimo is suppressed first
 an explicit, traceable call (the executor iterates the `sopprimi-accesso` sub-workflow
 as declared by `x-executor.foreach`), then the odonimo itself.
 
-**Endpoint**: `POST /v1/workflows/sopprimi-odonimo-completo`
+**Endpoint**: `POST /anncsu/v1/workflows/sopprimi-odonimo-completo`
 
 ```json
 {
@@ -414,7 +414,7 @@ national progressives, without touching the odonimo. A dated logical suppression
 (ANNCSU operation S). This is the same workflow the odonimo suppression iterates
 internally, also available standalone.
 
-**Endpoint**: `POST /v1/workflows/sopprimi-accesso`
+**Endpoint**: `POST /anncsu/v1/workflows/sopprimi-accesso`
 
 ```json
 {
@@ -432,7 +432,7 @@ denomination matches more than one odonimo the search returns all candidates wit
 an empty `accessi` list (it never silently picks the first match); re-query the
 chosen one with workflow 7 (ADR 0018).
 
-**Endpoint**: `POST /v1/workflows/ricerca-indirizzo-completo`
+**Endpoint**: `POST /anncsu/v1/workflows/ricerca-indirizzo-completo`
 
 ```json
 {
@@ -450,7 +450,7 @@ metric accessi: `numero_civico` maps to ANNCSU's `accparz`, which accepts a civi
 **or** a metric value (partial allowed). `accparz` is **required** by ANNCSU — there
 is no unfiltered listing — so `numero_civico` is mandatory here (ADR 0018).
 
-**Endpoint**: `POST /v1/workflows/ricerca-accessi-per-odonimo`
+**Endpoint**: `POST /anncsu/v1/workflows/ricerca-accessi-per-odonimo`
 
 ```json
 {
@@ -469,7 +469,7 @@ one → return the existing `prognazacc`; more than one → fail (ambiguous). It
 create the odonimo — use workflow 1 for that. The deterministic, odonimo-already-known
 counterpart of workflow 1 (ADR 0020).
 
-**Endpoint**: `POST /v1/workflows/crea-accesso-per-odonimo`
+**Endpoint**: `POST /anncsu/v1/workflows/crea-accesso-per-odonimo`
 
 ```json
 {
@@ -478,6 +478,24 @@ counterpart of workflow 1 (ADR 0020).
   "numero_civico": "42",
   "esponente": "A",
   "sezione_censimento": "580911010001"
+}
+```
+
+### 9. Verify and Create an Odonimo (only)
+
+Creates only the odonimo, after verifying it does not already exist. `esisteOdonimo`
+is queried with the full name (`dug` + `denom_odonimo`); if absent it is created, if
+present its national progressive is returned (ambiguous denominations are refused,
+ADR 0019). No accesso is created — use workflow 8 to add one. Pairs with workflow 8 to
+build an address in two deterministic steps (create the odonimo, then its accessi).
+
+**Endpoint**: `POST /anncsu/v1/workflows/verifica-e-crea-odonimo-completo`
+
+```json
+{
+  "codcom": "H501",
+  "denom_odonimo": "ROMA",
+  "dug": "VIA"
 }
 ```
 
@@ -502,7 +520,7 @@ anncsu-workflow-api/
 │   │   └── transport.py        # WorkflowTransport port, Response, TransportError
 │   └── routers/
 │       ├── visualizer.py       # arazzo-ui route
-│       └── workflows.py        # POST /v1/workflows/<workflowId> routes
+│       └── workflows.py        # POST /anncsu/v1/workflows/<workflowId> routes
 ├── specs/                      # Arazzo spec + the 4 source OpenAPI files
 ├── tests/                      # Unit, route, i18n, and regression suites
 ├── docs/                       # Zensical docs site + architecture/ (ADRs)

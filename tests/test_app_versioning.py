@@ -12,7 +12,7 @@ def test_health_stays_unversioned():
 
 
 def test_v1_openapi_is_served():
-    resp = client.get("/v1/openapi.json")
+    resp = client.get("/anncsu/v1/openapi.json")
     assert resp.status_code == 200
     body = resp.json()
     assert "openapi" in body
@@ -22,8 +22,10 @@ def test_v1_openapi_is_served():
 def test_v1_openapi_accepts_language_selection():
     # The endpoint must accept ?lang= and Accept-Language without erroring,
     # even when no workflow schemas are documented yet.
-    assert client.get("/v1/openapi.json?lang=it").status_code == 200
-    assert client.get("/v1/openapi.json", headers={"Accept-Language": "it"}).status_code == 200
+    assert client.get("/anncsu/v1/openapi.json?lang=it").status_code == 200
+    assert (
+        client.get("/anncsu/v1/openapi.json", headers={"Accept-Language": "it"}).status_code == 200
+    )
 
 
 def test_default_openapi_is_disabled():
@@ -32,8 +34,8 @@ def test_default_openapi_is_disabled():
 
 
 def test_v1_docs_and_redoc_served():
-    assert client.get("/v1/docs").status_code == 200
-    assert client.get("/v1/redoc").status_code == 200
+    assert client.get("/anncsu/v1/docs").status_code == 200
+    assert client.get("/anncsu/v1/redoc").status_code == 200
 
 
 def test_root_index_advertises_docs_and_openapi():
@@ -43,8 +45,8 @@ def test_root_index_advertises_docs_and_openapi():
     body = resp.json()
     assert body["name"]
     assert body["version"]
-    assert body["openapi"] == "/v1/openapi.json"
-    assert body["docs"] == "/v1/docs"
-    assert body["redoc"] == "/v1/redoc"
+    assert body["openapi"] == "/anncsu/v1/openapi.json"
+    assert body["docs"] == "/anncsu/v1/docs"
+    assert body["redoc"] == "/anncsu/v1/redoc"
     assert body["health"] == "/health"
     assert body["ready"] == "/ready"

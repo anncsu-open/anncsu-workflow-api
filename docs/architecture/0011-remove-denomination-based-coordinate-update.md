@@ -49,7 +49,7 @@ part of the accesso's full state.
 
 - No non-deterministic write remains in the facade; coordinate updates always
   target an explicit accesso.
-- **Breaking**: clients calling `POST /v1/workflows/aggiorna-coordinate-accesso`
+- **Breaking**: clients calling `POST /anncsu/v1/workflows/aggiorna-coordinate-accesso`
   must switch to resolving `prognazacc` first (via `ricerca-indirizzo-completo`)
   and calling a by-progressive workflow.
 - The same `data[0]` partial-match pattern still exists in the *read* steps of

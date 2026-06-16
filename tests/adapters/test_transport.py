@@ -75,7 +75,9 @@ async def test_dispatch_returns_a_response_built_from_the_sdk_model():
 
     payload = {"req": "esisteodonimo", "codcom": "H501", "denom": "VIA ROMA"}
     response = await transport.dispatch(
-        operation_id=ESISTE_ODONIMO, payload=payload, content_type="application/json"
+        operation_id=ESISTE_ODONIMO,
+        payload=payload,
+        content_type="application/json",
     )
 
     assert calls == [payload]
@@ -86,12 +88,17 @@ async def test_dispatch_returns_a_response_built_from_the_sdk_model():
 
 async def test_dispatch_routes_a_write_payload_to_the_sdk_kwargs():
     risposta = accessi_models.RispostaOperazione(
-        esito="0", dati=[accessi_models.Dati(progr_civico="123", progr_nazionale="456")]
+        esito="0",
+        dati=[accessi_models.Dati(progr_civico="123", progr_nazionale="456")],
     )
     method, calls = _recorded(risposta)
     transport = _transport(_accessi(method))
 
-    richiesta = {"codcom": "H501", "progr_nazionale": "456", "accesso": {"numero": "1"}}
+    richiesta = {
+        "codcom": "H501",
+        "progr_nazionale": "456",
+        "accesso": {"numero": "1"},
+    }
     response = await transport.dispatch(
         operation_id=GESTIONE_ACCESSI,
         payload={"richiesta": richiesta},
@@ -111,7 +118,7 @@ async def test_a_documented_http_error_becomes_a_response_for_the_spec():
         422,
         headers={"content-type": "application/problem+json"},
         json=problem,
-        request=httpx.Request("POST", "https://example.test/v1/esisteodonimo"),
+        request=httpx.Request("POST", "https://example.test/anncsu/v1/esisteodonimo"),
     )
     error = pa_errors.EsisteOdonimoPostUnprocessableEntityError(
         pa_errors.EsisteOdonimoPostUnprocessableEntityErrorData(**problem), raw
@@ -133,7 +140,7 @@ async def test_a_non_json_http_error_body_falls_back_to_text():
         500,
         headers={"content-type": "text/html"},
         text="<html>gateway error</html>",
-        request=httpx.Request("POST", "https://example.test/v1/esisteodonimo"),
+        request=httpx.Request("POST", "https://example.test/anncsu/v1/esisteodonimo"),
     )
     method, _ = _recorded(pa_errors.APIError("API error occurred", raw, raw.text))
     transport = _transport(_consultazione(method))
@@ -175,7 +182,9 @@ async def test_an_unknown_operation_id_raises():
 
     with pytest.raises(UnknownOperationError):
         await transport.dispatch(
-            operation_id="anncsu-consultazione.nope", payload={}, content_type=None
+            operation_id="anncsu-consultazione.nope",
+            payload={},
+            content_type=None,
         )
 
 

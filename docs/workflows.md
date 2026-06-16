@@ -70,6 +70,41 @@ Recupera il progressivo civico dell'accesso esistente
 - Operation: `anncsu-consultazione.elencoaccessiprogPost`
 - Outputs: progressivo_civico
 
+## verifica-e-crea-odonimo-completo
+
+Verifica e crea il solo odonimo (per denominazione)
+
+```mermaid
+graph TD
+  verifica_odonimo["verifica-odonimo"]
+  crea_odonimo["crea-odonimo"]
+  cerca_odonimo["cerca-odonimo"]
+  verifica_odonimo --> crea_odonimo
+  crea_odonimo --> cerca_odonimo
+  verifica_odonimo -. goto .-> cerca_odonimo
+```
+
+### 1. verifica-odonimo
+
+Verifica se l'odonimo esiste in ANNCSU
+
+- Operation: `anncsu-consultazione.esisteOdonimoPost`
+- Outputs: odonimo_esistente
+
+### 2. crea-odonimo
+
+Crea l'odonimo
+
+- Operation: `anncsu-odonimi.gestioneAnncsuOdonimiPdnd`
+- Outputs: progressivo_nazionale
+
+### 3. cerca-odonimo
+
+Recupera il progressivo nazionale dell'odonimo esistente
+
+- Operation: `anncsu-consultazione.elencoodonimiprogPost`
+- Outputs: progressivo_nazionale
+
 ## crea-accesso-per-odonimo
 
 Crea un accesso su un odonimo esistente (per progressivo nazionale)
@@ -166,6 +201,7 @@ graph TD
   sopprimi_odonimo["sopprimi-odonimo"]
   cerca_odonimo --> elenca_accessi
   elenca_accessi --> sopprimi_odonimo
+  elenca_accessi -. goto .-> sopprimi_odonimo
 ```
 
 ### 1. cerca-odonimo

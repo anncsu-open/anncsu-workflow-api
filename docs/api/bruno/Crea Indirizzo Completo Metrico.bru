@@ -5,7 +5,7 @@ meta {
 }
 
 post {
-  url: {{baseUrl}}/v1/workflows/verifica-e-crea-indirizzo-completo
+  url: {{baseUrl}}/anncsu/v1/workflows/verifica-e-crea-indirizzo-completo
   body: json
   auth: inherit
 }
@@ -39,11 +39,11 @@ settings {
 docs {
   WRITE OPERATION — creates a metric accesso (and its odonimo if missing) on the
   real ANNCSU. Run only against the collaudo (UAT) environment, never production.
-  
+
   Metric fork (metrico set, numero_civico absent, ADR 0016): a metric accesso is
   located by a metric value rather than a civic number, so the workflow skips the
   civic existence check entirely (the Arazzo metric branch: `metrico != null`).
   `numero_civico` and `metrico` are mutually exclusive.
-  
+
   Not yet validated end-to-end against collaudo (no write executed).
 }

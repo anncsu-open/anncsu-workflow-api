@@ -66,6 +66,26 @@ app.add_middleware(RequestContextMiddleware)
 # Versioned, language-aware OpenAPI + Swagger/ReDoc under /v1.
 setup_localized_docs(app, prefix="/v1")
 
+
+@app.get("/", include_in_schema=False)
+async def root_index() -> dict[str, str]:
+    """Service index: make the docs/OpenAPI entry points discoverable from the root.
+
+    The contract lives under ``/v1`` (the unversioned default docs are disabled),
+    so a bare ``GET /`` would otherwise 404 with no hint of where the docs are.
+    """
+    return {
+        "name": settings.app_name,
+        "version": settings.app_version,
+        "docs": "/v1/docs",
+        "redoc": "/v1/redoc",
+        "openapi": "/v1/openapi.json",
+        "workflows_ui": "/workflows/ui",
+        "health": "/health",
+        "ready": "/ready",
+    }
+
+
 # Executor/transport failures -> RFC 7807 Problem Details (ADR 0008).
 register_exception_handlers(app)
 

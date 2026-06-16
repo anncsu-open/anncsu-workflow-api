@@ -34,3 +34,17 @@ def test_default_openapi_is_disabled():
 def test_v1_docs_and_redoc_served():
     assert client.get("/v1/docs").status_code == 200
     assert client.get("/v1/redoc").status_code == 200
+
+
+def test_root_index_advertises_docs_and_openapi():
+    # The contract lives under /v1; the root makes those entry points discoverable.
+    resp = client.get("/")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["name"]
+    assert body["version"]
+    assert body["openapi"] == "/v1/openapi.json"
+    assert body["docs"] == "/v1/docs"
+    assert body["redoc"] == "/v1/redoc"
+    assert body["health"] == "/health"
+    assert body["ready"] == "/ready"

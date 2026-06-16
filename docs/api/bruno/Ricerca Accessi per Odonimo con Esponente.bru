@@ -1,0 +1,50 @@
+meta {
+  name: Ricerca Accessi per Odonimo con Esponente
+  type: http
+  seq: 15
+}
+
+post {
+  url: {{baseUrl}}/v1/workflows/ricerca-accessi-per-odonimo
+  body: json
+  auth: inherit
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "codcom": "H501",
+    "prognaz": "920585",
+    "numero_civico": "95",
+    "esponente": "A"
+  }
+}
+
+settings {
+  encodeUrl: false
+  timeout: 0
+}
+
+tests {
+  test("returns 200 with the civic/esponente access", function() {
+    expect(res.status).to.equal(200);
+    expect(res.body.accessi).to.be.an("array").that.is.not.empty;
+    var a = res.body.accessi[0];
+    expect(a.civico).to.equal("95");
+    expect(a.esp).to.equal("A");
+    expect(a).to.have.property("prognazacc");
+  });
+}
+
+docs {
+  Search the accessi of a specific odonimo (by prognaz) filtered by civic +
+  esponente. `numero_civico` and `esponente` are folded into ANNCSU's `accparz`
+  with the Agenzia delle Entrate format `civico/esponente` (a specificità would
+  append `-…`); the concatenated form `95A` does NOT match (ADR 0020).
+
+  Validated against PDND collaudo (UAT): VIA TARANTO (prognaz 920585), civic 95
+  esponente A -> accparz "95/A" -> the single 95/A access (prognazacc 33160578).
+}

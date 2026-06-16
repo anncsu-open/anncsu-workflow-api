@@ -306,6 +306,150 @@ workflows:
           - $steps.cerca-accesso.outputs.progressivo_civico
           - $steps.crea-accesso.outputs.progressivo_civico
 
+  - workflowId: crea-accesso-per-odonimo
+    summary: Crea un accesso su un odonimo esistente (per progressivo nazionale)
+    description: |
+      Aggiunge un accesso a un odonimo già esistente, identificato dal suo
+      progressivo nazionale (`prognaz`, obbligatorio). L'esistenza dell'accesso è
+      verificata a partire dal prognaz (elencoaccessiprog) con il formato accparz
+      AdE civico[/esponente][-specificità] (ADR 0020): nessun match -> crea;
+      esattamente uno -> ritorna il prognazacc esistente; più di uno -> fallisce
+      (ambiguo). Non crea l'odonimo: per quello usare
+      verifica-e-crea-indirizzo-completo.
+    inputs:
+      type: object
+      properties:
+        codcom:
+          type: string
+          description: Codice Belfiore del comune
+        prognaz:
+          type: string
+          description: Progressivo nazionale dell'odonimo (obbligatorio)
+        numero_civico:
+          type: string
+          description: Numero civico (alternativo a metrico)
+        metrico:
+          type: string
+          description: Valore metrico (alternativo a numero_civico)
+        esponente:
+          type: string
+          description: Esponente del civico
+        specificita:
+          type: string
+          description: Specificità del civico
+        sezione_censimento:
+          type: string
+          description: Sezione di censimento ISTAT
+        data_validita:
+          type: string
+          description: Data di validità amministrativa (DD/MM/YYYY)
+        coordinata_x:
+          type: string
+        coordinata_y:
+          type: string
+        coordinata_z:
+          type: string
+        metodo:
+          type: string
+        isolato:
+          type: string
+        codice_civico_comunale:
+          type: string
+    steps:
+      - stepId: leggi-odonimo
+        description: Valida l'odonimo leggendolo per progressivo nazionale
+        operationId: anncsu-consultazione.prognazareaPost
+        requestBody:
+          contentType: application/json
+          payload:
+            req: prognazarea
+            prognaz: $inputs.prognaz
+        successCriteria:
+          - condition: $statusCode == 200
+          - condition: $response.body.data.length > 0
+        outputs:
+          progressivo_nazionale: $response.body.data[0].prognaz
+
+      - stepId: verifica-accesso
+        description: Verifica se l'accesso esiste già per quell'odonimo (accparz AdE)
+        operationId: anncsu-consultazione.elencoaccessiprogPost
+        requestBody:
+          contentType: application/json
+          payload:
+            req: elencoaccessiprog
+            prognaz: $inputs.prognaz
+            # accparz: il valore metrico, oppure civico[/esponente][-specificità]
+            # (formato AdE, ADR 0020). Le parti assenti sono saltate dall'x-join.
+            accparz:
+              x-coalesce:
+                - $inputs.metrico
+                - x-join:
+                    - "-"
+                    - x-join:
+                        - "/"
+                        - $inputs.numero_civico
+                        - $inputs.esponente
+                    - $inputs.specificita
+        # Esattamente 1 -> esiste (ne ritorna il prognazacc). 404 -> non esiste,
+        # crea. >1 -> ambiguo, fallisce (non indovina, come ADR 0019/0020).
+        successCriteria:
+          - condition: $statusCode == 200
+          - condition: $response.body.data.length == 1
+        onSuccess:
+          - name: accesso-esiste
+            type: end
+        onFailure:
+          - name: accesso-non-esiste
+            type: goto
+            stepId: crea-accesso
+            criteria:
+              - condition: $statusCode == 404
+        outputs:
+          progressivo_civico: $response.body.data[0].prognazacc
+
+      - stepId: crea-accesso
+        description: Crea l'accesso sull'odonimo dato (operazione I)
+        operationId: anncsu-accessi.gestioneAnncsuPdnd
+        requestBody:
+          contentType: application/json
+          payload:
+            richiesta:
+              codcom: $inputs.codcom
+              progr_nazionale: $inputs.prognaz
+              accesso:
+                numero: $inputs.numero_civico
+                metrico: $inputs.metrico
+                operazione_civico: I
+                sezione_censimento: $inputs.sezione_censimento
+                data_valid_amm: $inputs.data_validita
+                esponente: $inputs.esponente
+                specificita: $inputs.specificita
+                isolato: $inputs.isolato
+                codice_civico_comunale: $inputs.codice_civico_comunale
+                coordinate:
+                  x: $inputs.coordinata_x
+                  y: $inputs.coordinata_y
+                  z: $inputs.coordinata_z
+                  metodo: $inputs.metodo
+        successCriteria:
+          - condition: $statusCode == 200
+          - condition: $response.body.esito == "0"
+        onSuccess:
+          - name: fine
+            type: end
+        outputs:
+          progressivo_civico: $response.body.dati[0].progr_civico
+
+    outputs:
+      progressivo_nazionale_odonimo: $inputs.prognaz
+      progressivo_civico: $steps.verifica-accesso.outputs.progressivo_civico
+
+    x-executor:
+      coalesce:
+        progressivo_civico:
+          - $steps.verifica-accesso.outputs.progressivo_civico
+          - $steps.crea-accesso.outputs.progressivo_civico
+
   - workflowId: aggiorna-accesso-da-progressivo
     summary: Aggiorna un accesso identificato dai progressivi nazionali
     description: |
@@ -790,12 +934,18 @@ workflows:
           payload:
             req: elencoaccessiprog
             prognaz: $steps.cerca-odonimi.outputs.progressivo_nazionale
-            # accparz = civico + esponente opzionale, un unico filtro parziale
-            # (anncsu-sdk); esponente assente -> resta solo il civico (x-concat).
+            # accparz = civico [/esponente] [-specificità], formato AdE (ADR 0020):
+            # esponente con "/", specificità con "-"; le parti assenti (e i loro
+            # separatori) sono saltate dall'x-join annidato (es. "95", "95/A",
+            # "95/A-ROSSO").
             accparz:
-              x-concat:
-                - $inputs.numero_civico
-                - $inputs.esponente
+              x-join:
+                - "-"
+                - x-join:
+                    - "/"
+                    - $inputs.numero_civico
+                    - $inputs.esponente
+                - $inputs.specificita
         successCriteria:
           - condition: $statusCode == 200
         # ANNCSU risponde 404 quando la ricerca accessi non trova nulla: per una
@@ -864,12 +1014,16 @@ workflows:
             prognaz: $inputs.prognaz
             # accparz è richiesto dall'API (senza, l'operazione fallisce, non è un
             # 404): per questo numero_civico è obbligatorio nell'input model, niente
-            # default magico (ADR 0018). Accetta civico (+ esponente opzionale) o
-            # metrico; civico ed esponente confluiscono in un unico accparz.
+            # default magico (ADR 0018). Formato AdE civico [/esponente]
+            # [-specificità] via x-join annidato (ADR 0020); o un valore metrico.
             accparz:
-              x-concat:
-                - $inputs.numero_civico
-                - $inputs.esponente
+              x-join:
+                - "-"
+                - x-join:
+                    - "/"
+                    - $inputs.numero_civico
+                    - $inputs.esponente
+                - $inputs.specificita
         successCriteria:
           - condition: $statusCode == 200
         # Nessun accesso per i valori forniti -> 404: accessi vuoti, non un errore.

@@ -27,6 +27,19 @@ against PDND collaudo:
 - **Ricerca Indirizzo Odonimo Inesistente** — unknown odonimo; ANNCSU 404 maps to
   both lists empty (200, not 422).
 
+By an existing odonimo's progressive (`prognaz`), validated against PDND collaudo
+(ADR 0018/0020):
+
+- **Ricerca Accessi per Odonimo** — list a specific odonimo's accessi
+  (`POST /v1/workflows/ricerca-accessi-per-odonimo`).
+- **Ricerca Accessi per Odonimo con Esponente** — filter by civic + esponente; the
+  two fold into `accparz` with the AdE format `civico/esponente` (a specificità
+  appends `-…`).
+- **Crea Accesso per Odonimo Esistente** —
+  `POST /v1/workflows/crea-accesso-per-odonimo`: add an accesso to an existing
+  odonimo (prognaz required). The example hits the already-exists branch (returns
+  the existing `prognazacc`, no write); the create branch is a WRITE.
+
 Creation (`POST /v1/workflows/verifica-e-crea-indirizzo-completo`) — WRITE
 operations; run only against collaudo (UAT), never production:
 

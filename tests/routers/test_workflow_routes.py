@@ -253,7 +253,8 @@ def test_ricerca_route_maps_search_results():
 
 def test_ricerca_route_folds_esponente_into_accparz():
     # The route accepts an optional esponente; it reaches the wire combined with the
-    # civic in a single accparz value (e.g. civic 42 + esponente A -> "42A").
+    # civic in a single accparz value with the AdE separators (civic 42 + esponente
+    # A -> "42/A"; specificità would append "-…").
     transport = ScriptedTransport(
         {
             "anncsu-consultazione.elencoodonimiprogPost": Response(
@@ -280,7 +281,58 @@ def test_ricerca_route_folds_esponente_into_accparz():
     accparz = next(p for op, p in transport.calls if op.endswith("elencoaccessiprogPost"))[
         "accparz"
     ]
-    assert accparz == "42A"
+    assert accparz == "42/A"
+
+
+def test_crea_accesso_per_odonimo_route_creates_when_absent():
+    # Add a civic accesso to an existing odonimo (ADR 0020): prognaz validated,
+    # accesso absent (404) -> created; accparz built with the AdE "/" separator.
+    transport = ScriptedTransport(
+        {
+            "anncsu-consultazione.prognazareaPost": Response(
+                200, {"data": [{"prognaz": "907720", "duf": "AURELIA"}]}
+            ),
+            "anncsu-consultazione.elencoaccessiprogPost": Response(
+                404, {"title": "non trovati accessi"}
+            ),
+            "anncsu-accessi.gestioneAnncsuPdnd": Response(
+                200, {"esito": "0", "dati": [{"progr_civico": "1370588"}]}
+            ),
+        }
+    )
+    executor = WorkflowExecutor(load_spec(ARAZZO_SPEC), transport)
+    with _client_with(WorkflowApplicationService(executor)) as client:
+        response = client.post(
+            "/v1/workflows/crea-accesso-per-odonimo",
+            json={
+                "codcom": "H501",
+                "prognaz": "907720",
+                "numero_civico": "42",
+                "esponente": "A",
+                "sezione_censimento": "580911010001",
+            },
+        )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["progressivo_nazionale_odonimo"] == "907720"
+    assert body["progressivo_civico"] == "1370588"
+    accparz = next(p for op, p in transport.calls if op.endswith("elencoaccessiprogPost"))[
+        "accparz"
+    ]
+    assert accparz == "42/A"
+
+
+def test_crea_accesso_per_odonimo_route_requires_civico_xor_metrico():
+    # Exactly one of numero_civico / metrico (ADR 0016/0020): neither -> 422.
+    with _client_scripted({}) as client:
+        response = client.post(
+            "/v1/workflows/crea-accesso-per-odonimo",
+            json={"codcom": "H501", "prognaz": "907720", "sezione_censimento": "580911010001"},
+        )
+
+    assert response.status_code == 422
+    assert response.headers["content-type"] == "application/problem+json"
 
 
 def test_ricerca_accessi_per_odonimo_route_maps_results():
@@ -793,6 +845,7 @@ def test_workflow_routes_are_published_in_the_v1_openapi():
         "sopprimi-accesso",
         "ricerca-indirizzo-completo",
         "ricerca-accessi-per-odonimo",
+        "crea-accesso-per-odonimo",
     ):
         assert f"/v1/workflows/{workflow_id}" in document["paths"]
 
@@ -810,6 +863,7 @@ def test_workflow_routes_declare_their_problem_responses():
         "sopprimi-accesso",
         "ricerca-indirizzo-completo",
         "ricerca-accessi-per-odonimo",
+        "crea-accesso-per-odonimo",
     ):
         responses = document["paths"][f"/v1/workflows/{workflow_id}"]["post"]["responses"]
         for status in ("422", "500", "502"):
@@ -829,8 +883,10 @@ def test_all_workflows_declare_named_request_examples():
             "by_odonimo",
             "by_odonimo_and_civico",
             "by_civico_and_esponente",
+            "by_civico_esponente_specificita",
         },
         "ricerca-accessi-per-odonimo": {"by_civico", "by_metrico"},
+        "crea-accesso-per-odonimo": {"civic", "civic_with_esponente", "metric"},
         "sopprimi-odonimo-completo": {"default"},
         "sopprimi-accesso": {"default"},
     }

@@ -277,6 +277,104 @@ class CreaIndirizzoCompletoOutput(BaseModel):
     errors: list[str] | None = Field(None, description="List of any errors")
 
 
+class CreaAccessoPerOdonimoInput(BaseModel):
+    """Input for adding an accesso to an existing odonimo (ADR 0020).
+
+    The odonimo is identified deterministically by its national progressive
+    (``prognaz``); the accesso is identified by exactly one of ``numero_civico``
+    (civic) or ``metrico`` (metric). This workflow does not create the odonimo.
+    """
+
+    codcom: str = Field(
+        ...,
+        pattern=CODCOM_PATTERN,
+        description="Belfiore municipality code (codcom)",
+        json_schema_extra={"example": "H501"},
+    )
+    prognaz: str = Field(
+        ...,
+        max_length=10,
+        description="National progressive number of the existing odonimo",
+        json_schema_extra={"example": "907720"},
+    )
+    sezione_censimento: str = Field(
+        ...,
+        max_length=13,
+        description="Census section (ISTAT SEZ21_ID) of the accesso, required to create it",
+        json_schema_extra={"example": "580911010001"},
+    )
+
+    # Accesso identifier: exactly one of numero_civico (civic) or metrico (metric).
+    numero_civico: str | None = Field(
+        None,
+        max_length=5,
+        description="Civico (street number); mutually exclusive with metrico",
+        json_schema_extra={"example": "42"},
+    )
+    metrico: str | None = Field(
+        None,
+        max_length=6,
+        description="Metric identification; mutually exclusive with numero_civico",
+        json_schema_extra={"example": "300"},
+    )
+
+    # Accesso optional attributes.
+    esponente: str | None = Field(
+        None, max_length=15, description="Esponente", json_schema_extra={"example": "A"}
+    )
+    specificita: str | None = Field(
+        None, max_length=5, description="Specificità", json_schema_extra={"example": "ROSSO"}
+    )
+    isolato: str | None = Field(
+        None, max_length=4, description="Isolato code", json_schema_extra={"example": "12"}
+    )
+    codice_civico_comunale: str | None = Field(
+        None,
+        max_length=30,
+        description="Municipal code of the accesso",
+        json_schema_extra={"example": "7569A"},
+    )
+    data_validita: str | None = Field(
+        None,
+        description="Administrative validity date (DD/MM/YYYY)",
+        json_schema_extra={"example": "08/10/2024"},
+    )
+
+    # Accesso coordinates (optional, co-dependent: x with y; z/metodo only with x and y).
+    coordinata_x: str | None = Field(
+        None, max_length=12, description="Longitude WGS84 (6.0-18.0); requires coordinata_y"
+    )
+    coordinata_y: str | None = Field(
+        None, max_length=12, description="Latitude WGS84 (36.0-47.0); requires coordinata_x"
+    )
+    coordinata_z: str | None = Field(
+        None, max_length=7, description="Elevation in meters; only with coordinata_x and y"
+    )
+    metodo: str | None = Field(
+        None, pattern=METODO_PATTERN, description="Survey method (1-4); only with coordinates"
+    )
+
+    _data_validita_is_a_date = field_validator("data_validita")(_ddmmyyyy)
+    _x_is_in_italy = field_validator("coordinata_x")(_wgs84(6.0, 18.0))
+    _y_is_in_italy = field_validator("coordinata_y")(_wgs84(36.0, 47.0))
+
+    @model_validator(mode="after")
+    def _exactly_one_accesso_identifier(self) -> CreaAccessoPerOdonimoInput:
+        if (self.numero_civico is None) == (self.metrico is None):
+            raise ValueError("exactly one of 'numero_civico' or 'metrico' must be provided")
+        return self
+
+    @model_validator(mode="after")
+    def _coordinates_are_consistent(self) -> CreaAccessoPerOdonimoInput:
+        if (self.coordinata_x is None) != (self.coordinata_y is None):
+            raise ValueError("coordinata_x and coordinata_y must be provided together")
+        if (self.coordinata_z is not None or self.metodo is not None) and self.coordinata_x is None:
+            raise ValueError(
+                "coordinata_z and metodo are only allowed with coordinata_x and coordinata_y"
+            )
+        return self
+
+
 # ============================================================================
 # Workflow: Generic accesso update by national progressives (ADR 0010)
 # ============================================================================
@@ -620,13 +718,19 @@ class RicercaIndirizzoInput(BaseModel):
         description="Civico (street number, optional)",
         json_schema_extra={"example": "42"},
     )
-    # Folded into ANNCSU's accparz together with numero_civico (civic + esponente as
-    # one partial filter); ignored when numero_civico is absent.
+    # Folded into ANNCSU's accparz with numero_civico as civico[/esponente]
+    # [-specificità] (ADR 0020); ignored when numero_civico is absent.
     esponente: str | None = Field(
         None,
         max_length=15,
-        description="Esponente, combined with numero_civico in the search filter",
+        description="Esponente, combined with numero_civico in the search filter (/)",
         json_schema_extra={"example": "A"},
+    )
+    specificita: str | None = Field(
+        None,
+        max_length=5,
+        description="Specificità, appended to the esponente in the search filter (-)",
+        json_schema_extra={"example": "ROSSO"},
     )
 
 
@@ -663,12 +767,19 @@ class RicercaAccessiPerOdonimoInput(BaseModel):
         description="Civic or metric value (accparz), partial allowed (required)",
         json_schema_extra={"example": "1"},
     )
-    # Optional esponente, folded into accparz together with numero_civico.
+    # Optional esponente/specificità, folded into accparz as civico[/esponente]
+    # [-specificità] (ADR 0020).
     esponente: str | None = Field(
         None,
         max_length=15,
-        description="Esponente, combined with numero_civico in the search filter",
+        description="Esponente, combined with numero_civico in the search filter (/)",
         json_schema_extra={"example": "A"},
+    )
+    specificita: str | None = Field(
+        None,
+        max_length=5,
+        description="Specificità, appended to the esponente in the search filter (-)",
+        json_schema_extra={"example": "ROSSO"},
     )
 
 

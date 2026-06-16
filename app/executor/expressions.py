@@ -75,16 +75,15 @@ def evaluate_condition(condition: str, ctx: ExecutionContext) -> bool:
 def resolve_value(value: Any, ctx: ExecutionContext) -> Any:
     """Recursively resolve any runtime expressions inside a request payload.
 
-    A single-key object ``{"x-coalesce": [a, b, …]}`` resolves to the first
-    non-null of its operands — the coalesce semantics of ``x-executor.coalesce``,
-    usable inside a payload to merge caller input over a read step's outputs
-    (see ADR 0012).
+    A single-key object selects a payload primitive: ``x-coalesce`` (first non-null,
+    ADR 0012), ``x-concat`` (string concatenation, ADR 0019), or ``x-join``
+    (separator-join skipping empties, ADR 0020).
     """
     if isinstance(value, Mapping):
-        if set(value) == {"x-coalesce"}:
-            return _coalesce(value["x-coalesce"], ctx)
-        if set(value) == {"x-concat"}:
-            return _concat(value["x-concat"], ctx)
+        if len(value) == 1:
+            key = next(iter(value))
+            if isinstance(key, str) and key in _PRIMITIVES:
+                return _PRIMITIVES[key](value[key], ctx)
         return {key: resolve_value(item, ctx) for key, item in value.items()}
     if isinstance(value, (list, tuple)):
         return [resolve_value(item, ctx) for item in value]
@@ -109,6 +108,29 @@ def _concat(operands: Any, ctx: ExecutionContext) -> str:
         resolved = resolve_value(operand, ctx)
         parts.append("" if resolved is None else str(resolved))
     return "".join(parts)
+
+
+def _join(operands: Any, ctx: ExecutionContext) -> str:
+    """Join parts with a separator, dropping absent parts (and their separators).
+
+    The first operand is the separator; the rest are the parts. A part that
+    resolves to ``null`` or ``""`` is skipped, so no dangling separator is emitted
+    (e.g. civic with no esponente stays ``"42"``, not ``"42/"``). Nesting builds
+    ANNCSU's ``accparz`` ``civico[/esponente][-specificità]`` (ADR 0020).
+    """
+    separator, *parts = operands
+    sep = resolve_value(separator, ctx)
+    sep = "" if sep is None else str(sep)
+    resolved = []
+    for part in parts:
+        value = resolve_value(part, ctx)
+        if value is not None and value != "":
+            resolved.append(str(value))
+    return sep.join(resolved)
+
+
+# Single-key payload primitives dispatched by resolve_value.
+_PRIMITIVES = {"x-coalesce": _coalesce, "x-concat": _concat, "x-join": _join}
 
 
 def _resolve_root(root: str, ctx: ExecutionContext) -> Any:

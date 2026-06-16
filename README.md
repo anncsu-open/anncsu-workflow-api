@@ -460,6 +460,27 @@ is no unfiltered listing — so `numero_civico` is mandatory here (ADR 0018).
 }
 ```
 
+### 8. Add an Accesso to an Existing Odonimo
+
+Adds an accesso to an odonimo identified deterministically by its national
+progressive (`prognaz`, required). Existence is checked from that `prognaz` with the
+AdE `accparz` format `civico[/esponente][-specificità]`: no match → create; exactly
+one → return the existing `prognazacc`; more than one → fail (ambiguous). It does not
+create the odonimo — use workflow 1 for that. The deterministic, odonimo-already-known
+counterpart of workflow 1 (ADR 0020).
+
+**Endpoint**: `POST /v1/workflows/crea-accesso-per-odonimo`
+
+```json
+{
+  "codcom": "H501",
+  "prognaz": "907720",
+  "numero_civico": "42",
+  "esponente": "A",
+  "sezione_censimento": "580911010001"
+}
+```
+
 ## Project Structure
 
 ```

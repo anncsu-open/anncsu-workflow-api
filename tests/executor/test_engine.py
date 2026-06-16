@@ -350,8 +350,8 @@ async def test_real_spec_search_returns_empty_on_odonimi_404():
 
 async def test_real_spec_search_combines_civico_and_esponente_in_accparz():
     # accparz carries civic + optional esponente as one partial filter value
-    # (anncsu-sdk); build it via x-concat so civic "42" with esponente "A" searches
-    # accparz "42A".
+    # (anncsu-sdk), separated by "/" (validated on collaudo: "15/C" matches, "15C"
+    # does not); build it via x-join so civic "42" + esponente "A" -> accparz "42/A".
     spec = load_spec(ARAZZO_SPEC)
     transport = ScriptedTransport(
         {
@@ -372,11 +372,11 @@ async def test_real_spec_search_combines_civico_and_esponente_in_accparz():
     accparz = next(p for op, p in transport.calls if op.endswith("elencoaccessiprogPost"))[
         "accparz"
     ]
-    assert accparz == "42A"
+    assert accparz == "42/A"
 
 
 async def test_real_spec_search_accparz_is_civico_only_without_esponente():
-    # No esponente -> accparz is just the civic (x-concat treats the null as "").
+    # No esponente -> accparz is just the civic (x-join drops the null and its "/").
     spec = load_spec(ARAZZO_SPEC)
     transport = ScriptedTransport(
         {
@@ -398,6 +398,37 @@ async def test_real_spec_search_accparz_is_civico_only_without_esponente():
         "accparz"
     ]
     assert accparz == "42"
+
+
+async def test_real_spec_search_appends_specificita_with_hyphen():
+    # Full AdE accparz format: civico/esponente-specificità (ADR 0020).
+    spec = load_spec(ARAZZO_SPEC)
+    transport = ScriptedTransport(
+        {
+            "anncsu-consultazione.elencoodonimiprogPost": Response(
+                200, {"data": [{"prognaz": "2000449", "duf": "ROMA"}]}
+            ),
+            "anncsu-consultazione.elencoaccessiprogPost": Response(
+                200, {"data": [{"prognazacc": "1"}]}
+            ),
+        }
+    )
+
+    await WorkflowExecutor(spec, transport).run(
+        "ricerca-indirizzo-completo",
+        {
+            "codcom": "H501",
+            "denom_odonimo": "ROMA",
+            "numero_civico": "42",
+            "esponente": "A",
+            "specificita": "ROSSO",
+        },
+    )
+
+    accparz = next(p for op, p in transport.calls if op.endswith("elencoaccessiprogPost"))[
+        "accparz"
+    ]
+    assert accparz == "42/A-ROSSO"
 
 
 async def test_real_spec_ricerca_accessi_per_odonimo_combines_civico_and_esponente():
@@ -422,7 +453,106 @@ async def test_real_spec_ricerca_accessi_per_odonimo_combines_civico_and_esponen
     accparz = next(p for op, p in transport.calls if op.endswith("elencoaccessiprogPost"))[
         "accparz"
     ]
-    assert accparz == "42A"
+    assert accparz == "42/A"
+
+
+# --- crea-accesso-per-odonimo (ADR 0020) -----------------------------------
+
+
+async def test_real_spec_crea_accesso_per_odonimo_creates_when_absent():
+    # Existence is checked from the odonimo's prognaz (elencoaccessiprog) with the
+    # AdE accparz; a 404 means the accesso is absent -> create it (ADR 0020).
+    spec = load_spec(ARAZZO_SPEC)
+    transport = ScriptedTransport(
+        {
+            "anncsu-consultazione.prognazareaPost": Response(
+                200, {"data": [{"prognaz": "907720", "duf": "AURELIA"}]}
+            ),
+            "anncsu-consultazione.elencoaccessiprogPost": Response(
+                404, {"title": "non trovati accessi"}
+            ),
+            "anncsu-accessi.gestioneAnncsuPdnd": Response(
+                200, {"esito": "0", "dati": [{"progr_civico": "1370588"}]}
+            ),
+        }
+    )
+
+    run = await WorkflowExecutor(spec, transport).run(
+        "crea-accesso-per-odonimo",
+        {
+            "codcom": "H501",
+            "prognaz": "907720",
+            "numero_civico": "42",
+            "esponente": "A",
+            "sezione_censimento": "580911010001",
+        },
+    )
+
+    assert run.outputs["progressivo_nazionale_odonimo"] == "907720"
+    assert run.outputs["progressivo_civico"] == "1370588"
+    accparz = next(p for op, p in transport.calls if op.endswith("elencoaccessiprogPost"))[
+        "accparz"
+    ]
+    assert accparz == "42/A"
+
+
+async def test_real_spec_crea_accesso_per_odonimo_returns_existing_without_creating():
+    # Exactly one match -> the accesso already exists -> return its prognazacc, no write.
+    spec = load_spec(ARAZZO_SPEC)
+    transport = ScriptedTransport(
+        {
+            "anncsu-consultazione.prognazareaPost": Response(
+                200, {"data": [{"prognaz": "907720"}]}
+            ),
+            "anncsu-consultazione.elencoaccessiprogPost": Response(
+                200, {"data": [{"prognazacc": "5400478", "civico": "42", "esp": "A"}]}
+            ),
+        }
+    )
+
+    run = await WorkflowExecutor(spec, transport).run(
+        "crea-accesso-per-odonimo",
+        {
+            "codcom": "H501",
+            "prognaz": "907720",
+            "numero_civico": "42",
+            "esponente": "A",
+            "sezione_censimento": "580911010001",
+        },
+    )
+
+    assert run.outputs["progressivo_civico"] == "5400478"
+    assert "anncsu-accessi.gestioneAnncsuPdnd" not in [op for op, _ in transport.calls]
+
+
+async def test_real_spec_crea_accesso_per_odonimo_refuses_ambiguous():
+    # More than one accparz match -> ambiguous -> fail, never create (ADR 0020).
+    spec = load_spec(ARAZZO_SPEC)
+    transport = ScriptedTransport(
+        {
+            "anncsu-consultazione.prognazareaPost": Response(
+                200, {"data": [{"prognaz": "907720"}]}
+            ),
+            "anncsu-consultazione.elencoaccessiprogPost": Response(
+                200, {"data": [{"prognazacc": "1"}, {"prognazacc": "2"}]}
+            ),
+            "anncsu-accessi.gestioneAnncsuPdnd": Response(
+                200, {"esito": "0", "dati": [{"progr_civico": "X"}]}
+            ),
+        }
+    )
+
+    with pytest.raises(StepFailedError, match="verifica-accesso"):
+        await WorkflowExecutor(spec, transport).run(
+            "crea-accesso-per-odonimo",
+            {
+                "codcom": "H501",
+                "prognaz": "907720",
+                "numero_civico": "42",
+                "sezione_censimento": "580911010001",
+            },
+        )
+    assert "anncsu-accessi.gestioneAnncsuPdnd" not in [op for op, _ in transport.calls]
 
 
 async def test_real_spec_search_disambiguates_multiple_odonimi():

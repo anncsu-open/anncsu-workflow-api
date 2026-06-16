@@ -31,6 +31,7 @@ from app.models.workflows import (
     AggiornaAccessoOutput,
     AggiornaOdonimoDaProgressivoInput,
     AggiornaOdonimoOutput,
+    CreaAccessoPerOdonimoInput,
     CreaIndirizzoCompletoInput,
     CreaIndirizzoCompletoOutput,
     RicercaAccessiPerOdonimoInput,
@@ -190,6 +191,57 @@ async def verifica_e_crea_indirizzo_completo(
     )
 
 
+_CREA_ACCESSO_EXAMPLES: dict[str, Any] = {
+    "civic": {
+        "summary": "Add a civic accesso to an existing odonimo (by prognaz)",
+        "value": {
+            "codcom": "H501",
+            "prognaz": "907720",
+            "numero_civico": "42",
+            "sezione_censimento": "580911010001",
+        },
+    },
+    "civic_with_esponente": {
+        "summary": "Civic accesso with esponente (accparz civico/esponente)",
+        "value": {
+            "codcom": "H501",
+            "prognaz": "907720",
+            "numero_civico": "42",
+            "esponente": "A",
+            "sezione_censimento": "580911010001",
+        },
+    },
+    "metric": {
+        "summary": "Add a metric accesso to an existing odonimo",
+        "value": {
+            "codcom": "H501",
+            "prognaz": "907720",
+            "metrico": "300",
+            "sezione_censimento": "580911010001",
+        },
+    },
+}
+
+
+@router.post(
+    "/crea-accesso-per-odonimo",
+    response_model=CreaIndirizzoCompletoOutput,
+    summary="Add an accesso to an existing odonimo (by progressive)",
+)
+async def crea_accesso_per_odonimo(
+    payload: Annotated[CreaAccessoPerOdonimoInput, Body(openapi_examples=_CREA_ACCESSO_EXAMPLES)],
+    service: ServiceDep,
+) -> CreaIndirizzoCompletoOutput:
+    """Create an accesso on a known odonimo (mandatory prognaz; ADR 0020)."""
+    run = await service.run("crea-accesso-per-odonimo", payload.model_dump())
+    return CreaIndirizzoCompletoOutput(
+        success=True,
+        progressivo_nazionale_odonimo=run.outputs.get("progressivo_nazionale_odonimo"),
+        progressivo_civico=run.outputs.get("progressivo_civico"),
+        message=COMPLETED_MESSAGE,
+    )
+
+
 # Named request examples for the unified accesso update (the OpenAPI carries them
 # so the docs show the supported input shapes — ADR 0012).
 _ACCESSO_UPDATE_EXAMPLES: dict[str, Any] = {
@@ -344,12 +396,22 @@ _RICERCA_EXAMPLES: dict[str, Any] = {
         "value": {"codcom": "H501", "denom_odonimo": "ROMA", "numero_civico": "42"},
     },
     "by_civico_and_esponente": {
-        "summary": "Search a civico with an esponente (folded into accparz)",
+        "summary": "Search a civico with an esponente (accparz civico/esponente)",
         "value": {
             "codcom": "H501",
             "denom_odonimo": "ROMA",
             "numero_civico": "42",
             "esponente": "A",
+        },
+    },
+    "by_civico_esponente_specificita": {
+        "summary": "Full AdE filter (accparz civico/esponente-specificità)",
+        "value": {
+            "codcom": "H501",
+            "denom_odonimo": "ROMA",
+            "numero_civico": "42",
+            "esponente": "A",
+            "specificita": "ROSSO",
         },
     },
 }

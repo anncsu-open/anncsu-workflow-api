@@ -1,0 +1,53 @@
+meta {
+  name: Crea Accesso per Odonimo Esistente
+  type: http
+  seq: 16
+}
+
+post {
+  url: {{baseUrl}}/v1/workflows/crea-accesso-per-odonimo
+  body: json
+  auth: inherit
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "codcom": "H501",
+    "prognaz": "920585",
+    "numero_civico": "95",
+    "esponente": "A",
+    "sezione_censimento": "580911010001"
+  }
+}
+
+settings {
+  encodeUrl: false
+  timeout: 0
+}
+
+tests {
+  test("an already-existing accesso is returned, not duplicated", function() {
+    expect(res.status).to.equal(200);
+    expect(res.body.progressivo_nazionale_odonimo).to.equal("920585");
+    expect(res.body.progressivo_civico).to.be.a("string");
+  });
+}
+
+docs {
+  Add an accesso to an existing odonimo, identified by its national progressive
+  (`prognaz`, required; ADR 0020). Existence is checked from that prognaz with the
+  AdE accparz `civico[/esponente][-specificità]`: no match -> create; exactly one ->
+  return the existing `prognazacc` (no duplicate); more than one -> fail (ambiguous).
+
+  This example hits the "already exists" branch (VIA TARANTO 95/A), so it returns
+  the existing prognazacc WITHOUT writing — safe to run. The create branch is a
+  WRITE; to exercise it as a no-op, create a clearly-new civic then suppress it
+  (sopprimi-accesso), like the "Dry-run Accesso" pair.
+
+  Validated against PDND collaudo (UAT): prognaz 920585, civic 95 esponente A ->
+  returns prognazacc 33160578 (the existing 95/A), no creation.
+}

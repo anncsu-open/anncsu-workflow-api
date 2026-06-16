@@ -70,6 +70,41 @@ Recupera il progressivo civico dell'accesso esistente
 - Operation: `anncsu-consultazione.elencoaccessiprogPost`
 - Outputs: progressivo_civico
 
+## crea-accesso-per-odonimo
+
+Crea un accesso su un odonimo esistente (per progressivo nazionale)
+
+```mermaid
+graph TD
+  leggi_odonimo["leggi-odonimo"]
+  verifica_accesso["verifica-accesso"]
+  crea_accesso["crea-accesso"]
+  leggi_odonimo --> verifica_accesso
+  verifica_accesso --> crea_accesso
+  verifica_accesso -. goto .-> crea_accesso
+```
+
+### 1. leggi-odonimo
+
+Valida l'odonimo leggendolo per progressivo nazionale
+
+- Operation: `anncsu-consultazione.prognazareaPost`
+- Outputs: progressivo_nazionale
+
+### 2. verifica-accesso
+
+Verifica se l'accesso esiste già per quell'odonimo (accparz AdE)
+
+- Operation: `anncsu-consultazione.elencoaccessiprogPost`
+- Outputs: progressivo_civico
+
+### 3. crea-accesso
+
+Crea l'accesso sull'odonimo dato (operazione I)
+
+- Operation: `anncsu-accessi.gestioneAnncsuPdnd`
+- Outputs: progressivo_civico
+
 ## aggiorna-accesso-da-progressivo
 
 Aggiorna un accesso identificato dai progressivi nazionali

@@ -60,3 +60,16 @@ async def test_step_is_skipped_without_dispatch_when_x_when_is_false():
     assert ops == ["src.always"]  # 'maybe' never dispatched
     assert run.outputs["v"] is None  # skipped step captured no outputs
     assert run.outputs["w"] == "ok"
+
+
+async def test_run_trace_records_executed_steps_only():
+    # The per-step trace (ADR 0022) lists executed steps in order, with their upstream
+    # status; a step skipped by x-when leaves no trace entry.
+    spec = load_spec(_when_spec("$inputs.flag != null"))
+
+    skipped = await WorkflowExecutor(spec, _transport()).run("guarded", {})
+    assert [t.step_id for t in skipped.trace] == ["always"]  # 'maybe' skipped
+    assert skipped.trace[0].status_code == 200
+
+    ran = await WorkflowExecutor(spec, _transport()).run("guarded", {"flag": "x"})
+    assert [t.step_id for t in ran.trace] == ["maybe", "always"]

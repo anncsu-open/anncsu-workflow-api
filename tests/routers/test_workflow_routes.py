@@ -8,6 +8,7 @@ declared outputs onto the typed Output models — synchronous in-band outcome
 RFC 7807 Problem Details via the app-level exception handlers.
 """
 
+from collections.abc import Mapping
 from contextlib import contextmanager
 from pathlib import Path
 
@@ -35,7 +36,7 @@ def _client_with(service):
 
 
 @contextmanager
-def _client_scripted(responses: dict[str, Response]):
+def _client_scripted(responses: Mapping[str, Response | Exception]):
     spec = load_spec(ARAZZO_SPEC)
     executor = WorkflowExecutor(spec, ScriptedTransport(responses))
     with _client_with(WorkflowApplicationService(executor)) as client:
@@ -83,7 +84,9 @@ def test_crea_indirizzo_route_returns_coalesced_progressivi():
     assert body["success"] is True
     assert body["progressivo_nazionale_odonimo"] == "2000449"
     assert body["progressivo_civico"] == "1370588"
-    assert body["message"]
+    assert body["summary"]
+    # Per-step trace present (ADR 0022): odonimo + accesso verify/create steps.
+    assert [m["step"] for m in body["messages"]]
     # The accesso insert must carry sezione_censimento: the OAS requires it
     # for operazione_civico I/R and the server rejects the insert without it.
     crea_accesso = next(p for op, p in transport.calls if op == "anncsu-accessi.gestioneAnncsuPdnd")
@@ -803,6 +806,118 @@ def test_ricerca_indirizzo_rejects_both_denominazione_and_progressivo():
 
     assert response.status_code == 422
     assert response.json()["errors"]
+
+
+def test_workflow_response_carries_summary_and_per_step_messages():
+    # ADR 0022: the response replaces `message`/`errors` with an overall `summary`
+    # plus a per-step `messages` trace ({step, status, title, detail}); a handled 404
+    # step carries the upstream title/detail, a clean 2xx step leaves them null.
+    transport = ScriptedTransport(
+        {
+            "anncsu-consultazione.prognazareaPost": Response(
+                200, {"data": [{"prognaz": "907720"}]}
+            ),
+            "anncsu-consultazione.elencoaccessiprogPost": Response(
+                404, {"title": "non trovati accessi", "detail": "nessun accesso per 99999/Z"}
+            ),
+            "anncsu-accessi.gestioneAnncsuPdnd": Response(
+                200, {"esito": "0", "dati": [{"progr_civico": "5400999"}]}
+            ),
+        }
+    )
+    executor = WorkflowExecutor(load_spec(ARAZZO_SPEC), transport)
+    with _client_with(WorkflowApplicationService(executor)) as client:
+        response = client.post(
+            "/anncsu/v1/workflows/crea-accesso-per-odonimo",
+            json={
+                "codcom": "H501",
+                "prognaz": "907720",
+                "numero_civico": "99999",
+                "esponente": "Z",
+                "sezione_censimento": "580911010001",
+            },
+        )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["summary"]  # overall human outcome (formerly `message`)
+    assert "message" not in body and "errors" not in body
+    assert [(m["step"], m["status"]) for m in body["messages"]] == [
+        ("leggi-odonimo", 200),
+        ("verifica-accesso", 404),
+        ("crea-accesso", 200),
+    ]
+    verifica = next(m for m in body["messages"] if m["step"] == "verifica-accesso")
+    assert verifica["title"] == "non trovati accessi"
+    assert verifica["detail"] == "nessun accesso per 99999/Z"
+    created = next(m for m in body["messages"] if m["step"] == "crea-accesso")
+    assert created["title"] is None and created["detail"] is None
+
+
+def test_problem_carries_partial_step_trace_on_step_failure():
+    # ADR 0022: a step failure surfaces the partial per-step trace in the Problem, so
+    # the caller sees which steps ran and where it stopped (incl. the failing step).
+    transport = ScriptedTransport(
+        {
+            "anncsu-consultazione.prognazareaPost": Response(
+                200, {"data": [{"prognaz": "907720"}]}
+            ),
+            "anncsu-consultazione.elencoaccessiprogPost": Response(
+                500, {"title": "InvalidResponse", "detail": "backend error"}
+            ),
+        }
+    )
+    executor = WorkflowExecutor(load_spec(ARAZZO_SPEC), transport)
+    with _client_with(WorkflowApplicationService(executor)) as client:
+        response = client.post(
+            "/anncsu/v1/workflows/crea-accesso-per-odonimo",
+            json={
+                "codcom": "H501",
+                "prognaz": "907720",
+                "numero_civico": "99999",
+                "sezione_censimento": "580911010001",
+            },
+        )
+
+    body = response.json()
+    assert [(m["step"], m["status"]) for m in body["messages"]] == [
+        ("leggi-odonimo", 200),
+        ("verifica-accesso", 500),
+    ]
+    failing = body["messages"][-1]
+    assert failing["title"] == "InvalidResponse"
+    assert failing["detail"] == "backend error"
+
+
+def test_problem_carries_partial_step_trace_on_transport_error():
+    # A transport failure (e.g. timeout) records the prior steps plus the in-flight
+    # step (status null, no upstream response reached the executor).
+    transport = ScriptedTransport(
+        {
+            "anncsu-consultazione.prognazareaPost": Response(
+                200, {"data": [{"prognaz": "907720"}]}
+            ),
+            "anncsu-consultazione.elencoaccessiprogPost": TransportError("timed out"),
+        }
+    )
+    executor = WorkflowExecutor(load_spec(ARAZZO_SPEC), transport)
+    with _client_with(WorkflowApplicationService(executor)) as client:
+        response = client.post(
+            "/anncsu/v1/workflows/crea-accesso-per-odonimo",
+            json={
+                "codcom": "H501",
+                "prognaz": "907720",
+                "numero_civico": "99999",
+                "sezione_censimento": "580911010001",
+            },
+        )
+
+    assert response.status_code == 502
+    body = response.json()
+    assert [(m["step"], m["status"]) for m in body["messages"]] == [
+        ("leggi-odonimo", 200),
+        ("verifica-accesso", None),  # in-flight step, no response reached the executor
+    ]
 
 
 def test_sopprimi_accesso_route_suppresses_one_accesso():

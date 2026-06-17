@@ -11,6 +11,7 @@ from app.models.workflows import (
     OdonimoResult,
     RicercaIndirizzoInput,
     SopprimiOdonimoInput,
+    StepMessage,
 )
 from tests.factories import (
     AccessoResultFactory,
@@ -113,30 +114,35 @@ class TestCreaIndirizzoCompletoOutput:
         model = CreaIndirizzoCompletoOutputFactory.build()
         assert isinstance(model, CreaIndirizzoCompletoOutput)
         assert isinstance(model.success, bool)
-        assert model.message is not None
+        assert model.summary is not None
 
     def test_success_output(self):
-        """Test success output."""
+        """Test success output (ADR 0022: summary + per-step messages)."""
         model = CreaIndirizzoCompletoOutputFactory.build(
             success=True,
             progressivo_nazionale_odonimo="2000449",
             progressivo_civico="1370588",
-            errors=None,
+            messages=[],
         )
         assert model.success is True
         assert model.progressivo_nazionale_odonimo == "2000449"
         assert model.progressivo_civico == "1370588"
-        assert model.errors is None
+        assert model.messages == []
 
-    def test_failure_output_with_errors(self):
-        """Test error output with a list of errors."""
+    def test_output_carries_per_step_messages(self):
+        """The output models a per-step trace ({step, status, title, detail})."""
         model = CreaIndirizzoCompletoOutputFactory.build(
-            success=False,
-            errors=["Errore 1", "Errore 2"],
+            success=True,
+            messages=[
+                StepMessage(step="cerca-odonimi", status=200),
+                StepMessage(
+                    step="cerca-accessi", status=404, title="non trovati accessi", detail="..."
+                ),
+            ],
         )
-        assert model.success is False
-        assert model.errors is not None
-        assert len(model.errors) == 2
+        assert [m.step for m in model.messages] == ["cerca-odonimi", "cerca-accessi"]
+        assert model.messages[1].status == 404
+        assert model.messages[1].title == "non trovati accessi"
 
     def test_batch_generation_success_rate(self):
         """Test that most generated models have success=True."""
@@ -319,7 +325,7 @@ class TestRicercaIndirizzoOutput:
             success=True,
             odonimi=[],
             accessi=[],
-            errors=None,
+            messages=[],
         )
         assert model.success is True
         assert len(model.odonimi) == 0
@@ -372,8 +378,7 @@ class TestRealWorldScenarios:
             success=True,
             progressivo_nazionale_odonimo="2000449",
             progressivo_civico="1370588",
-            message="Indirizzo creato con successo",
-            errors=None,
+            summary="Indirizzo creato con successo",
         )
 
         assert input_data.codcom == "H501"
@@ -396,7 +401,7 @@ class TestRealWorldScenarios:
             success=True,
             odonimi=odonimi,
             accessi=[],
-            message=f"Trovati {len(odonimi)} odonimi",
+            summary=f"Trovati {len(odonimi)} odonimi",
         )
 
         assert len(search_output.odonimi) == 3

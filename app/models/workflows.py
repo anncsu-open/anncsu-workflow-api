@@ -13,6 +13,7 @@ named field instead of surfacing an opaque server error mid-workflow.
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from typing import Any
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
@@ -99,6 +100,44 @@ class AccessoResult(BaseModel):
     quota: str | None = Field(None, description="Elevation")
     metodo: str | None = Field(None, description="Survey method")
     codacccomunale: str | None = Field(None, description="Municipal access code")
+
+
+class StepMessage(BaseModel):
+    """One executed workflow step's outcome (ADR 0022).
+
+    ``title``/``detail`` reuse RFC 7807 vocabulary — the same fields as the Problem
+    returned on a hard failure (ADR 0008) — so a per-step anomaly reads like the
+    failure body; both are null on a clean 2xx step.
+    """
+
+    step: str = Field(..., description="Workflow step id")
+    status: int | None = Field(None, description="Upstream HTTP status code of the step's call")
+    title: str | None = Field(None, description="Upstream problem title, if the step reported one")
+    detail: str | None = Field(
+        None, description="Upstream problem detail, if the step reported one"
+    )
+
+    @classmethod
+    def from_trace(cls, trace: Any) -> list[StepMessage]:
+        """Map an engine step trace to per-step messages (ADR 0022).
+
+        Duck-typed on ``step_id``/``status_code``/``body`` so it serves both the
+        success path (``WorkflowRun.trace``) and the failure path (the partial trace
+        carried by ``StepFailedError``/``TransportError``). ``title``/``detail`` come
+        from the upstream body's RFC 7807 keys — null on a clean success body.
+        """
+        messages: list[StepMessage] = []
+        for entry in trace or []:
+            body = entry.body if isinstance(entry.body, dict) else {}
+            messages.append(
+                cls(
+                    step=entry.step_id,
+                    status=entry.status_code,
+                    title=body.get("title"),
+                    detail=body.get("detail"),
+                )
+            )
+        return messages
 
 
 # ============================================================================
@@ -273,8 +312,11 @@ class CreaIndirizzoCompletoOutput(BaseModel):
         None, description="National progressive number of the odonimo"
     )
     progressivo_civico: str | None = Field(None, description="Progressive number of the civico")
-    message: str = Field(..., description="Descriptive message of the result")
-    errors: list[str] | None = Field(None, description="List of any errors")
+    summary: str = Field(..., description="Overall human-readable outcome of the run")
+    messages: list[StepMessage] = Field(
+        default_factory=list,
+        description="Per-step trace of the workflow ({step, status, title, detail})",
+    )
 
 
 class CreaAccessoPerOdonimoInput(BaseModel):
@@ -580,8 +622,11 @@ class AggiornaAccessoOutput(BaseModel):
         None, description="National progressive number of the updated accesso"
     )
     accesso: dict | None = Field(None, description="Accesso state returned by ANNCSU")
-    message: str = Field(..., description="Descriptive message of the result")
-    errors: list[str] | None = Field(None, description="List of any errors")
+    summary: str = Field(..., description="Overall human-readable outcome of the run")
+    messages: list[StepMessage] = Field(
+        default_factory=list,
+        description="Per-step trace of the workflow ({step, status, title, detail})",
+    )
 
 
 # ============================================================================
@@ -714,8 +759,11 @@ class AggiornaOdonimoOutput(BaseModel):
     success: bool = Field(..., description="Whether the workflow completed successfully")
     prognaz: str | None = Field(None, description="National progressive number of the odonimo")
     odonimo: dict | None = Field(None, description="Odonimo state returned by ANNCSU")
-    message: str = Field(..., description="Descriptive message of the result")
-    errors: list[str] | None = Field(None, description="List of any errors")
+    summary: str = Field(..., description="Overall human-readable outcome of the run")
+    messages: list[StepMessage] = Field(
+        default_factory=list,
+        description="Per-step trace of the workflow ({step, status, title, detail})",
+    )
 
 
 # ============================================================================
@@ -759,8 +807,11 @@ class SopprimiOdonimoOutput(BaseModel):
     accessi_presenti: list[AccessoResult] | None = Field(
         None, description="Accessi associated with the odonimo (suppressed before the odonimo)"
     )
-    message: str = Field(..., description="Descriptive message of the result")
-    errors: list[str] | None = Field(None, description="List of any errors")
+    summary: str = Field(..., description="Overall human-readable outcome of the run")
+    messages: list[StepMessage] = Field(
+        default_factory=list,
+        description="Per-step trace of the workflow ({step, status, title, detail})",
+    )
 
 
 # ============================================================================
@@ -831,8 +882,11 @@ class RicercaIndirizzoOutput(BaseModel):
     success: bool = Field(..., description="Whether the search completed successfully")
     odonimi: list[OdonimoResult] = Field(default_factory=list, description="List of odonimi found")
     accessi: list[AccessoResult] = Field(default_factory=list, description="List of accessi found")
-    message: str = Field(..., description="Descriptive message of the result")
-    errors: list[str] | None = Field(None, description="List of any errors")
+    summary: str = Field(..., description="Overall human-readable outcome of the run")
+    messages: list[StepMessage] = Field(
+        default_factory=list,
+        description="Per-step trace of the workflow ({step, status, title, detail})",
+    )
 
 
 class RicercaAccessiPerOdonimoInput(BaseModel):
@@ -918,5 +972,8 @@ class SopprimiAccessoOutput(BaseModel):
 
     success: bool = Field(..., description="Whether the workflow completed successfully")
     esito: str | None = Field(None, description="ANNCSU outcome code (esito)")
-    message: str = Field(..., description="Descriptive message of the result")
-    errors: list[str] | None = Field(None, description="List of any errors")
+    summary: str = Field(..., description="Overall human-readable outcome of the run")
+    messages: list[StepMessage] = Field(
+        default_factory=list,
+        description="Per-step trace of the workflow ({step, status, title, detail})",
+    )

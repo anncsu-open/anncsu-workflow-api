@@ -22,7 +22,7 @@ from app.executor.expressions import (
 )
 from app.executor.spec import Action, ArazzoSpec, Step, Workflow
 from app.logging import get_logger
-from app.ports.transport import WorkflowTransport
+from app.ports.transport import TransportError, WorkflowTransport
 
 _log = get_logger("app.executor")
 
@@ -41,14 +41,36 @@ class StepFailedError(WorkflowError):
     handler can export the real reason to the caller, not just a generic message.
     """
 
-    def __init__(self, message: str, *, status_code: int | None = None, body: Any = None) -> None:
+    def __init__(
+        self,
+        message: str,
+        *,
+        status_code: int | None = None,
+        body: Any = None,
+        trace: list[StepTrace] | None = None,
+    ) -> None:
         super().__init__(message)
         self.status_code = status_code
         self.body = body
+        # The partial per-step trace up to and including the failing step (ADR 0022).
+        self.trace = trace or []
 
 
 class UnknownStepError(WorkflowError):
     """A ``goto`` action targets a step that does not exist."""
+
+
+@dataclass(frozen=True)
+class StepTrace:
+    """One executed step's upstream outcome, in execution order (ADR 0022).
+
+    Generic: the engine records the raw status code and body; the API layer maps
+    these to the per-step ``messages`` (extracting RFC 7807 ``title``/``detail``).
+    """
+
+    step_id: str
+    status_code: int | None
+    body: Any
 
 
 @dataclass
@@ -59,6 +81,7 @@ class WorkflowRun:
     status: str  # "completed" (ran off the end) | "ended" (an `end` action fired)
     outputs: dict[str, Any]
     steps: dict[str, StepResult]
+    trace: list[StepTrace]
 
 
 class WorkflowExecutor:
@@ -73,19 +96,35 @@ class WorkflowExecutor:
         workflow = self._spec.workflow(workflow_id)
         ctx = ExecutionContext(inputs=dict(inputs))
         position = 0
+        trace: list[StepTrace] = []
 
         for _ in range(MAX_STEPS):
             if position >= len(workflow.steps):
-                return self._finish(workflow, ctx, "completed")
+                return self._finish(workflow, ctx, "completed", trace)
 
             step = workflow.steps[position]
             if step.condition is not None and not evaluate_condition(step.condition, ctx):
                 # `x-when` is false: skip the step without dispatching (no foreach, no
-                # outputs) and fall through to the next one (ADR 0021).
+                # outputs, no trace entry) and fall through to the next one (ADR 0021).
                 position += 1
                 continue
             await self._run_foreach(workflow, step, ctx)
-            await self._execute_step(step, ctx)
+            try:
+                await self._execute_step(step, ctx)
+            except TransportError as exc:
+                # No HTTP outcome reached the executor (timeout/network): record the
+                # in-flight step (no status) and carry the partial trace out (ADR 0022).
+                trace.append(StepTrace(step_id=step.step_id, status_code=None, body=None))
+                exc.trace = trace
+                raise
+            # Record the step's upstream outcome in execution order (ADR 0022).
+            trace.append(
+                StepTrace(
+                    step_id=step.step_id,
+                    status_code=ctx.response.status_code if ctx.response else None,
+                    body=ctx.response.body if ctx.response else None,
+                )
+            )
             succeeded = self._succeeded(step, ctx)
             action = self._select_action(step, succeeded=succeeded, ctx=ctx)
             _log.debug(
@@ -114,11 +153,12 @@ class WorkflowExecutor:
                         f"step {step.step_id!r} failed and no onFailure action matched",
                         status_code=ctx.response.status_code if ctx.response else None,
                         body=ctx.response.body if ctx.response else None,
+                        trace=trace,
                     )
                 position += 1
                 continue
             if action.kind == "end":
-                return self._finish(workflow, ctx, "ended")
+                return self._finish(workflow, ctx, "ended", trace)
             position = self._goto(workflow, action)
 
         raise WorkflowError(
@@ -184,7 +224,9 @@ class WorkflowExecutor:
         return position
 
     @staticmethod
-    def _finish(workflow: Workflow, ctx: ExecutionContext, status: str) -> WorkflowRun:
+    def _finish(
+        workflow: Workflow, ctx: ExecutionContext, status: str, trace: list[StepTrace]
+    ) -> WorkflowRun:
         outputs = {name: evaluate_expression(expr, ctx) for name, expr in workflow.outputs.items()}
         # x-executor.coalesce resolves outputs across alternative branches (the
         # value of whichever branch actually ran); these keys override/extend the
@@ -195,6 +237,7 @@ class WorkflowExecutor:
             status=status,
             outputs=outputs,
             steps=ctx.steps,
+            trace=trace,
         )
 
 

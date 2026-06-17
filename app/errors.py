@@ -18,6 +18,7 @@ from pydantic import BaseModel, Field
 
 from app.executor.engine import StepFailedError, WorkflowError
 from app.logging import current_request_id, get_logger
+from app.models.workflows import StepMessage
 from app.ports.transport import TransportError
 
 PROBLEM_CONTENT_TYPE = "application/problem+json"
@@ -42,28 +43,32 @@ class Problem(BaseModel):
         None,
         description="The failing upstream ANNCSU response (status + body), when a step failed",
     )
+    messages: list[StepMessage] | None = Field(
+        None,
+        description="Partial per-step trace up to the failure (extension member, ADR 0022)",
+    )
 
 
-def _problem(
-    status: int,
-    title: str,
-    detail: str,
-    *,
-    errors: list[Any] | None = None,
-    upstream: dict[str, Any] | None = None,
-) -> JSONResponse:
+def _problem(status: int, title: str, detail: str, **extensions: Any) -> JSONResponse:
+    # `extensions` are the optional RFC 7807 extension members (errors, upstream,
+    # messages); they flow into and are validated by the Problem model.
     problem = Problem(
         title=title,
         status=status,
         detail=detail,
         request_id=current_request_id(),
-        errors=errors,
-        upstream=upstream,
+        **extensions,
     )
+    content = problem.model_dump(exclude_none=True)
+    # exclude_none drops the optional top-level members (errors/upstream/messages/...)
+    # but also recurses into the per-step messages and strips their null status/title/
+    # detail; keep them as null there, consistent with the success-path messages.
+    if problem.messages is not None:
+        content["messages"] = [message.model_dump() for message in problem.messages]
     return JSONResponse(
         status_code=status,
         media_type=PROBLEM_CONTENT_TYPE,
-        content=problem.model_dump(exclude_none=True),
+        content=content,
     )
 
 
@@ -119,12 +124,14 @@ def register_exception_handlers(app: FastAPI) -> None:
         upstream = (
             {"status": exc.status_code, "body": exc.body} if exc.status_code is not None else None
         )
-        return _problem(422, "Workflow step failed", detail, upstream=upstream)
+        messages = StepMessage.from_trace(exc.trace) or None
+        return _problem(422, "Workflow step failed", detail, upstream=upstream, messages=messages)
 
     @app.exception_handler(TransportError)
     async def transport_failed(request: Request, exc: TransportError) -> JSONResponse:
         _log.error("transport.failed", path=request.url.path, detail=str(exc))
-        return _problem(502, "Upstream ANNCSU call failed", str(exc))
+        messages = StepMessage.from_trace(exc.trace) or None
+        return _problem(502, "Upstream ANNCSU call failed", str(exc), messages=messages)
 
     @app.exception_handler(WorkflowError)
     async def workflow_failed(request: Request, exc: WorkflowError) -> JSONResponse:

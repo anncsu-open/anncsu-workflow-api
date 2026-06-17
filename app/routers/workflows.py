@@ -24,7 +24,7 @@ from app.adapters.anncsu.auth import build_auth_managers, build_client_builders
 from app.application.service import WorkflowApplicationService
 from app.config import Settings, resolve_token_endpoint
 from app.errors import PROBLEM_CONTENT_TYPE, Problem
-from app.executor.engine import WorkflowExecutor
+from app.executor.engine import WorkflowExecutor, WorkflowRun
 from app.executor.spec import load_spec
 from app.models.workflows import (
     AggiornaAccessoDaProgressivoInput,
@@ -41,6 +41,7 @@ from app.models.workflows import (
     SopprimiAccessoOutput,
     SopprimiOdonimoInput,
     SopprimiOdonimoOutput,
+    StepMessage,
     VerificaECreaOdonimoInput,
 )
 
@@ -48,6 +49,11 @@ SPECS_DIR = Path(__file__).resolve().parent.parent.parent / "specs"
 ARAZZO_SPEC = SPECS_DIR / "anncsu-workflow.arazzo.yaml"
 
 COMPLETED_MESSAGE = "Workflow completed"
+
+
+def _step_messages(run: WorkflowRun) -> list[StepMessage]:
+    """Map the engine's per-step trace to the response ``messages`` (ADR 0022)."""
+    return StepMessage.from_trace(run.trace)
 
 
 def _problem_response(description: str) -> dict[str, Any]:
@@ -202,7 +208,8 @@ async def verifica_e_crea_indirizzo_completo(
         # x-executor.coalesce resolves the progressivo from whichever branch ran.
         progressivo_nazionale_odonimo=run.outputs.get("progressivo_nazionale"),
         progressivo_civico=run.outputs.get("progressivo_civico"),
-        message=COMPLETED_MESSAGE,
+        summary=COMPLETED_MESSAGE,
+        messages=_step_messages(run),
     )
 
 
@@ -244,7 +251,8 @@ async def verifica_e_crea_odonimo_completo(
         success=True,
         progressivo_nazionale_odonimo=run.outputs.get("progressivo_nazionale_odonimo"),
         progressivo_civico=None,
-        message=COMPLETED_MESSAGE,
+        summary=COMPLETED_MESSAGE,
+        messages=_step_messages(run),
     )
 
 
@@ -298,7 +306,8 @@ async def crea_accesso_per_odonimo(
         success=True,
         progressivo_nazionale_odonimo=run.outputs.get("progressivo_nazionale_odonimo"),
         progressivo_civico=run.outputs.get("progressivo_civico"),
-        message=COMPLETED_MESSAGE,
+        summary=COMPLETED_MESSAGE,
+        messages=_step_messages(run),
     )
 
 
@@ -368,7 +377,8 @@ async def aggiorna_accesso_da_progressivo(
         success=True,
         prognazacc=payload.prognazacc,
         accesso=run.outputs.get("risultato"),
-        message=COMPLETED_MESSAGE,
+        summary=COMPLETED_MESSAGE,
+        messages=_step_messages(run),
     )
 
 
@@ -424,7 +434,8 @@ async def aggiorna_odonimo_da_progressivo(
         success=True,
         prognaz=payload.prognaz,
         odonimo=run.outputs.get("risultato"),
-        message=COMPLETED_MESSAGE,
+        summary=COMPLETED_MESSAGE,
+        messages=_step_messages(run),
     )
 
 
@@ -507,7 +518,8 @@ async def sopprimi_odonimo_completo(
         odonimo_soppresso=run.outputs.get("odonimo_soppresso"),
         progressivo_nazionale=run.outputs.get("progressivo_nazionale"),
         accessi_presenti=run.outputs.get("accessi_presenti"),
-        message=COMPLETED_MESSAGE,
+        summary=COMPLETED_MESSAGE,
+        messages=_step_messages(run),
     )
 
 
@@ -525,7 +537,8 @@ async def sopprimi_accesso(
     return SopprimiAccessoOutput(
         success=True,
         esito=run.outputs.get("esito"),
-        message=COMPLETED_MESSAGE,
+        summary=COMPLETED_MESSAGE,
+        messages=_step_messages(run),
     )
 
 
@@ -544,7 +557,8 @@ async def ricerca_indirizzo_completo(
         success=True,
         odonimi=run.outputs.get("odonimi") or [],
         accessi=run.outputs.get("accessi") or [],
-        message=COMPLETED_MESSAGE,
+        summary=COMPLETED_MESSAGE,
+        messages=_step_messages(run),
     )
 
 
@@ -582,5 +596,6 @@ async def ricerca_accessi_per_odonimo(
         success=True,
         odonimi=run.outputs.get("odonimi") or [],
         accessi=run.outputs.get("accessi") or [],
-        message=COMPLETED_MESSAGE,
+        summary=COMPLETED_MESSAGE,
+        messages=_step_messages(run),
     )

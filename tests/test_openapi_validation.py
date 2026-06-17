@@ -357,6 +357,6 @@ class TestRequiredFields:
             schema = model.model_json_schema()
             required = schema.get("required", [])
 
-            # All outputs must have success and message
+            # All outputs must have success and the overall summary (ADR 0022)
             assert "success" in required, f"{model.__name__} manca 'success' in required"
-            assert "message" in required, f"{model.__name__} manca 'message' in required"
+            assert "summary" in required, f"{model.__name__} manca 'summary' in required"

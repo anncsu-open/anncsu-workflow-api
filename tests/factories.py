@@ -193,14 +193,8 @@ class CreaIndirizzoCompletoOutputFactory(ModelFactory[CreaIndirizzoCompletoOutpu
         return progressivo_nazionale() if fake.boolean(chance_of_getting_true=80) else None
 
     @classmethod
-    def message(cls) -> str:
+    def summary(cls) -> str:
         return fake.sentence()
-
-    @classmethod
-    def errors(cls) -> list[str] | None:
-        if fake.boolean(chance_of_getting_true=20):
-            return [fake.sentence() for _ in range(fake.random_int(min=1, max=3))]
-        return None
 
 
 class SopprimiOdonimoInputFactory(ModelFactory[SopprimiOdonimoInput]):
@@ -249,14 +243,8 @@ class SopprimiOdonimoOutputFactory(ModelFactory[SopprimiOdonimoOutput]):
         return None
 
     @classmethod
-    def message(cls) -> str:
+    def summary(cls) -> str:
         return fake.sentence()
-
-    @classmethod
-    def errors(cls) -> list[str] | None:
-        if fake.boolean(chance_of_getting_true=20):
-            return [fake.sentence() for _ in range(fake.random_int(min=1, max=3))]
-        return None
 
 
 class RicercaIndirizzoInputFactory(ModelFactory[RicercaIndirizzoInput]):
@@ -378,11 +366,5 @@ class RicercaIndirizzoOutputFactory(ModelFactory[RicercaIndirizzoOutput]):
         return [AccessoResultFactory.build() for _ in range(count)]
 
     @classmethod
-    def message(cls) -> str:
+    def summary(cls) -> str:
         return fake.sentence()
-
-    @classmethod
-    def errors(cls) -> list[str] | None:
-        if fake.boolean(chance_of_getting_true=20):
-            return [fake.sentence() for _ in range(fake.random_int(min=1, max=3))]
-        return None

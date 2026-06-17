@@ -35,6 +35,9 @@ class TransportError(Exception):
     ``successCriteria``/``onFailure`` stay in charge of them (ADR 0008).
     """
 
+    # Partial per-step trace, attached by the executor when it raises (ADR 0022).
+    trace: list[Any] | None = None
+
 
 @runtime_checkable
 class WorkflowTransport(Protocol):

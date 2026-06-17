@@ -185,3 +185,10 @@ def test_x_coalesce_is_all_null_when_nothing_resolves(ctx):
 def test_x_coalesce_accepts_literal_fallbacks(ctx):
     resolved = resolve_value({"op": {"x-coalesce": ["$inputs.numero_civico", "R"]}}, ctx)
     assert resolved == {"op": "R"}
+
+
+def test_x_coalesce_skips_empty_strings(ctx):
+    # ANNCSU reads return "" for absent fields; x-coalesce must treat "" like null and
+    # fall through, so a read-modify-write never re-sends an empty value (ADR 0012).
+    assert resolve_value({"v": {"x-coalesce": ["", "R"]}}, ctx) == {"v": "R"}
+    assert resolve_value({"v": {"x-coalesce": ["", ""]}}, ctx) == {"v": None}

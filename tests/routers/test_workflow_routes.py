@@ -561,6 +561,33 @@ def test_attribute_only_update_preserves_coordinates_from_the_read():
     }
 
 
+def test_empty_read_attributes_are_not_resent():
+    # The consultation returns "" for absent fields (specif/metrico/esp). The
+    # read-modify-write must NOT re-send those empty values: the upstream rejects an
+    # empty specificita (it must be one of R/N/ROSSO/NERO). x-coalesce skips empty
+    # strings, so an unset attribute is omitted, not blanked (ADR 0012).
+    transport = _accesso_update_transport(read=_read_response(specif="", metrico="", esp=""))
+    response = _run_accesso_update(
+        transport,
+        {
+            "codcom": "H501",
+            "prognaz": "2000449",
+            "prognazacc": "1370588",
+            "sezione_censimento": "580911010001",
+            "coordinata_x": "13.5",
+            "coordinata_y": "42.0",
+            "metodo": "3",
+        },
+    )
+
+    assert response.status_code == 200
+    accesso = transport.calls[1][1]["richiesta"]["accesso"]
+    assert "specificita" not in accesso  # empty read value not re-sent
+    assert "esponente" not in accesso
+    assert "metrico" not in accesso
+    assert accesso["numero"] == "42"  # non-empty read value still preserved
+
+
 def test_mixed_update_merges_input_over_read():
     transport = _accesso_update_transport()
     response = _run_accesso_update(

@@ -93,10 +93,15 @@ def resolve_value(value: Any, ctx: ExecutionContext) -> Any:
 
 
 def _coalesce(operands: Any, ctx: ExecutionContext) -> Any:
-    """First non-null among ``operands`` (each an expression or a literal value)."""
+    """First non-null, non-empty value among ``operands`` (expressions or literals).
+
+    Empty strings are skipped like ``null`` (consistent with ``x-join``): ANNCSU reads
+    return ``""`` for absent fields, and a read-modify-write must not re-send them
+    (an empty ``specificita`` is rejected upstream as invalid) — ADR 0012.
+    """
     for operand in operands:
         resolved = resolve_value(operand, ctx)
-        if resolved is not None:
+        if resolved is not None and resolved != "":
             return resolved
     return None
 

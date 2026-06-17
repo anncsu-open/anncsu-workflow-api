@@ -51,8 +51,13 @@ preserves the rest).
 ### New `x-executor` capability: payload coalesce
 
 A request-body value may be a single-key object `{ "x-coalesce": [expr, expr, …] }`.
-The executor resolves the expressions in order and uses the first non-null —
-the same semantics as `x-executor.coalesce`, applied inside a payload. Example:
+The executor resolves the expressions in order and uses the first non-null **and
+non-empty** value (empty strings are skipped, like `x-join` — ADR 0020), applied
+inside a payload. The empty-string skip matters here: the consultation returns `""`
+for absent fields (`specif`, `metrico`, `esp`, … — confirmed on collaudo), so a
+naive "first non-null" would re-send an empty `specificita`, which the upstream
+rejects as invalid (must be `R`/`N`/`ROSSO`/`NERO`). Skipping `""` omits the unset
+attribute instead of blanking it. Example:
 
 ```yaml
 accesso:

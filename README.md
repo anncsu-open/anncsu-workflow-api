@@ -140,6 +140,26 @@ PDND auth is built once at startup (the lifespan): a misconfigured `PDND_*`
 environment fails fast, while access tokens are fetched lazily on first use and
 refreshed automatically.
 
+### Inbound security (ADR 0023)
+
+The workflow routes (`/anncsu/v1/workflows/*`) are guarded for machine-to-machine
+callers; the probes (`/health`, `/ready`), the docs/OpenAPI, the root, and the
+visualizer stay open. The guard checks, in order:
+
+1. **API-KEY** — the `X-API-KEY` header must equal `API_KEY` (advertised as an
+   `apiKey` security scheme in the OpenAPI). `API_KEY` is **required**: without it
+   every protected call is rejected with `401`.
+2. **Source-IP ACL** — the caller IP (from `X-Real-IP`, set by the ingress, else the
+   socket peer) must fall within `ALLOWED_IPS` (comma-separated CIDR). Outside → `403`.
+3. **Hostname ACL** — the called host must be in `ALLOWED_FQDN`. Not allowed → `403`.
+
+`ALLOWED_IPS`/`ALLOWED_FQDN` are enforced only when set; leave them empty to skip
+that dimension. The API-KEY is accepted **only on the private ingress** by listing
+that ingress's FQDN in `ALLOWED_FQDN` (the public ingress carries a different host
+and is rejected). `X-Real-IP` is trusted because the ingress sets it, so the service
+must be reachable only through the ingress in production. Rejections are RFC 7807
+Problems; the API-KEY value is never logged.
+
 ## Testing
 
 ### Run all tests

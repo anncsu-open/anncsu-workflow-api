@@ -44,6 +44,7 @@ from app.models.workflows import (
     StepMessage,
     VerificaECreaOdonimoInput,
 )
+from app.security import require_m2m_access
 
 SPECS_DIR = Path(__file__).resolve().parent.parent.parent / "specs"
 ARAZZO_SPEC = SPECS_DIR / "anncsu-workflow.arazzo.yaml"
@@ -76,6 +77,9 @@ router = APIRouter(
     prefix="/anncsu/v1/workflows",
     tags=["workflows"],
     responses=PROBLEM_RESPONSES,
+    # Inbound security (ADR 0023): API-KEY + source-IP/hostname ACL on every workflow
+    # route. Probes/docs/root live in other routers and stay exempt.
+    dependencies=[Depends(require_m2m_access)],
 )
 
 

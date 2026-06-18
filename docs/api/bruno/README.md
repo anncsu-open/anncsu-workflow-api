@@ -11,6 +11,12 @@ Open the `docs/api/bruno` folder in the Bruno app, or run it headless with the C
 Set the target in `environments/Local.bru` (`baseUrl`, default
 `http://localhost:8000`).
 
+The workflow routes require an API-KEY (ADR 0023): every workflow request carries an
+`X-API-KEY: {{apiKey}}` header, read from the `apiKey` environment variable — set it
+in `environments/Local.bru` to match the server's `API_KEY`. The probes do not need
+it. **Sicurezza - Senza API-KEY (401)** is the negative check: it sends an empty
+`X-API-KEY` and expects a `401`.
+
 Probes:
 
 - **Liveness** — `GET /health` (process up; no external dependency)

@@ -20,6 +20,7 @@ from app.executor.spec import load_spec
 from app.main import app
 from app.ports.transport import Response, TransportError
 from app.routers.workflows import get_workflow_service
+from app.security import require_m2m_access
 from tests.executor.support import ScriptedTransport
 
 SPECS_DIR = Path(__file__).resolve().parent.parent.parent / "specs"
@@ -29,10 +30,13 @@ ARAZZO_SPEC = SPECS_DIR / "anncsu-workflow.arazzo.yaml"
 @contextmanager
 def _client_with(service):
     app.dependency_overrides[get_workflow_service] = lambda: service
+    # Bypass the inbound security guard (ADR 0023); it has its own tests.
+    app.dependency_overrides[require_m2m_access] = lambda: None
     try:
         yield TestClient(app)
     finally:
         app.dependency_overrides.pop(get_workflow_service, None)
+        app.dependency_overrides.pop(require_m2m_access, None)
 
 
 @contextmanager

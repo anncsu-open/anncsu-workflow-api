@@ -1,0 +1,43 @@
+meta {
+  name: Sicurezza - Senza API-KEY (401)
+  type: http
+  seq: 20
+}
+
+post {
+  url: {{baseUrl}}/anncsu/v1/workflows/ricerca-indirizzo-completo
+  body: json
+  auth: inherit
+}
+
+headers {
+  Content-Type: application/json
+  X-API-KEY:
+}
+
+body:json {
+  {
+    "codcom": "H501",
+    "denom_odonimo": "ROMA"
+  }
+}
+
+tests {
+  test("a call without a valid API-KEY is rejected with 401", function() {
+    expect(res.status).to.equal(401);
+    expect(res.headers["content-type"]).to.include("application/problem+json");
+  });
+}
+
+settings {
+  encodeUrl: false
+  timeout: 0
+}
+
+docs {
+  Security check (ADR 0023): the workflow routes require the X-API-KEY header. This
+  request OVERRIDES the collection-level X-API-KEY (set in collection.bru) with an
+  empty value to simulate a missing key, so the guard rejects it with 401
+  (RFC 7807 application/problem+json) before the workflow runs. Every other request
+  in the collection sends the valid key from the `apiKey` environment variable.
+}

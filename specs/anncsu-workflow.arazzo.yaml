@@ -192,12 +192,19 @@ workflows:
           payload:
             req: elencoodonimiprog
             codcom: $inputs.codcom
-            denomparz: $inputs.denom_odonimo
+            # Nome completo DUG + " " + DENOMUFF, come esisteOdonimo: la sola
+            # denominazione è troppo generica e ANNCSU la rifiuta ("input
+            # insufficiente"), ADR 0019.
+            denomparz:
+              x-concat:
+                - $inputs.dug
+                - " "
+                - $inputs.denom_odonimo
         successCriteria:
           - condition: $statusCode == 200
-          # Rifiuta l'ambiguo (ADR 0019): una denominazione condivisa tra più DUG
-          # matcha più odonimi; senza un match unico non possiamo scegliere data[0]
-          # senza rischiare di creare l'accesso sull'odonimo sbagliato -> fallisce.
+          # Rifiuta l'ambiguo (ADR 0019): il match parziale può restituire più
+          # odonimi (es. un nome che è prefisso di altri); senza un match unico non
+          # scegliamo data[0] e rischiamo l'accesso sull'odonimo sbagliato -> fallisce.
           - condition: $response.body.data.length == 1
         onSuccess:
           # Accesso metrico: salta la verifica civica (esisteAccessoPost è solo-civico).
@@ -408,7 +415,14 @@ workflows:
           payload:
             req: elencoodonimiprog
             codcom: $inputs.codcom
-            denomparz: $inputs.denom_odonimo
+            # Nome completo DUG + " " + DENOMUFF, come esisteOdonimo: la sola
+            # denominazione è troppo generica e ANNCSU la rifiuta ("input
+            # insufficiente"), ADR 0019.
+            denomparz:
+              x-concat:
+                - $inputs.dug
+                - " "
+                - $inputs.denom_odonimo
         successCriteria:
           - condition: $statusCode == 200
           - condition: $response.body.data.length == 1

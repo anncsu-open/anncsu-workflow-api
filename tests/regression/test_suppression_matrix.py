@@ -29,6 +29,7 @@ from app.executor.engine import WorkflowExecutor
 from app.executor.spec import load_spec
 from app.main import app
 from app.routers.workflows import get_workflow_service
+from app.security import require_m2m_access
 
 SPECS_DIR = Path(__file__).resolve().parent.parent.parent / "specs"
 ARAZZO_SPEC = SPECS_DIR / "anncsu-workflow.arazzo.yaml"
@@ -107,10 +108,12 @@ def _client(server: FakeAnncsuServer):
     executor = WorkflowExecutor(load_spec(ARAZZO_SPEC), AnncsuSdkTransport(manager))
     service = WorkflowApplicationService(executor)
     app.dependency_overrides[get_workflow_service] = lambda: service
+    app.dependency_overrides[require_m2m_access] = lambda: None  # bypass guard (ADR 0023)
     try:
         yield TestClient(app)
     finally:
         app.dependency_overrides.pop(get_workflow_service, None)
+        app.dependency_overrides.pop(require_m2m_access, None)
 
 
 def _suppress(client: TestClient):

@@ -1,8 +1,9 @@
 """Configuration settings for ANNCSU Workflow Service."""
 
-from typing import Literal
+from typing import Annotated, Literal
 
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic import field_validator
+from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 # PDND token endpoints (the SDK uses the same UAT/production split).
 PROD_TOKEN_ENDPOINT = "https://auth.interop.pagopa.it/token.oauth2"
@@ -52,6 +53,23 @@ class Settings(BaseSettings):
 
     # Environment
     use_validation_env: bool = False  # selects the PDND token endpoint (UAT vs prod)
+
+    # Inbound security (ADR 0023): M2M API-KEY + source-IP/hostname ACL on the
+    # workflow routes. API_KEY is required (fail-closed if unset); the allowlists are
+    # enforced only when non-empty. Comma-separated in .env.
+    api_key: str | None = None  # secret; never logged (ADR 0014)
+    # NoDecode: take the raw .env string (comma-separated) instead of letting
+    # pydantic-settings JSON-decode it; the validator below splits it.
+    allowed_ips: Annotated[list[str], NoDecode] = []  # CIDR ranges (a single IP is a /32)
+    allowed_fqdn: Annotated[list[str], NoDecode] = []  # allowed called hostnames (host[:port])
+
+    @field_validator("allowed_ips", "allowed_fqdn", mode="before")
+    @classmethod
+    def _split_csv(cls, value: object) -> object:
+        """Accept a comma-separated string in .env (e.g. ``10.0.0.0/8,127.0.0.1/32``)."""
+        if isinstance(value, str):
+            return [item.strip() for item in value.split(",") if item.strip()]
+        return value
 
 
 def resolve_token_endpoint(use_validation_env: bool) -> str:

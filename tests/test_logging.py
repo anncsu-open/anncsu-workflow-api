@@ -23,6 +23,7 @@ from app.logging import (
 from app.main import app
 from app.ports.transport import TransportError
 from app.routers.workflows import get_workflow_service
+from app.security import require_m2m_access
 
 
 def _last_json_line(capsys) -> dict:
@@ -126,6 +127,7 @@ def _override_service(error: Exception):
             raise error
 
     app.dependency_overrides[get_workflow_service] = _Raising
+    app.dependency_overrides[require_m2m_access] = lambda: None  # bypass guard (ADR 0023)
     try:
         yield app
     finally:

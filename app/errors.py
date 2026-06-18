@@ -26,6 +26,20 @@ PROBLEM_CONTENT_TYPE = "application/problem+json"
 _log = get_logger("app.error")
 
 
+class AccessDeniedError(Exception):
+    """Inbound security rejection (ADR 0023): bad API-KEY (401) or failed ACL (403).
+
+    Carries the HTTP status, the Problem title, and a human detail; mapped to an
+    RFC 7807 Problem by the registered handler.
+    """
+
+    def __init__(self, status_code: int, title: str, detail: str) -> None:
+        super().__init__(detail)
+        self.status_code = status_code
+        self.title = title
+        self.detail = detail
+
+
 class Problem(BaseModel):
     """An RFC 7807 Problem Details body."""
 
@@ -137,3 +151,9 @@ def register_exception_handlers(app: FastAPI) -> None:
     async def workflow_failed(request: Request, exc: WorkflowError) -> JSONResponse:
         _log.error("workflow.error", path=request.url.path, detail=str(exc))
         return _problem(500, "Workflow execution error", str(exc))
+
+    @app.exception_handler(AccessDeniedError)
+    async def access_denied(request: Request, exc: AccessDeniedError) -> JSONResponse:
+        # Inbound security rejection (ADR 0023). The detail never echoes the API-KEY.
+        _log.warning("access.denied", path=request.url.path, status=exc.status_code)
+        return _problem(exc.status_code, exc.title, exc.detail)

@@ -55,8 +55,23 @@ denom:
     - $inputs.denom_odonimo
 ```
 
-`cerca-odonimo` keeps `denomparz: $inputs.denom_odonimo` (a partial match, the
-format that operation wants).
+`cerca-odonimo` searches the **same** full name, built with `x-concat` (corrected
+2026-06-18 — see the update below).
+
+> **Update (2026-06-18, live on collaudo).** The original decision kept
+> `cerca-odonimo` on the bare `denom_odonimo`, assuming `denomparz` matched the
+> denomination only. Live evidence overturned that: `elencoodonimiprog`'s
+> `denomparz` matches the **full** odonimo string (DUG + denomination) — e.g.
+> `denomparz="VIA APPIA NUOVA"` → 1, `"BELVEDERE TEST"` → 1 — while a bare, generic
+> denomination is **rejected** as `"non ricevuti valori di input sufficienti per la
+> ricerca"` (`"TEST"`, `"BELVEDERE"`) or returns far too many (`"ROMA"` → 69, which
+> also breaks the `data.length == 1` guard). So `cerca-odonimo` now builds
+> `denomparz` with the full name via `x-concat`, consistent with `esisteOdonimo`.
+> The ambiguity guard (decision 3) still applies — a full name can be a prefix of
+> others (`"VIA AURELIA"` → 7). Scope: the two create workflows
+> (`verifica-e-crea-indirizzo-completo`, `verifica-e-crea-odonimo-completo`), which
+> have `dug`; `sopprimi-odonimo-completo` and the partial-denomination search are
+> unchanged.
 
 ### 3. Refuse an ambiguous odonimo instead of mis-writing
 
@@ -71,9 +86,11 @@ mirroring the SDK's `--prognaz` — out of scope here).
 
 ## Alternatives considered
 
-- **Caller passes the full name in `denom_odonimo`.** Rejected: `cerca-odonimo`'s
-  `denomparz` matches the denomination only (`"AURELIA"`), so a full
-  `"VIA AURELIA"` would not match there — one input cannot serve both formats.
+- **Caller passes the full name in `denom_odonimo`.** Not needed: the workflow
+  builds the full name itself via `x-concat`, keeping `dug` and `denom_odonimo` as
+  separate inputs. (The original rationale here — that `denomparz` matches the
+  denomination only, so a full name would not match — was disproven live; see the
+  2026-06-18 update under Decision 2.)
 - **A list-filter primitive to pick the result whose `dug` matches.** Heavier
   engine change; deferred. The ambiguity guard (decision 3) keeps the workflow
   safe without it.

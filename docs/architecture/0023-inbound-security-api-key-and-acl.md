@@ -27,10 +27,15 @@ A single FastAPI security dependency guards the **workflow routes**
 2. **Source-IP ACL (authorization).** The caller IP is resolved from the **`X-Real-IP`**
    header (set by the k8s ingress), falling back to `request.client.host`. It must fall
    within an allowlist of **CIDR** ranges from `.env` (`ALLOWED_IPS`; a single IP is a
-   `/32`). Outside the allowlist → **403**.
+   `/32`, a subnet is `/N`, and `0.0.0.0/0` + `::/0` are the "any IP" wildcard).
+   Outside the allowlist → **403**.
 
 3. **Hostname ACL (authorization).** The called host `request.base_url.netloc` must be
-   in an allowlist of FQDNs from `.env` (`ALLOWED_FQDN`). Not allowed → **403**.
+   in an allowlist from `.env` (`ALLOWED_FQDN`). Not allowed → **403**. `netloc` is the
+   `Host` header **verbatim, port included** (`X-Forwarded-Host` is not applied), so the
+   allowlist must match it exactly: `localhost:8000` for local testing, the bare FQDN
+   behind a k8s ingress (which strips 80/443). The rejection logs
+   `access.host_not_allowed host=<value>`, the value to add.
 
 All rejections are **RFC 7807 Problem** responses (`application/problem+json`,
 ADR 0008), with the request-id correlation.

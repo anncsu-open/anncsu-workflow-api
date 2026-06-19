@@ -58,9 +58,15 @@ def _step_messages(run: WorkflowRun) -> list[StepMessage]:
 
 
 def _problem_response(description: str) -> dict[str, Any]:
+    # Reference nested models (StepMessage) via components/schemas — where FastAPI
+    # already registers them from the output models — instead of pydantic's local
+    # `#/$defs/...`, which does not resolve when the schema is embedded in the
+    # OpenAPI document (ADR 0022 / 0008). Drop the now-redundant `$defs`.
+    schema = Problem.model_json_schema(ref_template="#/components/schemas/{model}")
+    schema.pop("$defs", None)
     return {
         "description": description,
-        "content": {PROBLEM_CONTENT_TYPE: {"schema": Problem.model_json_schema()}},
+        "content": {PROBLEM_CONTENT_TYPE: {"schema": schema}},
     }
 
 

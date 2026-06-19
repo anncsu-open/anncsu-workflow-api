@@ -150,8 +150,12 @@ visualizer stay open. The guard checks, in order:
    `apiKey` security scheme in the OpenAPI). `API_KEY` is **required**: without it
    every protected call is rejected with `401`.
 2. **Source-IP ACL** — the caller IP (from `X-Real-IP`, set by the ingress, else the
-   socket peer) must fall within `ALLOWED_IPS` (comma-separated CIDR). Outside → `403`.
-3. **Hostname ACL** — the called host must be in `ALLOWED_FQDN`. Not allowed → `403`.
+   socket peer) must fall within `ALLOWED_IPS` (comma-separated CIDR; `/N` for a
+   subnet, `0.0.0.0/0` and `::/0` as the "any IP" wildcard). Outside → `403`.
+3. **Hostname ACL** — `request.base_url.netloc` (the `Host` header verbatim, **port
+   included**) must be in `ALLOWED_FQDN`. Not allowed → `403`. Use `localhost:8000`
+   locally and the bare FQDN behind the ingress (which strips the port); a rejection
+   logs `access.host_not_allowed host=<value>`.
 
 `ALLOWED_IPS`/`ALLOWED_FQDN` are enforced only when set; leave them empty to skip
 that dimension. The API-KEY is accepted **only on the private ingress** by listing

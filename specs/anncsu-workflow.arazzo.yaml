@@ -525,22 +525,42 @@ workflows:
                         - $inputs.numero_civico
                         - $inputs.esponente
                     - $inputs.specificita
-        # Esattamente 1 -> esiste (ne ritorna il prognazacc). 404 -> non esiste,
-        # crea. >1 -> ambiguo, fallisce (non indovina, come ADR 0019/0020).
+        # accparz è un match PARZIALE (contains): "4" matcha anche "4/A", "4/B". Quindi
+        # data.length non riflette l'esistenza ESATTA. x-select filtra i candidati ai
+        # soli che combaciano esattamente con l'input (civico+esp+specif o metrico,
+        # null<->"" normalizzati) e lega il risultato a $match (ADR 0020 update).
+        x-select:
+          from: $response.body.data
+          where:
+            civico: $inputs.numero_civico
+            esp: $inputs.esponente
+            specif: $inputs.specificita
+            metrico: $inputs.metrico
+          as: match
         successCriteria:
           - condition: $statusCode == 200
-          - condition: $response.body.data.length == 1
+          - condition: $match.length == 1
         onSuccess:
           - name: accesso-esiste
             type: end
+        # Crea quando NON c'è un match esatto, in due casi: (1) 200 con candidati ma
+        # nessuno esatto (sovra-match di altri civici), (2) 404 "nessun risultato". Un
+        # 5xx (o altro errore) NON ha azione e resta un fallimento (non si crea alla
+        # cieca). >1 esatti = ambiguo (non accade: prognazacc unico) -> fallisce.
         onFailure:
-          - name: accesso-non-esiste
+          - name: accesso-non-esiste-tra-i-candidati
+            type: goto
+            stepId: crea-accesso
+            criteria:
+              - condition: $statusCode == 200
+              - condition: $match.length == 0
+          - name: accesso-non-trovato
             type: goto
             stepId: crea-accesso
             criteria:
               - condition: $statusCode == 404
         outputs:
-          progressivo_civico: $response.body.data[0].prognazacc
+          progressivo_civico: $match[0].prognazacc
 
       - stepId: crea-accesso
         description: Crea l'accesso sull'odonimo dato (operazione I)

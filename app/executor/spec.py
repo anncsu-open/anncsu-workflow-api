@@ -40,6 +40,9 @@ class Step:
     # `x-when`: when set and false at runtime, the step is skipped without
     # dispatching and execution falls through to the next step (ADR 0021).
     condition: str | None = None
+    # `x-select`: filter a response list to the items exactly matching some fields and
+    # bind the result to a name for criteria/outputs/actions (ADR 0020 update).
+    select: Mapping[str, Any] | None = None
 
 
 @dataclass(frozen=True)
@@ -106,6 +109,7 @@ def _parse_step(raw: Mapping[str, Any]) -> Step:
         on_failure=tuple(_parse_action(a) for a in raw.get("onFailure", [])),
         outputs=dict(raw.get("outputs", {})),
         condition=raw.get("x-when"),
+        select=raw.get("x-select"),
     )
 
 

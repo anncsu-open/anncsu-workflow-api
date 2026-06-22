@@ -178,12 +178,36 @@ class WorkflowExecutor:
             payload=payload,
             content_type=step.content_type,
         )
+        self._run_select(step, ctx)  # bind x-select before criteria/outputs read it
         if step.outputs:
             ctx.steps[step.step_id] = StepResult(
                 outputs={
                     name: evaluate_expression(expr, ctx) for name, expr in step.outputs.items()
                 }
             )
+
+    @staticmethod
+    def _run_select(step: Step, ctx: ExecutionContext) -> None:
+        """Bind an ``x-select`` exact-match filter (ADR 0020 update).
+
+        Filters ``from`` (a list resolved from the context) to the items whose fields
+        equal the resolved ``where`` expressions, normalizing ``None`` and ``""`` as
+        equal (ANNCSU returns ``""`` for absent fields), and binds the matches under
+        ``as`` so ``successCriteria``/``outputs``/actions can read ``$<as>.length`` and
+        ``$<as>[0].<field>``.
+        """
+        select = step.select
+        if not select:
+            return
+        items = evaluate_expression(select["from"], ctx) or []
+        where = {field: resolve_value(expr, ctx) for field, expr in select["where"].items()}
+        matched = [
+            item
+            for item in items
+            if isinstance(item, Mapping)
+            and all(_norm(item.get(field)) == _norm(value) for field, value in where.items())
+        ]
+        ctx.loop_vars[select["as"]] = matched
 
     async def _run_foreach(self, workflow: Workflow, step: Step, ctx: ExecutionContext) -> None:
         """Run an ``x-executor.foreach`` before its ``before`` step.
@@ -239,6 +263,11 @@ class WorkflowExecutor:
             steps=ctx.steps,
             trace=trace,
         )
+
+
+def _norm(value: Any) -> str:
+    """Normalize a field for exact-match comparison: ``None`` and ``""`` are equal."""
+    return "" if value is None else str(value)
 
 
 def _without_unset(value: Any) -> Any:

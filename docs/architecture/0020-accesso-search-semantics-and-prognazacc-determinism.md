@@ -77,3 +77,26 @@ matches an accesso. These findings drive the search/create design.
 - `crea-accesso-per-odonimo` is fully deterministic on the odonimo (`prognaz`) and
   refuses ambiguous accessi rather than guessing; the existing denomination-based
   create is left intact for the create-the-odonimo case.
+
+## Update (2026-06-22): exact-match selection, not `data.length`
+
+Decision 4 originally keyed existence on `elencoaccessiprog`'s `data.length`
+(`0 → create`, `1 → exists`, `>1 → ambiguous`). **That is wrong, because `accparz`
+is a *contains* match**: creating civic `4` runs `accparz="4"`, which also matches
+`4/A`, `4/B` → `data.length == 2` → falsely "ambiguous" (422), even though bare `4`
+does not exist. And the converse: creating `4` when only `4/A` exists returns
+`data.length == 1` → falsely "exists" with the wrong `prognazacc`. The same applies
+to specificità (`4/A` over-matches `4/A-ROSSO`) and to metric values. (Confirmed live
+on collaudo, prognaz 911403.)
+
+**`data.length` does not reflect *exact* existence.** Existence must be decided by an
+**exact match** of the requested identity against the candidates: an item whose
+`civico`+`esp`+`specif` (civic) or `metrico` (metric) equal the input, normalizing
+`null`↔`""`. Since no upstream operation does an exact lookup, the filter runs in the
+executor: a generic step-level **`x-select`** primitive binds the exact matches of
+`$response.body.data` (by field-equality against expressions) to a name. Then
+`verifica-accesso` keys on `$match.length` (`== 1` → exists, return that `prognazacc`;
+`== 0` → create, covering both the no-candidates 404 and the over-matched 200;
+`> 1` → genuine ambiguity, which cannot occur since `prognazacc` is unique per
+`civico/esp/specif`). The earlier `refuses_ambiguous` test encoded the wrong premise
+and is rewritten.

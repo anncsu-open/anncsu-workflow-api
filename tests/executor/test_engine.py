@@ -603,7 +603,9 @@ async def test_real_spec_crea_accesso_per_odonimo_returns_existing_without_creat
 
 
 async def test_real_spec_crea_accesso_per_odonimo_refuses_ambiguous():
-    # More than one accparz match -> ambiguous -> fail, never create (ADR 0020).
+    # Genuine ambiguity = more than one EXACT match (same civico/esp); fail, never
+    # create. (Cannot happen normally — prognazacc is unique per civico/esp/specif —
+    # but the guard stays defensive, ADR 0020 update.)
     spec = load_spec(ARAZZO_SPEC)
     transport = ScriptedTransport(
         {
@@ -611,7 +613,13 @@ async def test_real_spec_crea_accesso_per_odonimo_refuses_ambiguous():
                 200, {"data": [{"prognaz": "907720"}]}
             ),
             "anncsu-consultazione.elencoaccessiprogPost": Response(
-                200, {"data": [{"prognazacc": "1"}, {"prognazacc": "2"}]}
+                200,
+                {
+                    "data": [
+                        {"prognazacc": "1", "civico": "42", "esp": "A"},
+                        {"prognazacc": "2", "civico": "42", "esp": "A"},
+                    ]
+                },
             ),
             "anncsu-accessi.gestioneAnncsuPdnd": Response(
                 200, {"esito": "0", "dati": [{"progr_civico": "X"}]}
@@ -626,7 +634,143 @@ async def test_real_spec_crea_accesso_per_odonimo_refuses_ambiguous():
                 "codcom": "H501",
                 "prognaz": "907720",
                 "numero_civico": "42",
+                "esponente": "A",
                 "sezione_censimento": "580911010001",
+            },
+        )
+    assert "anncsu-accessi.gestioneAnncsuPdnd" not in [op for op, _ in transport.calls]
+
+
+async def test_real_spec_crea_accesso_per_odonimo_creates_when_civico_overmatches_esponenti():
+    # accparz "4" is a contains-match: elencoaccessiprog returns 4/A and 4/B even
+    # though bare "4" does not exist. The exact-match check must CREATE, not fail as
+    # "ambiguous" (ADR 0020 update). Regression for the live H501/911403 case.
+    spec = load_spec(ARAZZO_SPEC)
+    transport = ScriptedTransport(
+        {
+            "anncsu-consultazione.prognazareaPost": Response(
+                200, {"data": [{"prognaz": "911403"}]}
+            ),
+            "anncsu-consultazione.elencoaccessiprogPost": Response(
+                200,
+                {
+                    "data": [
+                        {"prognazacc": "5738139", "civico": "4", "esp": "A", "specif": ""},
+                        {"prognazacc": "5738140", "civico": "4", "esp": "B", "specif": ""},
+                    ]
+                },
+            ),
+            "anncsu-accessi.gestioneAnncsuPdnd": Response(
+                200, {"esito": "0", "dati": [{"progr_civico": "5738200"}]}
+            ),
+        }
+    )
+
+    run = await WorkflowExecutor(spec, transport).run(
+        "crea-accesso-per-odonimo",
+        {
+            "codcom": "H501",
+            "prognaz": "911403",
+            "numero_civico": "4",
+            "sezione_censimento": "1120073",
+        },
+    )
+
+    assert run.outputs["progressivo_civico"] == "5738200"  # created, not falsely ambiguous
+    assert "anncsu-accessi.gestioneAnncsuPdnd" in [op for op, _ in transport.calls]
+
+
+async def test_real_spec_crea_accesso_per_odonimo_creates_when_specificita_not_present():
+    # Creating 4/A while only 4/A-ROSSO exists: accparz "4/A" over-matches it, but the
+    # exact match (civico 4, esp A, no specif) is absent -> create.
+    spec = load_spec(ARAZZO_SPEC)
+    transport = ScriptedTransport(
+        {
+            "anncsu-consultazione.prognazareaPost": Response(
+                200, {"data": [{"prognaz": "911403"}]}
+            ),
+            "anncsu-consultazione.elencoaccessiprogPost": Response(
+                200, {"data": [{"prognazacc": "9", "civico": "4", "esp": "A", "specif": "ROSSO"}]}
+            ),
+            "anncsu-accessi.gestioneAnncsuPdnd": Response(
+                200, {"esito": "0", "dati": [{"progr_civico": "5738201"}]}
+            ),
+        }
+    )
+
+    run = await WorkflowExecutor(spec, transport).run(
+        "crea-accesso-per-odonimo",
+        {
+            "codcom": "H501",
+            "prognaz": "911403",
+            "numero_civico": "4",
+            "esponente": "A",
+            "sezione_censimento": "1120073",
+        },
+    )
+
+    assert run.outputs["progressivo_civico"] == "5738201"
+    assert "anncsu-accessi.gestioneAnncsuPdnd" in [op for op, _ in transport.calls]
+
+
+async def test_real_spec_crea_accesso_per_odonimo_creates_when_single_match_is_not_exact():
+    # A single candidate that is NOT the requested accesso (creating "42" when only
+    # "42/A" exists): data.length == 1 must NOT be read as "exists".
+    spec = load_spec(ARAZZO_SPEC)
+    transport = ScriptedTransport(
+        {
+            "anncsu-consultazione.prognazareaPost": Response(
+                200, {"data": [{"prognaz": "907720"}]}
+            ),
+            "anncsu-consultazione.elencoaccessiprogPost": Response(
+                200, {"data": [{"prognazacc": "7", "civico": "42", "esp": "A"}]}
+            ),
+            "anncsu-accessi.gestioneAnncsuPdnd": Response(
+                200, {"esito": "0", "dati": [{"progr_civico": "5738202"}]}
+            ),
+        }
+    )
+
+    run = await WorkflowExecutor(spec, transport).run(
+        "crea-accesso-per-odonimo",
+        {
+            "codcom": "H501",
+            "prognaz": "907720",
+            "numero_civico": "42",
+            "sezione_censimento": "580911010001",
+        },
+    )
+
+    assert run.outputs["progressivo_civico"] == "5738202"
+    assert "anncsu-accessi.gestioneAnncsuPdnd" in [op for op, _ in transport.calls]
+
+
+async def test_real_spec_crea_accesso_per_odonimo_fails_on_upstream_error_without_creating():
+    # A 5xx at verifica-accesso is an upstream failure, NOT "no exact match": it must
+    # fail (no blind create), unlike the 200-over-match and 404 cases which do create.
+    spec = load_spec(ARAZZO_SPEC)
+    transport = ScriptedTransport(
+        {
+            "anncsu-consultazione.prognazareaPost": Response(
+                200, {"data": [{"prognaz": "907720"}]}
+            ),
+            "anncsu-consultazione.elencoaccessiprogPost": Response(
+                502, {"title": "InvalidResponse"}
+            ),
+            "anncsu-accessi.gestioneAnncsuPdnd": Response(
+                200, {"esito": "0", "dati": [{"progr_civico": "X"}]}
+            ),
+        }
+    )
+
+    with pytest.raises(StepFailedError, match="verifica-accesso"):
+        await WorkflowExecutor(spec, transport).run(
+            "crea-accesso-per-odonimo",
+            {
+                "codcom": "H501",
+                "prognaz": "907720",
+                "numero_civico": "4",
+                "sezione_censimento": "1120073",
             },
         )
     assert "anncsu-accessi.gestioneAnncsuPdnd" not in [op for op, _ in transport.calls]

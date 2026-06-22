@@ -20,10 +20,12 @@ import pytest
 from anncsu.accessi import models as accessi_models
 from anncsu.common.errors import NoResponseError
 from anncsu.common.hooks.token_validation import TokenRefreshError
+from anncsu.common.pdnd_token import TokenResponseError
 from anncsu.pa import errors as pa_errors
 from anncsu.pa import models as pa_models
 from structlog.testing import capture_logs
 
+from app.adapters.anncsu.auth import AudienceDiscoveryError
 from app.adapters.anncsu.client_manager import AnncsuClientManager
 from app.adapters.anncsu.registry import UnknownOperationError
 from app.adapters.anncsu.transport import AnncsuSdkTransport
@@ -62,6 +64,15 @@ def _consultazione(method) -> dict:
 
 def _accessi(method) -> dict:
     return {"anncsu-accessi": SimpleNamespace(anncsu=SimpleNamespace(gestione_anncsu_pdnd=method))}
+
+
+def _building_transport(source: str, builder) -> AnncsuSdkTransport:
+    """A transport whose client for ``source`` is built lazily by ``builder``.
+
+    Drives the build-time failure path (the voucher/token fetch on first use,
+    ADR 0017), which the pre-built ``clients=`` helpers above cannot reach.
+    """
+    return AnncsuSdkTransport(AnncsuClientManager(builders={source: builder}))
 
 
 def test_transport_satisfies_the_port_protocol():
@@ -175,6 +186,40 @@ async def test_a_failed_token_refresh_raises_transport_error():
     with pytest.raises(TransportError) as excinfo:
         await transport.dispatch(operation_id=ESISTE_ODONIMO, payload={}, content_type=None)
     assert isinstance(excinfo.value.__cause__, TokenRefreshError)
+
+
+async def test_a_token_generation_failure_at_build_raises_transport_error():
+    # The lazy build fetches a voucher; PDND rejecting the token (e.g. 015-0008) must
+    # not escape as a raw 500 -> it is a failure below the Arazzo contract (ADR 0024).
+    def builder():
+        raise TokenResponseError("Token request failed: 015-0008 - Unable to generate a token")
+
+    transport = _building_transport("anncsu-accessi", builder)
+
+    with pytest.raises(TransportError) as excinfo:
+        await transport.dispatch(
+            operation_id=GESTIONE_ACCESSI,
+            payload={"richiesta": {}},
+            content_type="application/json",
+        )
+    assert isinstance(excinfo.value.__cause__, TokenResponseError)
+
+
+async def test_a_missing_voucher_audience_at_build_raises_transport_error():
+    # The build cannot derive the e-service URL from the voucher (ADR 0017): this is a
+    # TransportError, not a raw 500 (ADR 0024).
+    def builder():
+        raise AudienceDiscoveryError("no audience in the voucher for 'anncsu-accessi'")
+
+    transport = _building_transport("anncsu-accessi", builder)
+
+    with pytest.raises(TransportError) as excinfo:
+        await transport.dispatch(
+            operation_id=GESTIONE_ACCESSI,
+            payload={"richiesta": {}},
+            content_type="application/json",
+        )
+    assert isinstance(excinfo.value.__cause__, AudienceDiscoveryError)
 
 
 async def test_an_unknown_operation_id_raises():

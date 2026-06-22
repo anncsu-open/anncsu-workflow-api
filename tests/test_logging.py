@@ -101,19 +101,19 @@ def client(capsys):
 
 
 def test_response_carries_a_request_id_header(client):
-    response = client.get("/health")
+    response = client.get("/anncsu/health")
     assert response.status_code == 200
     assert response.headers["X-Request-ID"]
 
 
 def test_inbound_request_id_is_echoed(client):
-    response = client.get("/health", headers={"X-Request-ID": "req-abc"})
+    response = client.get("/anncsu/health", headers={"X-Request-ID": "req-abc"})
     assert response.headers["X-Request-ID"] == "req-abc"
 
 
 def test_request_start_and_end_are_logged(client):
     with capture_logs() as logs:
-        client.get("/health")
+        client.get("/anncsu/health")
     by_event = {e["event"]: e for e in logs if "event" in e}
     assert "request.start" in by_event
     assert by_event["request.end"]["status_code"] == 200

@@ -91,7 +91,7 @@ def test_empty_acl_lists_are_not_restricted():
 
 def test_probe_is_exempt_from_the_guard():
     with _client(allowed_ips=["10.0.0.0/8"], allowed_fqdn=["testserver"]) as client:
-        response = client.get("/health")  # no key, no ACL headers
+        response = client.get("/anncsu/health")  # no key, no ACL headers
     assert response.status_code == 200
 
 

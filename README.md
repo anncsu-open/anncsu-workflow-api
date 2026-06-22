@@ -127,12 +127,13 @@ payloads are never logged.
 
 ### Health and readiness
 
-Two probes are exposed (ADR 0015):
+Two probes are exposed (ADR 0015), under the `/anncsu` base path but **unversioned**
+(`/anncsu` is the service mount, `/v1` is the contract version — ADR 0025):
 
-- `GET /health` — **liveness**: returns `200 {"status": "ok"}` whenever the
+- `GET /anncsu/health` — **liveness**: returns `200 {"status": "ok"}` whenever the
   process is up, with no external dependency, so an orchestrator never restarts
   the pod over a transient PDND blip.
-- `GET /ready` — **readiness**: confirms every Arazzo source can obtain a PDND
+- `GET /anncsu/ready` — **readiness**: confirms every Arazzo source can obtain a PDND
   voucher (cached, refreshed only near expiry). Returns `200` with a per-source
   token TTL when all four authenticate, or `503` otherwise.
 
@@ -143,8 +144,8 @@ refreshed automatically.
 ### Inbound security (ADR 0023)
 
 The workflow routes (`/anncsu/v1/workflows/*`) are guarded for machine-to-machine
-callers; the probes (`/health`, `/ready`), the docs/OpenAPI, the root, and the
-visualizer stay open. The guard checks, in order:
+callers; the probes (`/anncsu/health`, `/anncsu/ready`), the docs/OpenAPI, the root,
+and the visualizer stay open. The guard checks, in order:
 
 1. **API-KEY** — the `X-API-KEY` header must equal `API_KEY` (advertised as an
    `apiKey` security scheme in the OpenAPI). `API_KEY` is **required**: without it
@@ -316,7 +317,9 @@ uv run uvicorn app.main:app --reload
 uv run uvicorn app.main:app --host 0.0.0.0 --port 8000
 ```
 
-The service will be available at `http://localhost:8000`
+The service will be available at `http://localhost:8000`. Every endpoint is mounted
+under the `/anncsu` base path (ADR 0025), so the service index is
+`http://localhost:8000/anncsu` (the bare `/` returns `404`).
 
 Interactive documentation (the API contract is published under `/v1`, see
 `docs/architecture/0005-api-internationalization-and-versioning.md`):
@@ -599,7 +602,7 @@ The service implements:
 
 The service includes:
 - Structured logging
-- Health check endpoint: `GET /health`
+- Health check endpoint: `GET /anncsu/health`
 - Prometheus-compatible metrics (TODO)
 
 ## Docker
@@ -620,7 +623,8 @@ docker build -t anncsu-workflow-api .
 docker run -p 8000:8000 --env-file .env anncsu-workflow-api
 ```
 
-The service listens on port `8000`; `GET /health` is used by the container healthcheck.
+The service listens on port `8000`; `GET /anncsu/health` is used by the container
+healthcheck.
 
 ## Deployment
 
@@ -653,13 +657,16 @@ spec:
             name: anncsu-pdnd        # provides the PDND_* / PDND_MODI_* variables
         livenessProbe:
           httpGet:
-            path: /health
+            path: /anncsu/health      # probes live under the /anncsu base path (ADR 0025)
             port: 8000
         readinessProbe:
           httpGet:
-            path: /ready
+            path: /anncsu/ready
             port: 8000
 ```
+
+> The ingress can route the whole service with a single `/anncsu` path prefix; every
+> endpoint (probes, root, docs, workflows, visualizer) lives under it (ADR 0025).
 
 ## Troubleshooting
 
@@ -674,7 +681,7 @@ spec:
 - Verify `PDND_KID`, `PDND_ISSUER`/`PDND_SUBJECT`, and the `PDND_PURPOSE_ID_*` for
   the API in use
 - Ensure `PDND_AUDIENCE` matches the environment selected by `USE_VALIDATION_ENV`
-- Hit `GET /ready` to see which source fails to authenticate
+- Hit `GET /anncsu/ready` to see which source fails to authenticate
 
 **Error: "ANNCSU API unreachable"**
 - Verify the API URLs in `.env`

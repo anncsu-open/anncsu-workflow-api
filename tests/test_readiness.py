@@ -46,7 +46,7 @@ def _set_state(auth_managers) -> None:
 
 
 def test_health_is_liveness_and_always_ok():
-    response = TestClient(main.app).get("/health")
+    response = TestClient(main.app).get("/anncsu/health")
     assert response.status_code == 200
     assert response.json() == {"status": "ok"}
 
@@ -55,7 +55,7 @@ def test_ready_is_200_with_per_source_ttls_when_all_authenticate():
     managers = {source: _FakeManager(ttl=1234) for source in SOURCES}
     _set_state(managers)
 
-    response = TestClient(main.app).get("/ready")
+    response = TestClient(main.app).get("/anncsu/ready")
 
     assert response.status_code == 200
     body = response.json()
@@ -70,7 +70,7 @@ def test_ready_is_503_when_a_source_cannot_authenticate():
     managers["anncsu-accessi"] = _FakeManager(fail=True)
     _set_state(managers)
 
-    response = TestClient(main.app).get("/ready")
+    response = TestClient(main.app).get("/anncsu/ready")
 
     assert response.status_code == 503
     body = response.json()
@@ -81,6 +81,6 @@ def test_ready_is_503_when_a_source_cannot_authenticate():
 
 def test_ready_is_503_when_auth_is_not_initialized():
     main.app.state.auth_managers = None
-    response = TestClient(main.app).get("/ready")
+    response = TestClient(main.app).get("/anncsu/ready")
     assert response.status_code == 503
     assert response.json()["status"] == "not-ready"

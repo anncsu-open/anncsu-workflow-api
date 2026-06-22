@@ -19,8 +19,8 @@ it. **Sicurezza - Senza API-KEY (401)** is the negative check: it sends an empty
 
 Probes:
 
-- **Liveness** — `GET /health` (process up; no external dependency)
-- **Readiness** — `GET /ready` (PDND voucher across all four sources)
+- **Liveness** — `GET /anncsu/health` (process up; no external dependency)
+- **Readiness** — `GET /anncsu/ready` (PDND voucher across all four sources)
 
 Read-only search (`POST /anncsu/v1/workflows/ricerca-indirizzo-completo`), validated
 against PDND collaudo:

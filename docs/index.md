@@ -10,4 +10,4 @@ workflows for the ANNCSU address system.
 
 The canonical workflow contract lives in `specs/anncsu-workflow.arazzo.yaml` and is
 validated with Redocly. An interactive viewer (arazzo-ui) is also served by the API at
-`/workflows/ui`. See the repository `README.md` for details.
+`/anncsu/workflows/ui`. See the repository `README.md` for details.

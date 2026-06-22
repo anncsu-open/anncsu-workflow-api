@@ -2,11 +2,16 @@
 
 Development run:  uv run uvicorn app.main:app --reload
 
+Every endpoint is mounted under the ``/anncsu`` base path so a single k8s ingress
+prefix routes the whole service (ADR 0025).
+
 Endpoints:
-  - GET /health                health check
-  - GET /workflows/ui          interactive workflow UI (arazzo-ui)
-  - GET /workflows/spec/...     Arazzo spec + source OpenAPI files (StaticFiles)
-  - POST /anncsu/v1/workflows/...     workflow execution (one route per Arazzo workflow)
+  - GET /anncsu/health                 liveness check
+  - GET /anncsu/ready                  readiness check
+  - GET /anncsu                        service index
+  - GET /anncsu/workflows/ui           interactive workflow UI (arazzo-ui)
+  - GET /anncsu/workflows/spec/...     Arazzo spec + source OpenAPI files (StaticFiles)
+  - POST /anncsu/v1/workflows/...      workflow execution (one route per Arazzo workflow)
 """
 
 from collections.abc import AsyncIterator
@@ -29,6 +34,11 @@ configure_logging(settings)
 
 # Specs directory (Arazzo + the 4 OpenAPI files), next to the repo root.
 SPECS_DIR = Path(__file__).resolve().parent.parent / "specs"
+
+# The service base path: every endpoint is mounted under it so a single k8s ingress
+# prefix routes the whole service and the probes don't collide with other services'
+# root-level /health and /ready (ADR 0025). `/v1` (below) is the contract version.
+SERVICE_PREFIX = "/anncsu"
 
 
 @asynccontextmanager
@@ -63,36 +73,39 @@ app = FastAPI(
 # Correlation-id + request logging (outermost middleware: wraps the handlers too).
 app.add_middleware(RequestContextMiddleware)
 
-# Versioned, language-aware OpenAPI + Swagger/ReDoc under /v1.
-setup_localized_docs(app, prefix="/anncsu/v1")
+# Versioned, language-aware OpenAPI + Swagger/ReDoc under the base path's /v1.
+setup_localized_docs(app, prefix=f"{SERVICE_PREFIX}/v1")
 
 
-@app.get("/", include_in_schema=False)
+@app.get(SERVICE_PREFIX, include_in_schema=False)
 async def root_index() -> dict[str, str]:
-    """Service index: make the docs/OpenAPI entry points discoverable from the root.
+    """Service index: make the docs/OpenAPI/probe entry points discoverable.
 
-    The contract lives under ``/v1`` (the unversioned default docs are disabled),
-    so a bare ``GET /`` would otherwise 404 with no hint of where the docs are.
+    Served at the base path ``/anncsu`` (the bare ``/`` is not routed through the
+    ingress prefix and returns 404, ADR 0025); the contract lives under ``/anncsu/v1``
+    with the unversioned default docs disabled.
     """
     return {
         "name": settings.app_name,
         "version": settings.app_version,
-        "docs": "/anncsu/v1/docs",
-        "redoc": "/anncsu/v1/redoc",
-        "openapi": "/anncsu/v1/openapi.json",
-        "workflows_ui": "/workflows/ui",
-        "health": "/health",
-        "ready": "/ready",
+        "docs": f"{SERVICE_PREFIX}/v1/docs",
+        "redoc": f"{SERVICE_PREFIX}/v1/redoc",
+        "openapi": f"{SERVICE_PREFIX}/v1/openapi.json",
+        "workflows_ui": f"{SERVICE_PREFIX}/workflows/ui",
+        "health": f"{SERVICE_PREFIX}/health",
+        "ready": f"{SERVICE_PREFIX}/ready",
     }
 
 
 # Executor/transport failures -> RFC 7807 Problem Details (ADR 0008).
 register_exception_handlers(app)
 
-app.include_router(health.router)
-app.include_router(visualizer.router)
+# Probes and the visualizer mount under the base path (the workflows router already
+# carries its own /anncsu/v1/... prefix); the bare root no longer serves them (ADR 0025).
+app.include_router(health.router, prefix=SERVICE_PREFIX)
+app.include_router(visualizer.router, prefix=SERVICE_PREFIX)
 app.include_router(workflows.router)
 
 # Serve the Arazzo spec and the 4 source OpenAPI files: arazzo-ui (in the browser)
 # fetches them from here, resolving the relative sourceDescriptions.
-app.mount("/workflows/spec", StaticFiles(directory=SPECS_DIR), name="arazzo-spec")
+app.mount(f"{SERVICE_PREFIX}/workflows/spec", StaticFiles(directory=SPECS_DIR), name="arazzo-spec")

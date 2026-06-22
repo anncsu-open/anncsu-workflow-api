@@ -1160,5 +1160,5 @@ def test_the_visualizer_page_is_not_part_of_the_contract():
     with _client_scripted({}) as client:
         document = client.get("/anncsu/v1/openapi.json").json()
 
-    assert "/workflows/ui" not in document["paths"]
-    assert "/health" in document["paths"]  # health stays documented
+    assert "/anncsu/workflows/ui" not in document["paths"]
+    assert "/anncsu/health" in document["paths"]  # health stays documented

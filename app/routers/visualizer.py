@@ -1,7 +1,7 @@
 """Route serving an interactive UI (arazzo-ui) for the Arazzo specification.
 
 The UI is the React component `@jentic/arazzo-ui` loaded via esm.sh (CDN) and mounted
-in a page we serve; it points at the Arazzo spec served under `/workflows/spec`
+in a page we serve; it points at the Arazzo spec served under `/anncsu/workflows/spec`
 (StaticFiles in `app.main`), so it resolves the relative sourceDescriptions.
 
 Note: arazzo-ui is alpha and loading depends on the esm.sh CDN (it needs network and
@@ -17,8 +17,9 @@ router = APIRouter(tags=["visualizer"])
 ARAZZO_UI_VERSION = "1.0.0-alpha.31"
 REACT_VERSION = "18.3.1"  # reactflow@11 is tested on React 18
 
-# Same-origin URL of the spec served by app.main via StaticFiles.
-SPEC_URL = "/workflows/spec/anncsu-workflow.arazzo.yaml"
+# Same-origin URL of the spec served by app.main via StaticFiles (under the /anncsu
+# base path, kept in lockstep with the static mount in app.main — ADR 0025).
+SPEC_URL = "/anncsu/workflows/spec/anncsu-workflow.arazzo.yaml"
 
 _PAGE = f"""<!doctype html>
 <html lang="en">

@@ -6,8 +6,9 @@ normalizes the outcome at the boundary (ADR 0008):
 - any HTTP outcome — a 200 model or a documented 4xx/5xx the SDK raises as
   ``AnncsuBaseError`` — becomes a :class:`Response`, so the spec's
   ``successCriteria``/``onFailure`` keep deciding what it means;
-- failures of the call itself (network, no response, PDND token refresh)
-  raise :class:`TransportError`.
+- failures of the call itself — network, no response, and any PDND auth failure
+  (token generation/refresh, or audience discovery during the lazy build,
+  ADR 0017/0024) — raise :class:`TransportError`.
 
 The SDK call runs in a worker thread (``asyncio.to_thread``) under the
 per-API lock because the PDND token refresh hook is sync-only and would
@@ -24,7 +25,9 @@ from typing import Any
 import httpx
 from anncsu.common.errors import AnncsuBaseError, NoResponseError
 from anncsu.common.hooks.token_validation import TokenRefreshError
+from anncsu.common.pdnd_token import TokenError
 
+from app.adapters.anncsu.auth import AudienceDiscoveryError
 from app.adapters.anncsu.client_manager import AnncsuClientManager
 from app.adapters.anncsu.registry import operation_for, resolve_method
 from app.logging import get_logger
@@ -84,7 +87,18 @@ class AnncsuSdkTransport:
                     duration_ms=round((time.perf_counter() - start) * 1000, 1),
                 )
                 return response
-            except (httpx.HTTPError, NoResponseError, TokenRefreshError) as error:
+            except (
+                httpx.HTTPError,
+                NoResponseError,
+                TokenRefreshError,
+                # PDND auth failures during the lazy client build (ADR 0017/0024):
+                # token generation (e.g. 015-0008, raised as TokenError) and the
+                # builder's own no-audience-in-voucher (AudienceDiscoveryError). Neither
+                # produced an HTTP outcome the spec could evaluate, so neither is a
+                # Response — they are the call itself failing.
+                TokenError,
+                AudienceDiscoveryError,
+            ) as error:
                 raise TransportError(
                     f"call for {operation_id!r} failed before an HTTP outcome: {error}"
                 ) from error

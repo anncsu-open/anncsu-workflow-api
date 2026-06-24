@@ -39,8 +39,6 @@ class Settings(BaseSettings):
     # avoids the divergent, dead config this service used to carry.
 
     # HTTP Client
-    http_timeout: int = 30
-    http_max_retries: int = 3
     # TLS verification for the ANNCSU calls; collaudo serves a self-signed cert,
     # so VERIFY_SSL=false disables it there (ADR 0017). Keep True in production.
     verify_ssl: bool = True
@@ -49,7 +47,7 @@ class Settings(BaseSettings):
     # calls, instead of httpx's implicit 5s default; the inner bound below the
     # transport's per-dispatch wait_for backstop (ADR 0017). Tune if PDND is slow.
     # Not PDND_-prefixed: that env namespace belongs to the SDK's assertion settings.
-    http_timeout: float = 10.0
+    http_timeout: float = 20.0
 
     # Environment
     use_validation_env: bool = False  # selects the PDND token endpoint (UAT vs prod)

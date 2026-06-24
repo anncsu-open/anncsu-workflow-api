@@ -41,6 +41,21 @@ def test_settings_verify_ssl_defaults_to_true(tmp_path, monkeypatch):
     assert Settings().verify_ssl is True
 
 
+def test_settings_http_timeout_is_a_single_coherent_value(tmp_path, monkeypatch):
+    # http_timeout is the inner per-HTTP-call bound (below the 30s per-dispatch
+    # backstop). One declaration, one effective value: a float of 20.0s.
+    monkeypatch.chdir(tmp_path)
+    s = Settings()
+    assert isinstance(s.http_timeout, float)
+    assert s.http_timeout == 20.0
+
+
+def test_settings_drops_dead_http_max_retries():
+    # http_max_retries was never wired to anything (no retry policy is configured on
+    # the HTTP client); it must not linger as misleading dead config.
+    assert not hasattr(Settings(), "http_max_retries")
+
+
 def test_settings_drops_dead_pdnd_and_jwt_fields():
     # These moved to the SDK's ClientAssertionSettings (PDND_* env) and must no
     # longer exist on the app Settings, where they were never wired to anything.

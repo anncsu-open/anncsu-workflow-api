@@ -209,7 +209,7 @@ def test_crea_indirizzo_metric_with_existing_odonimo_forks_from_cerca():
         {
             "anncsu-consultazione.esisteOdonimoPost": Response(200, {"data": True}),
             "anncsu-consultazione.elencoodonimiprogPost": Response(
-                200, {"data": [{"prognaz": "2000449"}]}
+                200, {"data": [{"prognaz": "2000449", "dug": "VIA", "duf": "ROMA"}]}
             ),
             "anncsu-accessi.gestioneAnncsuPdnd": Response(
                 200, {"esito": "0", "dati": [{"progr_civico": "1370588"}]}

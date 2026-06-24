@@ -200,12 +200,20 @@ workflows:
                 - $inputs.dug
                 - " "
                 - $inputs.denom_odonimo
+        # denomparz è un match PARZIALE: può restituire più odonimi che condividono la
+        # denominazione (altri DUG, o un nome prefisso di altri). data.length non riflette
+        # l'esistenza ESATTA: x-select filtra ai soli che combaciano per dug+duf e lega il
+        # risultato a $match (come per l'accesso, ADR 0019/0020 update). >1 esatti = vero
+        # duplicato (ambiguo) -> fallisce; non scegliamo data[0] alla cieca.
+        x-select:
+          from: $response.body.data
+          where:
+            dug: $inputs.dug
+            duf: $inputs.denom_odonimo
+          as: match
         successCriteria:
           - condition: $statusCode == 200
-          # Rifiuta l'ambiguo (ADR 0019): il match parziale può restituire più
-          # odonimi (es. un nome che è prefisso di altri); senza un match unico non
-          # scegliamo data[0] e rischiamo l'accesso sull'odonimo sbagliato -> fallisce.
-          - condition: $response.body.data.length == 1
+          - condition: $match.length == 1
         onSuccess:
           # Accesso metrico: salta la verifica civica (esisteAccessoPost è solo-civico).
           - name: vai-a-crea-accesso-metrico
@@ -214,7 +222,7 @@ workflows:
             criteria:
               - condition: $inputs.metrico != null
         outputs:
-          progressivo_nazionale: $response.body.data[0].prognaz
+          progressivo_nazionale: $match[0].prognaz
 
       # 4) Verifica esistenza accesso. Se esiste -> goto cerca-accesso,
       #    altrimenti prosegue verso crea-accesso.
@@ -423,14 +431,24 @@ workflows:
                 - $inputs.dug
                 - " "
                 - $inputs.denom_odonimo
+        # denomparz è un match PARZIALE: "VIA AURELIA" può restituire anche altri DUG che
+        # condividono la denominazione (es. CIRCONVALLAZIONE AURELIA). data.length non
+        # riflette l'esistenza ESATTA: x-select filtra ai soli che combaciano per dug+duf
+        # e lega il risultato a $match (come per l'accesso, ADR 0019/0020 update).
+        x-select:
+          from: $response.body.data
+          where:
+            dug: $inputs.dug
+            duf: $inputs.denom_odonimo
+          as: match
         successCriteria:
           - condition: $statusCode == 200
-          - condition: $response.body.data.length == 1
+          - condition: $match.length == 1
         onSuccess:
           - name: fine
             type: end
         outputs:
-          progressivo_nazionale: $response.body.data[0].prognaz
+          progressivo_nazionale: $match[0].prognaz
 
     outputs:
       progressivo_nazionale_odonimo: $steps.crea-odonimo.outputs.progressivo_nazionale

@@ -108,3 +108,28 @@ mirroring the SDK's `--prognaz` — out of scope here).
 - `x-concat` is reusable wherever a payload needs a composed string.
 - The Bruno dry-run pair (create + suppress) becomes runnable once this lands, using
   a unique-denomination street.
+
+## Update (2026-06-24): exact dug+duf selection, not `data.length`
+
+Decision 3 keyed existence on `elencoodonimiprog`'s `data.length == 1` and **deferred**
+the list-filter alternative. That guard is fragile for the **same reason `accparz` was
+for accesso** (ADR 0020 update): `denomparz` is a *partial* match, so a full name that is
+a prefix of others or shared across DUGs returns `> 1` (`"VIA AURELIA"` → 7) — and
+`data.length == 1` then fails with a **422 even though the exact odonimo exists**. The
+incident that surfaced this was a `verifica-e-crea-odonimo-completo` for `VIA MONTE PICENO`.
+
+We now take the previously-deferred list-filter approach, reusing the **`x-select`**
+primitive added for accesso. Both `cerca-odonimo` steps (`verifica-e-crea-indirizzo-completo`
+and `verifica-e-crea-odonimo-completo`) bind the candidates that **exactly** match the
+requested `dug` **and** `duf` (the denomination is stored split: `dug="VIA"`,
+`duf="MONTE PICENO"` — there is no full-name field) to `$match`, then key on
+`$match.length == 1`:
+
+- over-match (other DUGs sharing the denomination, e.g. `CIRCONVALLAZIONE AURELIA`) →
+  resolves the exact `VIA AURELIA`, no longer a false 422;
+- a genuine duplicate (two odonimi with the same `dug`+`duf`) → `$match.length == 2` →
+  still fails as ambiguous, correctly (no blind `data[0]`).
+
+This supersedes the "shared-denomination cannot be created" limitation for the *over-match*
+case (a unique dug+duf now resolves); a true duplicate remains a data problem to clean up.
+Validated live on UAT: `VIA MONTE PICENO` resolves to `prognaz 1342755` via the exact match.

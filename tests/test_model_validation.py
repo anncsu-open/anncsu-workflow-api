@@ -12,6 +12,7 @@ from pydantic import ValidationError
 from app.models.workflows import (
     AggiornaAccessoDaProgressivoInput,
     AggiornaOdonimoDaProgressivoInput,
+    CreaAccessoPerOdonimoInput,
     CreaIndirizzoCompletoInput,
     RicercaIndirizzoInput,
     SopprimiAccessoInput,
@@ -43,6 +44,12 @@ VALID = {
         "prognazacc": "1370588",
         "numero": "42",
         "sezione_censimento": "580911010001",
+    },
+    CreaAccessoPerOdonimoInput: {
+        "codcom": "H501",
+        "prognaz": "907720",
+        "sezione_censimento": "580911010001",
+        "numero_civico": "42",
     },
     SopprimiAccessoInput: {
         "codcom": "H501",
@@ -111,6 +118,18 @@ def test_valid_inputs_are_accepted(model):
         (AggiornaAccessoDaProgressivoInput, "codice_civico_comunale", "X" * 31),  # max 30
         (AggiornaAccessoDaProgressivoInput, "sezione_censimento", "1" * 14),  # max 13
         (AggiornaAccessoDaProgressivoInput, "data_validita", "31/02/2025"),
+        # coordinate max lengths — over the OAS limit (x/y max 12, z max 7) on every
+        # accesso write path (create indirizzo, create accesso per odonimo, update).
+        # The length constraint trips before the WGS84 value check.
+        (CreaIndirizzoCompletoInput, "coordinata_x", "1" * 13),  # max 12
+        (CreaIndirizzoCompletoInput, "coordinata_y", "1" * 13),  # max 12
+        (CreaIndirizzoCompletoInput, "coordinata_z", "1" * 8),  # max 7
+        (CreaAccessoPerOdonimoInput, "coordinata_x", "1" * 13),  # max 12
+        (CreaAccessoPerOdonimoInput, "coordinata_y", "1" * 13),  # max 12
+        (CreaAccessoPerOdonimoInput, "coordinata_z", "1" * 8),  # max 7
+        (AggiornaAccessoDaProgressivoInput, "coordinata_x", "1" * 13),  # max 12
+        (AggiornaAccessoDaProgressivoInput, "coordinata_y", "1" * 13),  # max 12
+        (AggiornaAccessoDaProgressivoInput, "coordinata_z", "1" * 8),  # max 7
     ],
 )
 def test_invalid_value_is_rejected_with_the_field_named(model, field, bad_value):
@@ -206,6 +225,8 @@ def test_accesso_update_rejects_partial_coordinate_sets(coords):
         ("coordinata_x", "not-a-number"),
         ("coordinata_x", "5.9"),  # below the Italy longitude bound
         ("coordinata_y", "35.9"),  # below the Italy latitude bound
+        ("coordinata_x", "18.1"),  # above the Italy longitude upper bound (6.0-18.0)
+        ("coordinata_y", "47.1"),  # above the Italy latitude upper bound (36.0-47.0)
     ],
 )
 def test_accesso_update_rejects_invalid_coordinate_values(field, bad_value):

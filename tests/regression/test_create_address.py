@@ -159,7 +159,7 @@ def _client(server: FakeAnncsu):
             "anncsu-coordinate": sdk(AnncsuCoordinate, "coordinate"),
         }
     )
-    executor = WorkflowExecutor(load_spec(ARAZZO_SPEC), AnncsuSdkTransport(manager))
+    executor = WorkflowExecutor(load_spec(ARAZZO_SPEC), AnncsuSdkTransport(manager, timeout=30.0))
     app.dependency_overrides[get_workflow_service] = lambda: WorkflowApplicationService(executor)
     app.dependency_overrides[require_m2m_access] = lambda: None  # bypass guard (ADR 0023)
     try:

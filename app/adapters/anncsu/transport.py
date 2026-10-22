@@ -38,17 +38,17 @@ _log = get_logger("app.transport")
 # A dispatch holds the per-source lock for its whole duration, so it MUST be
 # time-bounded: a stuck PDND call (token refresh, voucher fetch, or the operation
 # itself) would otherwise hold the lock forever and block every later call to that
-# source. The bound is generous (the cold first call chains a voucher fetch + the
-# operation, each with the SDK's own 5s HTTP timeout) but finite.
-DISPATCH_TIMEOUT_SECONDS = 30.0
+# source. The backstop is HTTP_TIMEOUT plus this margin, which covers what the HTTP
+# timeout does not (the voucher fetch and ModI signing of a cold first call), so
+# the HTTP timeout normally fires first and the backstop only catches a hang
+# (ADR 0026).
+DISPATCH_MARGIN_SECONDS = 10.0
 
 
 class AnncsuSdkTransport:
     """Executes Arazzo operations through the typed anncsu-sdk clients."""
 
-    def __init__(
-        self, manager: AnncsuClientManager, *, timeout: float = DISPATCH_TIMEOUT_SECONDS
-    ) -> None:
+    def __init__(self, manager: AnncsuClientManager, *, timeout: float) -> None:
         self._manager = manager
         self._timeout = timeout
 

@@ -8,10 +8,17 @@ the ModI hook only on the write clients — without real credentials or network.
 
 import base64
 import json
+import threading
+import time
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 import httpx
+import pytest
 from anncsu.common.config import ClientAssertionSettings
+from anncsu.odonimi import AnncsuOdonimi
 from anncsu.pa import AnncsuConsultazione
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric import rsa
 
 from app.adapters.anncsu.auth import (
     SOURCES,
@@ -137,33 +144,6 @@ def test_build_client_builders_discover_url_wire_security_and_writer_modi():
     assert all(a == "https://disc.test/voucher-1" for a in modi_audiences)
 
 
-def test_build_client_builders_set_an_explicit_http_timeout():
-    # The SDK HTTP client must use an explicit, configurable timeout — not httpx's
-    # implicit 5s default — so PDND e-service calls are bounded predictably.
-    managers = {source: _FakeManager() for source in SOURCES}
-    recorded: dict[str, dict] = {}
-
-    def sdk_factory(source: str):
-        def make(**kwargs):
-            recorded[source] = kwargs
-            return object()
-
-        return make
-
-    builders = build_client_builders(
-        managers,
-        _assertion_settings(),
-        verify_ssl=True,
-        http_timeout=12.0,
-        sdk_classes={source: sdk_factory(source) for source in SOURCES},
-        modi_registrar=lambda *args: None,
-        audience_resolver=lambda voucher: f"https://disc.test/{voucher}",
-    )
-    builders[READER]()
-
-    assert recorded[READER]["client"].timeout == httpx.Timeout(12.0)
-
-
 def test_build_client_builders_are_lazy():
     managers = {source: _FakeManager() for source in SOURCES}
     builders = build_client_builders(
@@ -212,3 +192,95 @@ def test_builder_sets_the_discovered_url_on_the_real_sdk_client():
 
     client = builder()
     assert client.sdk_configuration.server_url == "https://anncsu.test/consultazione/v1"
+
+
+def _silent_handler(release: threading.Event) -> type[BaseHTTPRequestHandler]:
+    """A handler that accepts a request and answers only once ``release`` is set."""
+
+    class _SilentUpstream(BaseHTTPRequestHandler):
+        def do_POST(self) -> None:
+            self.rfile.read(int(self.headers.get("Content-Length") or 0))
+            release.wait(timeout=5)
+            try:
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", "2")
+                self.end_headers()
+                self.wfile.write(b"{}")
+            except OSError:
+                pass  # the client already gave up and closed the connection
+
+        def log_message(self, format: str, *args: object) -> None:  # noqa: A002
+            pass
+
+    return _SilentUpstream
+
+
+@pytest.fixture
+def silent_upstream():
+    """URL of a local e-service that holds every request open until teardown."""
+    release = threading.Event()
+    server = ThreadingHTTPServer(("127.0.0.1", 0), _silent_handler(release))
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    yield f"http://127.0.0.1:{server.server_address[1]}"
+    release.set()
+    server.shutdown()
+    server.server_close()
+
+
+def _signing_settings() -> ClientAssertionSettings:
+    """Assertion settings with a real RSA key, so the real ModI hook gets registered."""
+    key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    pem = key.private_bytes(
+        serialization.Encoding.PEM,
+        serialization.PrivateFormat.PKCS8,
+        serialization.NoEncryption(),
+    ).decode()
+    return _assertion_settings().model_copy(update={"private_key": pem})
+
+
+@pytest.mark.parametrize(
+    ("source", "sdk_class", "call"),
+    [
+        (
+            "anncsu-consultazione",
+            AnncsuConsultazione,
+            lambda client: client.json_post.prognazarea_post(req="prognazarea", prognaz="1"),
+        ),
+        (
+            "anncsu-odonimi",
+            AnncsuOdonimi,
+            lambda client: client.anncsu.gestione_anncsu_odonimi_pdnd(
+                richiesta={
+                    "codcom": "H501",
+                    "tipo_operazione": "R",
+                    "progr_nazionale": "1",
+                    "dug": "VIA",
+                }
+            ),
+        ),
+    ],
+    ids=["read", "modi-signed-write"],
+)
+def test_built_clients_give_up_once_the_http_timeout_elapses(
+    silent_upstream, source, sdk_class, call
+):
+    # Reads and ModI-signed writes must both stop at the configured timeout. Unless
+    # timeout_ms is set, the SDK sends every request with timeout=None, which httpx
+    # reads as "no timeout"; a ModI write is bounded anyway, because the hook
+    # rebuilds the request and the client's own timeout then applies.
+    builder = make_client_builder(
+        source,
+        SOURCES[source],
+        _VoucherManager(silent_upstream),
+        _signing_settings(),
+        verify_ssl=False,
+        http_timeout=0.3,
+        sdk_class=sdk_class,
+    )
+    client = builder()
+
+    start = time.perf_counter()
+    with pytest.raises(httpx.TimeoutException):
+        call(client)
+    assert time.perf_counter() - start < 2.0

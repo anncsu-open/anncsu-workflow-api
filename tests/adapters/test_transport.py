@@ -38,7 +38,7 @@ GESTIONE_ACCESSI = "anncsu-accessi.gestioneAnncsuPdnd"
 
 
 def _transport(fake_clients: dict) -> AnncsuSdkTransport:
-    return AnncsuSdkTransport(AnncsuClientManager(clients=fake_clients))
+    return AnncsuSdkTransport(AnncsuClientManager(clients=fake_clients), timeout=30.0)
 
 
 def _recorded(result):
@@ -72,7 +72,7 @@ def _building_transport(source: str, builder) -> AnncsuSdkTransport:
     Drives the build-time failure path (the voucher/token fetch on first use,
     ADR 0017), which the pre-built ``clients=`` helpers above cannot reach.
     """
-    return AnncsuSdkTransport(AnncsuClientManager(builders={source: builder}))
+    return AnncsuSdkTransport(AnncsuClientManager(builders={source: builder}), timeout=30.0)
 
 
 def test_transport_satisfies_the_port_protocol():

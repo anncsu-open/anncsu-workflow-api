@@ -169,9 +169,11 @@ def make_client_builder(  # noqa: PLR0913 - a wiring factory with injectable sea
     synchronous, blocking call (voucher fetch) and must run off the event loop —
     the transport invokes it inside ``asyncio.to_thread`` under the per-source lock.
 
-    ``http_timeout`` is set explicitly on the HTTP client (instead of httpx's
-    implicit 5s default) so PDND e-service calls are bounded predictably; it is the
-    inner bound, below the transport's per-dispatch ``wait_for`` backstop.
+    ``http_timeout`` bounds every e-service call, below the transport's
+    per-dispatch ``wait_for`` backstop. It must reach the SDK as ``timeout_ms``:
+    otherwise the SDK sends each request with ``timeout=None``, which httpx reads
+    as "no timeout" and which overrides the client's own timeout. The client gets
+    the same value too, because the requests the ModI hook rebuilds fall back to it.
     """
 
     def build() -> Any:
@@ -184,6 +186,7 @@ def make_client_builder(  # noqa: PLR0913 - a wiring factory with injectable sea
             "server_url": url,
             "security": provider,
             "client": httpx.Client(verify=verify_ssl, timeout=http_timeout),
+            "timeout_ms": int(http_timeout * 1000),
         }
         if spec.is_writer:
             hooks = SDKHooks()

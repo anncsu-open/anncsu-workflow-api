@@ -21,6 +21,7 @@ from fastapi import APIRouter, Body, Depends, Request
 
 from app.adapters.anncsu import AnncsuClientManager, AnncsuSdkTransport
 from app.adapters.anncsu.auth import build_auth_managers, build_client_builders
+from app.adapters.anncsu.transport import DISPATCH_MARGIN_SECONDS
 from app.application.service import WorkflowApplicationService
 from app.config import Settings, resolve_token_endpoint
 from app.errors import PROBLEM_CONTENT_TYPE, Problem
@@ -94,6 +95,7 @@ def build_workflow_service(
     assertion_settings: ClientAssertionSettings,
     *,
     manager_factory: Callable[..., Any] = PDNDAuthManager,
+    transport_factory: Callable[..., Any] = AnncsuSdkTransport,
 ) -> tuple[WorkflowApplicationService, dict[str, Any], AnncsuClientManager]:
     """Build the authenticated service, the per-source auth managers, and the manager.
 
@@ -115,7 +117,9 @@ def build_workflow_service(
         http_timeout=settings.http_timeout,
     )
     client_manager = AnncsuClientManager(builders=builders)
-    transport = AnncsuSdkTransport(client_manager)
+    transport = transport_factory(
+        client_manager, timeout=settings.http_timeout + DISPATCH_MARGIN_SECONDS
+    )
     service = WorkflowApplicationService(WorkflowExecutor(load_spec(ARAZZO_SPEC), transport))
     return service, auth_managers, client_manager
 

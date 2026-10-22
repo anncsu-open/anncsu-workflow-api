@@ -15,6 +15,7 @@ from starlette.requests import Request
 
 from app import main
 from app.adapters.anncsu.auth import SOURCES
+from app.adapters.anncsu.transport import AnncsuSdkTransport
 from app.application.service import WorkflowApplicationService
 from app.config import settings
 from app.routers.workflows import build_workflow_service, get_workflow_service
@@ -67,6 +68,26 @@ def test_build_workflow_service_wires_an_authenticated_service_without_network()
     assert all(client_manager.lock(source) is not None for source in SOURCES)
     # Building the service must not fetch any token (lazy: clients/URLs built on first use).
     assert all(manager.calls == 0 for manager in auth_managers.values())
+
+
+def test_build_workflow_service_bounds_each_dispatch_above_the_http_timeout():
+    # The backstop must sit above HTTP_TIMEOUT, or it cuts calls the HTTP timeout
+    # still allows. The 10s on top leave room for the voucher fetch and ModI signing
+    # of a cold first call, so the HTTP timeout fires first: 60s + 10s.
+    timeouts: list[float] = []
+
+    def transport_factory(manager, *, timeout):
+        timeouts.append(timeout)
+        return AnncsuSdkTransport(manager, timeout=timeout)
+
+    build_workflow_service(
+        settings.model_copy(update={"http_timeout": 60.0}),
+        _assertion_settings(),
+        manager_factory=lambda **kwargs: _FakeManager(),
+        transport_factory=transport_factory,
+    )
+
+    assert timeouts == [70.0]
 
 
 def test_lifespan_populates_app_state(monkeypatch):
